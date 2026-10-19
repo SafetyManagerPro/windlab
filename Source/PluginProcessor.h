@@ -2,6 +2,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "Dsp/ToneEQ.h"
+#include "Dsp/RecordedWinds.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <memory>
 #include <vector>
@@ -37,6 +38,7 @@ public:
     juce::MidiKeyboardState keyboardState;
 
 private:
+    windlab::RecordedWinds sampleBank;
     std::unique_ptr<juce::Synthesiser> synthesiser;
     windlab::ToneEQ eq;
     juce::Reverb stereoReverb;
