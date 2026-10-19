@@ -309,7 +309,7 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     settings.roomSize = .12f + .83f * reverbSize.skip(samples);
     settings.damping = .12f + .82f * reverbDamping.skip(samples);
     settings.wetLevel = .55f * mix;
-    settings.dryLevel = 1.0f;
+    settings.dryLevel = .5f; // JUCE FreeVerb doubles dryLevel internally; 0.5 = unity
     settings.width = 1.0f;
     stereoReverb.setParameters(settings);
     stereoReverb.processStereo(left, right, samples);
