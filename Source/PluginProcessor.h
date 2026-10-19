@@ -1,6 +1,8 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
+#include "Dsp/ToneEQ.h"
+#include <juce_audio_basics/juce_audio_basics.h>
 #include <memory>
 #include <vector>
 
@@ -21,7 +23,7 @@ public:
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 5.1; }
+    double getTailLengthSeconds() const override { return 8.0; }
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
     void setCurrentProgram(int) override {}
@@ -36,6 +38,9 @@ public:
 
 private:
     std::unique_ptr<juce::Synthesiser> synthesiser;
+    windlab::ToneEQ eq;
+    juce::Reverb stereoReverb;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> reverbMix, reverbSize, reverbDamping;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputGain, roomAmount;
     std::vector<float> earlyReflectionL, earlyReflectionR;
     std::size_t reflectionPositionL = 0, reflectionPositionR = 0;
