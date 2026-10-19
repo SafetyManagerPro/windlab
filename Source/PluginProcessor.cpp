@@ -75,7 +75,10 @@ namespace
               attack(params.getRawParameterValue("attack")),
               release(params.getRawParameterValue("release")),
               tone(params.getRawParameterValue("tone")),
-              air(params.getRawParameterValue("air")) {}
+              air(params.getRawParameterValue("air")),
+              breathLength(params.getRawParameterValue("breathLength")),
+              vibrato(params.getRawParameterValue("vibrato")),
+              humanize(params.getRawParameterValue("humanize")) {}
 
         bool canPlaySound(juce::SynthesiserSound* sound) override
         {
@@ -93,6 +96,9 @@ namespace
             engine.setPressure(c.pressure);
             engine.setTone(tone->load());
             engine.setAir(air->load());
+            engine.setBreathLength(breathLength->load());
+            engine.setVibrato(vibrato->load());
+            engine.setHumanize(humanize->load());
             const auto instrumentIndex = juce::jlimit(0, 5, static_cast<int>(instrument->load()));
             const auto articulationIndex = juce::jlimit(0, 2, static_cast<int>(articulation->load()));
             engine.start(midiNoteNumber, velocity,
@@ -144,6 +150,9 @@ namespace
         {
             engine.setTone(tone->load());
             engine.setAir(air->load());
+            engine.setBreathLength(breathLength->load());
+            engine.setVibrato(vibrato->load());
+            engine.setHumanize(humanize->load());
             for (int i = 0; i < numSamples; ++i)
             {
                 if (!engine.active()) { clearCurrentNote(); break; }
@@ -160,6 +169,9 @@ namespace
         std::atomic<float>* release;
         std::atomic<float>* tone;
         std::atomic<float>* air;
+        std::atomic<float>* breathLength;
+        std::atomic<float>* vibrato;
+        std::atomic<float>* humanize;
     };
 }
 
@@ -183,6 +195,24 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
         juce::NormalisableRange<float>(0.0f, 1.0f), .3f));
     layout.add(std::make_unique<Float>(juce::ParameterID {"space", 1}, "Early Reflections",
         juce::NormalisableRange<float>(0.0f, 0.5f), .08f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"breathLength", 1}, "Breath Length",
+        juce::NormalisableRange<float>(2.0f, 30.0f, .1f), 30.0f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"vibrato", 1}, "Vibrato",
+        juce::NormalisableRange<float>(0.0f, 1.0f), .09f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"humanize", 1}, "Natural Variation",
+        juce::NormalisableRange<float>(0.0f, 1.0f), .35f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"bass", 1}, "Bass dB",
+        juce::NormalisableRange<float>(-12.0f, 12.0f, .1f), 0.0f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"mid", 1}, "Mid dB",
+        juce::NormalisableRange<float>(-12.0f, 12.0f, .1f), 0.0f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"treble", 1}, "Treble dB",
+        juce::NormalisableRange<float>(-12.0f, 12.0f, .1f), 0.0f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"reverb", 1}, "Reverb Mix",
+        juce::NormalisableRange<float>(0.0f, 1.0f), .16f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"reverbSize", 1}, "Reverb Size",
+        juce::NormalisableRange<float>(0.0f, 1.0f), .52f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"reverbDamp", 1}, "Reverb Damping",
+        juce::NormalisableRange<float>(0.0f, 1.0f), .48f));
     layout.add(std::make_unique<Float>(juce::ParameterID {"gain", 1}, "Output",
         juce::NormalisableRange<float>(0.0f, 1.0f), .75f));
     return layout;
@@ -206,6 +236,15 @@ void WindLabAudioProcessor::prepareToPlay(double sampleRate, int)
     synthesiser->allNotesOff(0, false);
     static_cast<PerformanceSynthesiser*>(synthesiser.get())->resetControllers();
     keyboardState.reset();
+    eq.prepare(sampleRate);
+    stereoReverb.setSampleRate(sampleRate);
+    stereoReverb.reset();
+    reverbMix.reset(sampleRate, .045);
+    reverbSize.reset(sampleRate, .075);
+    reverbDamping.reset(sampleRate, .075);
+    reverbMix.setCurrentAndTargetValue(parameters.getRawParameterValue("reverb")->load());
+    reverbSize.setCurrentAndTargetValue(parameters.getRawParameterValue("reverbSize")->load());
+    reverbDamping.setCurrentAndTargetValue(parameters.getRawParameterValue("reverbDamp")->load());
     outputGain.reset(sampleRate, .02);
     roomAmount.reset(sampleRate, .03);
     outputGain.setCurrentAndTargetValue(parameters.getRawParameterValue("gain")->load());
@@ -234,6 +273,9 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     synthesiser->renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
     outputGain.setTargetValue(parameters.getRawParameterValue("gain")->load());
     roomAmount.setTargetValue(parameters.getRawParameterValue("space")->load());
+    eq.setGains(parameters.getRawParameterValue("bass")->load(),
+                parameters.getRawParameterValue("mid")->load(),
+                parameters.getRawParameterValue("treble")->load());
 
     // Two subtle, distinct, feedback-limited stereo early reflections; not a convolution reverb.
     // Buffers are preallocated in prepareToPlay and never resized in processBlock.
@@ -241,6 +283,9 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     auto* right = buffer.getWritePointer(1);
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
+        // Equalize the dry voice before sending it into the ambient processors.
+        left[i] = eq.process(0, left[i]);
+        right[i] = eq.process(1, right[i]);
         const float dry = .5f * (left[i] + right[i]);
         const float echoL = earlyReflectionL[reflectionPositionL];
         const float echoR = earlyReflectionR[reflectionPositionR];
@@ -249,10 +294,32 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         if (++reflectionPositionL >= earlyReflectionL.size()) reflectionPositionL = 0;
         if (++reflectionPositionR >= earlyReflectionR.size()) reflectionPositionR = 0;
         const float wet = roomAmount.getNextValue();
-        const float g = outputGain.getNextValue();
-        // Prevent over-range peaks when all 12 voices stack, with gentle soft clipping.
-        left[i] = std::tanh((left[i] + echoL * wet) * g);
-        right[i] = std::tanh((right[i] + echoR * wet) * g);
+        left[i] += echoL * wet;
+        right[i] += echoR * wet;
+    }
+
+    // JUCE's stereo algorithmic reverb is pre-initialized in prepareToPlay.
+    // Parameters move smoothly on the audio thread, without allocating buffers.
+    const int samples = buffer.getNumSamples();
+    reverbMix.setTargetValue(parameters.getRawParameterValue("reverb")->load());
+    reverbSize.setTargetValue(parameters.getRawParameterValue("reverbSize")->load());
+    reverbDamping.setTargetValue(parameters.getRawParameterValue("reverbDamp")->load());
+    juce::Reverb::Parameters settings;
+    const float mix = reverbMix.skip(samples);
+    settings.roomSize = .12f + .83f * reverbSize.skip(samples);
+    settings.damping = .12f + .82f * reverbDamping.skip(samples);
+    settings.wetLevel = .55f * mix;
+    settings.dryLevel = 1.0f;
+    settings.width = 1.0f;
+    stereoReverb.setParameters(settings);
+    stereoReverb.processStereo(left, right, samples);
+
+    // Apply master gain and protect against stacked-note peaks.
+    for (int i = 0; i < samples; ++i)
+    {
+        const float gain = outputGain.getNextValue();
+        left[i] = std::tanh(left[i] * gain);
+        right[i] = std::tanh(right[i] * gain);
     }
 }
 
