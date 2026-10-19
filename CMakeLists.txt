@@ -42,7 +42,12 @@ target_sources(WindLab PRIVATE
     Source/PluginEditor.h
     Source/Dsp/WindEngine.h)
 
-target_compile_definitions(WindLab PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+# WindLab has never shipped as VST2: do not claim VST2 replacement compatibility.
+# JUCE 9 rejects modern VST3 parameter IDs when VST2 replacement is enabled.
+target_compile_definitions(WindLab PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
 
 target_link_libraries(WindLab PRIVATE
     juce::juce_audio_utils
