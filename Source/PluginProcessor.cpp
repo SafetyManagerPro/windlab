@@ -68,8 +68,10 @@ namespace
     class WindVoice final : public juce::SynthesiserVoice
     {
     public:
-        WindVoice(juce::AudioProcessorValueTreeState& params, PerformanceSynthesiser& synth)
-            : controllerSource(synth),
+        WindVoice(juce::AudioProcessorValueTreeState& params, PerformanceSynthesiser& synth,
+                  const windlab::RecordedWinds& samples)
+            : controllerSource(synth), sampleSource(samples),
+              sourceMode(params.getRawParameterValue("sourceMode")),
               instrument(params.getRawParameterValue("instrument")),
               articulation(params.getRawParameterValue("articulation")),
               attack(params.getRawParameterValue("attack")),
@@ -105,6 +107,9 @@ namespace
                          static_cast<windlab::Instrument>(instrumentIndex),
                          attack->load(), release->load(),
                          static_cast<windlab::Articulation>(articulationIndex));
+            modeAtNoteOn = juce::jlimit(0, 2, static_cast<int>(sourceMode->load()));
+            const auto* sample = modeAtNoteOn == 2 ? nullptr : sampleSource.nearest(instrumentIndex, midiNoteNumber);
+            cursor.start(sample, 440.0 * std::exp2((midiNoteNumber - 69.0) / 12.0), getSampleRate());
         }
 
         void stopNote(float, bool allowTailOff) override
@@ -156,13 +161,26 @@ namespace
             for (int i = 0; i < numSamples; ++i)
             {
                 if (!engine.active()) { clearCurrentNote(); break; }
-                const auto sample = static_cast<Sample>(engine.render());
+                const float model = engine.render();
+                float result = model;
+                if (cursor.valid())
+                {
+                    const float wav = cursor.read(engine.currentFrequency());
+                    const float recorded = wav * engine.currentLevel() * 3.6f;
+                    result = modeAtNoteOn == 1 ? (.8f * recorded + .20f * model)
+                                               : (recorded + .055f * model);
+                }
+                const auto sample = static_cast<Sample>(result);
                 for (int channel = 0; channel < output.getNumChannels(); ++channel)
                     output.addSample(channel, startSample + i, sample);
             }
         }
         windlab::WindEngine engine;
         PerformanceSynthesiser& controllerSource;
+        const windlab::RecordedWinds& sampleSource;
+        windlab::RecordedCursor cursor;
+        std::atomic<float>* sourceMode;
+        int modeAtNoteOn = 0;
         std::atomic<float>* instrument;
         std::atomic<float>* articulation;
         std::atomic<float>* attack;
@@ -182,6 +200,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"instrument", 1}, "Instrument",
         juce::StringArray {"Trumpet", "Tenor Sax", "Trombone", "Flute", "Clarinet", "French Horn"}, 0));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"sourceMode", 1}, "Sound Engine",
+        juce::StringArray {"Acoustic (recorded)", "Hybrid (sample + synth)", "Synthetic"}, 0));
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"articulation", 1}, "Articulation",
         juce::StringArray {"Sustain", "Staccato", "Swell"}, 0));
@@ -225,7 +246,7 @@ WindLabAudioProcessor::WindLabAudioProcessor()
 {
     auto& synth = *static_cast<PerformanceSynthesiser*>(synthesiser.get());
     for (int i = 0; i < 12; ++i)
-        synthesiser->addVoice(new WindVoice(parameters, synth));
+        synthesiser->addVoice(new WindVoice(parameters, synth, sampleBank));
     synthesiser->addSound(new WindSound());
     synthesiser->setMinimumRenderingSubdivisionSize(1, false);
 }
