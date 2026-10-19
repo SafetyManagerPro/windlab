@@ -1,10 +1,44 @@
-# WindLab 0.3 — expressive virtual wind instrument (AU/VST3)
+# WindLab 0.4 — Acoustic Recorded Winds (AU/VST3)
+
+## Real musician recordings — 0.4 (experimental sample engine)
+
+This version embeds licensed **CC0 acoustic WAV multisamples** directly into the macOS
+AU / VST3 / Standalone and Windows VST3 builds. Select **ACOUSTIC - REAL WAV**
+(default), **HYBRID** or **SYNTH** in the top bar.
+
+- Trumpet, tenor trombone, clarinet, flute and French horn: recorded
+  VSCO 2 CE (Versilian Studios).
+- Tenor saxophone: recorded FreePats sample set, derived from Versilian VCSL.
+- A handful of spaced pitch zones per instrument; closest recordings are
+  repitched to incoming MIDI notes; synthetic expression follows live MIDI
+  controllers and the existing 0.3 controls.
+- The sampled engine uses short crossfaded sustain loops, natural note attacks
+  and sample-based timbre. Loop quality varies with recording and note.
+- **No acoustic multi-sample download at install time:** JUCE embeds the actual
+  CC0 WAV contents as binary resources during GitHub Actions build.
+- Build without assets is supported for local developer tests but uses only the
+  synthetic fallback. To include recordings locally run
+  `python scripts/download-recordings.py` before CMake configure.
+
+**Current limitations:** each sample zone initially has a single velocity
+layer; timbre still uses a simple envelope and approximate vibrato,
+not recorded legato transitions. This is an initial genuine recorded
+instrument, not commercial orchestral realism yet.
+
+**Sample provenance:** `scripts/download-recordings.py` pins the VSCO commit
+and pulls the FreePats sax pack dated 2020-07-17. It writes a full
+`Resources/Samples/CREDITS.md` including each recording's origin, root pitch
+and SHA-256. Sources and licenses:
+- https://versilian-studios.com/vsco-community/ (CC0 1.0)
+- https://freepats.zenvoid.org/Reed/saxophone.html (CC0 1.0)
+
+
 
 **Source-code prototype, not a ready-to-install plugin.** Builds AU, VST3, and Standalone from one JUCE project, with Apple Silicon (`arm64`) as the first target. Works *in principle* in hosts accepting those formats (Ableton, Studio One, Logic, etc.) **after compiling and host validation**. This package is **not a sample library**: the six sounds are synthetic sketches for developing MIDI performance and UI.
 
 ## What's new in 0.3 — performance, tone and space
 
-The sound engine is still **synthetic** (no acoustic multisamples yet). Version 0.3 adds:
+Version 0.3 introduced the underlying MIDI dynamics and controls:
 
 - **Breath Length (2–30 s):** shorter settings naturally taper near the end of a held phrase, then trigger normal release. **30 s means continuous sustain while a MIDI key remains held**. There is no arbitrary fixed eight-second cutoff. MIDI note-off always stops the note according to Release.
 - **Natural:** subtle slow pitch and amplitude variation; **Vibrato** complements mod-wheel CC1.
