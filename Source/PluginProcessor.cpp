@@ -264,12 +264,12 @@ juce::AudioProcessorEditor* WindLabAudioProcessor::createEditor()
 void WindLabAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     if (auto xml = parameters.copyState().createXml())
-        juce::copyXmlToBinary(*xml, destData);
+        copyXmlToBinary(*xml, destData);
 }
 
 void WindLabAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
-    if (auto xml = juce::getXmlFromBinary(data, sizeInBytes))
+    if (auto xml = getXmlFromBinary(data, sizeInBytes))
         if (xml->hasTagName(parameters.state.getType()))
             parameters.replaceState(juce::ValueTree::fromXml(*xml));
 }
