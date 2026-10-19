@@ -17,9 +17,9 @@ private:
     juce::Label instrumentLabel, articulationLabel;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> instrumentAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> articulationAttachment;
-    std::array<juce::Slider, 6> knobs;
-    std::array<juce::Label, 6> labels;
-    std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, 6> knobAttachments;
+    std::array<juce::Slider, 15> knobs;
+    std::array<juce::Label, 15> labels;
+    std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, 15> knobAttachments;
     juce::MidiKeyboardComponent keyboard;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WindLabAudioProcessorEditor)
 };
