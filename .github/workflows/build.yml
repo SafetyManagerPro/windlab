@@ -17,10 +17,14 @@ jobs:
   windows:
     name: Windows x64 VST3
     runs-on: windows-2022
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Fetch CC0 acoustic samples
+        shell: pwsh
+        run: python scripts/download-recordings.py
 
       - name: Configure (Visual Studio 2022)
         shell: pwsh
@@ -55,7 +59,7 @@ jobs:
   macos:
     name: macOS Apple Silicon AU + VST3
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -66,6 +70,10 @@ jobs:
           uname -m
           xcodebuild -version
           cmake --version
+
+      - name: Fetch CC0 acoustic samples
+        shell: bash
+        run: python3 scripts/download-recordings.py
 
       - name: Configure (Xcode, arm64)
         shell: bash
