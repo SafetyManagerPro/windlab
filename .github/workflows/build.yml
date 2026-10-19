@@ -1,0 +1,103 @@
+name: Build WindLab plugins
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windlab-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows x64 VST3
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure (Visual Studio 2022)
+        shell: pwsh
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
+
+      - name: Build Release
+        shell: pwsh
+        run: cmake --build build --config Release --parallel 2
+
+      - name: DSP smoke tests
+        shell: pwsh
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
+      - name: Package VST3
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $source = "build/WindLab_artefacts/Release/VST3/WindLab.vst3"
+          if (-not (Test-Path $source)) { throw "VST3 not found: $source" }
+          New-Item -ItemType Directory -Force -Path "dist/VST3" | Out-Null
+          Copy-Item $source -Destination "dist/VST3" -Recurse -Force
+          Compress-Archive -Path "dist/*" -DestinationPath "WindLab-Windows-x64.zip" -Force
+
+      - name: Upload Windows VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: WindLab-Windows-x64-VST3
+          path: WindLab-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  macos:
+    name: macOS Apple Silicon AU + VST3
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Verify tools and architecture
+        shell: bash
+        run: |
+          uname -m
+          xcodebuild -version
+          cmake --version
+
+      - name: Configure (Xcode, arm64)
+        shell: bash
+        run: cmake -S . -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES=arm64 -DBUILD_TESTING=ON
+
+      - name: Build Release
+        shell: bash
+        run: cmake --build build --config Release --parallel 3
+
+      - name: DSP smoke tests
+        shell: bash
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
+      - name: Package AU, VST3, Standalone
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="build/WindLab_artefacts/Release"
+          test -d "$ROOT/VST3/WindLab.vst3"
+          test -d "$ROOT/AU/WindLab.component"
+          test -d "$ROOT/Standalone/WindLab.app"
+          mkdir -p dist/VST3 dist/AU dist/Standalone
+          ditto "$ROOT/VST3/WindLab.vst3" "dist/VST3/WindLab.vst3"
+          ditto "$ROOT/AU/WindLab.component" "dist/AU/WindLab.component"
+          ditto "$ROOT/Standalone/WindLab.app" "dist/Standalone/WindLab.app"
+          # Preserve macOS bundle permissions and symlinks before uploading.
+          ditto -c -k --sequesterRsrc --keepParent dist WindLab-macOS-arm64.zip
+
+      - name: Upload macOS AU and VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: WindLab-macOS-arm64-AU-VST3
+          path: WindLab-macOS-arm64.zip
+          if-no-files-found: error
+          retention-days: 14
