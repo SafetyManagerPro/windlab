@@ -1,4 +1,5 @@
 #include "Dsp/WindEngine.h"
+#include "Dsp/ToneEQ.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -100,5 +101,43 @@ int main()
         s.reset();
         assert(!s.active());
     }
-    std::cout << "WindLab 0.2 DSP: PASS (6 timbres, 3 rates, articulations, CC expression/breath, bends, bounds).\n";
+    // Breath length can end a phrase without hard-cutting a note;
+    // the maximum setting is intentionally indefinite while MIDI is held.
+    windlab::WindEngine phrase;
+    phrase.prepare(48000.0);
+    phrase.setBreathLength(2.0f);
+    phrase.start(67, .8f, windlab::Instrument::Trumpet, .01f, .12f);
+    assert(meanAbs(phrase, 24000) > .001f);
+    meanAbs(phrase, 120000);
+    assert(!phrase.active());
+
+    windlab::WindEngine continuous;
+    continuous.prepare(48000.0);
+    continuous.setBreathLength(30.0f);
+    continuous.setHumanize(.8f);
+    continuous.setVibrato(.55f);
+    continuous.start(67, .8f, windlab::Instrument::FrenchHorn, .01f, .12f);
+    assert(meanAbs(continuous, 144000) > .001f);
+    assert(continuous.active()); // 3s exceeds the short phrase, not the continuous phrase.
+    continuous.noteOff();
+    meanAbs(continuous, 24000);
+    assert(!continuous.active());
+
+    // Three-band EQ: bounded output and smooth coefficient changes at all rates.
+    for (const auto rate : {44100.0, 48000.0, 96000.0})
+    {
+        windlab::ToneEQ eq;
+        eq.prepare(rate);
+        eq.setGains(12.0f, -7.0f, 8.0f);
+        for (int i = 0; i < 120000; ++i)
+        {
+            if (i == 60000) eq.setGains(-12.0f, 6.0f, -12.0f);
+            const float input = .07f * static_cast<float>(std::sin(i * 440.0 * 6.28318530718 / rate));
+            const float left = eq.process(0, input);
+            const float right = eq.process(1, input);
+            assert(std::isfinite(left) && std::isfinite(right));
+            assert(std::abs(left) < 1.0f && std::abs(right) < 1.0f);
+        }
+    }
+    std::cout << "WindLab 0.3 DSP: PASS (winds, breath length, natural variation, EQ, controllers, 3 rates).\\n";
 }
