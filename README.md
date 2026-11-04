@@ -1,5 +1,14 @@
 # WindLab 0.4 — Acoustic Recorded Winds (AU/VST3)
 
+## Windows Standalone — no DAW required
+
+The GitHub Actions **Windows x64 VST3 + Standalone** job produces separate downloads:
+- `WindLab-Windows-x64-Standalone`: the zip contains `WindLab.exe`. Extract and double-click to launch. No VST host is required. Choose your audio device / MIDI keyboard in the standalone app, or play the on-screen keys.
+- `WindLab-Windows-x64-VST3`: install the `WindLab.vst3` bundle in `C:\\Program Files\\Common Files\\VST3\\` and rescan your DAW.
+
+The executable includes the same recorded CC0 samples as the VST3. Because this is an unsigned, experimental application, Windows SmartScreen might warn on launch; proceed only when you trust the binary downloaded from this repository. Distributing a signed installer and validating in Windows/DAW remains future work.
+
+
 ## Real musician recordings — 0.4 (experimental sample engine)
 
 This version embeds licensed **CC0 acoustic WAV multisamples** directly into the macOS
