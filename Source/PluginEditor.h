@@ -13,10 +13,11 @@ public:
 
 private:
     WindLabAudioProcessor& processor;
-    juce::ComboBox instrumentBox, articulationBox;
-    juce::Label instrumentLabel, articulationLabel;
+    juce::ComboBox instrumentBox, articulationBox, sourceBox;
+    juce::Label instrumentLabel, articulationLabel, sourceLabel;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> instrumentAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> articulationAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> sourceAttachment;
     std::array<juce::Slider, 15> knobs;
     std::array<juce::Label, 15> labels;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, 15> knobAttachments;

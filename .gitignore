@@ -2,3 +2,8 @@ build/
 .DS_Store
 *.xcuserstate
 *.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Downloaded CC0 WAV recordings are embedded during CI, not committed to source.
+Resources/Samples/*.wav
+Resources/Samples/SampleManifest.h
+Resources/Samples/CREDITS.md

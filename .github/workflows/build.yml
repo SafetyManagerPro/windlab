@@ -15,12 +15,16 @@ concurrency:
 
 jobs:
   windows:
-    name: Windows x64 VST3
+    name: Windows x64 VST3 + Standalone
     runs-on: windows-2022
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Fetch CC0 acoustic samples
+        shell: pwsh
+        run: python scripts/download-recordings.py
 
       - name: Configure (Visual Studio 2022)
         shell: pwsh
@@ -52,10 +56,34 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Package Standalone EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = "build/WindLab_artefacts/Release/Standalone/WindLab.exe"
+          if (-not (Test-Path $exe -PathType Leaf)) {
+            Get-ChildItem "build/WindLab_artefacts/Release" -Recurse -Filter *.exe | Select-Object -ExpandProperty FullName
+            throw "Windows Standalone executable not found: $exe"
+          }
+          New-Item -ItemType Directory -Force -Path "dist/Standalone" | Out-Null
+          Copy-Item $exe -Destination "dist/Standalone/WindLab.exe" -Force
+          Compress-Archive -Path "dist/Standalone/*" -DestinationPath "WindLab-Windows-x64-Standalone.zip" -Force
+          if (-not (Test-Path "WindLab-Windows-x64-Standalone.zip")) {
+            throw "Standalone archive not generated"
+          }
+
+      - name: Upload Windows Standalone
+        uses: actions/upload-artifact@v4
+        with:
+          name: WindLab-Windows-x64-Standalone
+          path: WindLab-Windows-x64-Standalone.zip
+          if-no-files-found: error
+          retention-days: 14
+
   macos:
     name: macOS Apple Silicon AU + VST3
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -66,6 +94,10 @@ jobs:
           uname -m
           xcodebuild -version
           cmake --version
+
+      - name: Fetch CC0 acoustic samples
+        shell: bash
+        run: python3 scripts/download-recordings.py
 
       - name: Configure (Xcode, arm64)
         shell: bash

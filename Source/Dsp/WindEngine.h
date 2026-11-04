@@ -32,6 +32,8 @@ namespace windlab
             driftPhase = .13;
             lowpass = noiseLowpass = 0.0f;
             noiseState = 0x9231abcdu;
+            latestLevel = 0.0f;
+            latestFrequency = frequency;
         }
 
         void start(int midiNote, float newVelocity, Instrument newInstrument,
@@ -87,6 +89,8 @@ namespace windlab
         }
         void setPitchWheel(int value) { pitchWheel = std::clamp(value, 0, 16383); }
         bool active() const { return stage != Stage::Idle; }
+        float currentLevel() const noexcept { return latestLevel; }
+        double currentFrequency() const noexcept { return latestFrequency; }
 
         float render()
         {
@@ -125,6 +129,7 @@ namespace windlab
             const double vibratoDepth = std::min(1.0f, vibratoAmount * .48f + currentMod);
             const double vibratoSemis = .22 * vibratoDepth * vibratoFade * std::sin(twoPi * vibratoPhase);
             const double f = frequency * std::exp2((2.0 * currentPitch + vibratoSemis + drift) / 12.0);
+            latestFrequency = f;
             phase += f * invSampleRate;
             phase -= std::floor(phase);
             vibratoPhase += (5.15 + .35 * humanize * std::sin(twoPi * driftPhase)) * invSampleRate;
@@ -177,8 +182,9 @@ namespace windlab
             const float naturalMotion = 1.0f + .022f * humanize
                 * static_cast<float>(std::sin(twoPi * driftPhase * 1.31)
                                      + .35 * std::sin(twoPi * driftPhase * 2.29));
-            return lowpass * env * v * currentExpression * currentBreath
-                   * pressureGain * breathEnvelope * naturalMotion * .24f;
+            latestLevel = env * v * currentExpression * currentBreath
+                        * pressureGain * breathEnvelope * naturalMotion * .24f;
+            return lowpass * latestLevel;
         }
 
     private:
@@ -221,6 +227,8 @@ namespace windlab
         double pitchAlpha = .002;
         std::array<float, 12> spectralWeights{};
         float spectralNormalizer = 1.0f;
+        double latestFrequency = 440.0;
+        float latestLevel = 0.0f;
         int pitchWheel = 8192;
         std::uint32_t noiseState = 0x9231abcdu;
     };

@@ -13,7 +13,9 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     for (int i = 0; i < articulations.size(); ++i)
         articulationBox.addItem(articulations[i], i + 1);
 
-    for (auto* choice : {&instrumentBox, &articulationBox})
+    const juce::StringArray sources {"ACOUSTIC - REAL WAV", "HYBRID", "SYNTH"};
+    for (int i = 0; i < sources.size(); ++i) sourceBox.addItem(sources[i], i + 1);
+    for (auto* choice : {&instrumentBox, &articulationBox, &sourceBox})
     {
         choice->setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff182831));
         choice->setColour(juce::ComboBox::textColourId, juce::Colour(0xfff6f2ea));
@@ -25,9 +27,12 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     articulationAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         processor.parameters, "articulation", articulationBox);
 
+    sourceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processor.parameters, "sourceMode", sourceBox);
+    sourceLabel.setText("SOUND ENGINE", juce::dontSendNotification);
     instrumentLabel.setText("INSTRUMENT", juce::dontSendNotification);
     articulationLabel.setText("ARTICULATION", juce::dontSendNotification);
-    for (auto* label : {&instrumentLabel, &articulationLabel})
+    for (auto* label : {&instrumentLabel, &articulationLabel, &sourceLabel})
     {
         label->setColour(juce::Label::textColourId, juce::Colour(0xff9cb6bd));
         label->setFont(juce::Font(13.0f, juce::Font::bold));
@@ -82,7 +87,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("WINDLAB", 27, 12, 475, 48, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffc2d2d7));
     g.setFont(juce::Font(13.0f));
-    g.drawText("NATURAL EXPRESSION  /  0.3  /  LIVE MIDI + TONE SHAPING", 32, 63, 910, 21,
+    g.drawText("RECORDED WINDS  /  0.4  /  CC0 ACOUSTIC MULTISAMPLE ENGINE", 32, 63, 910, 21,
                juce::Justification::centredLeft);
 
     constexpr int rowTop[3] {207, 359, 511};
@@ -103,18 +108,20 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("CC1 VIBRATO  /  CC2 BREATH  /  CC11 EXPRESSION  /  AFTERTOUCH  /  PITCH BEND",
                29, 658, 960, 19, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xff8faab3));
-    g.drawText("BREATH LENGTH: 30 = continuous while held. Synthetic instruments, not sampled acoustic winds.",
+    g.drawText("BREATH LENGTH: 30 = continuous. Recorded CC0 winds by Versilian Studios / FreePats.",
                29, 679, 1020, 18, juce::Justification::centredLeft);
 }
 
 void WindLabAudioProcessorEditor::resized()
 {
     constexpr int inset = 35;
-    const int fieldW = (getWidth() - inset * 2 - 22) / 2;
+    const int fieldW = (getWidth() - inset * 2 - 30) / 3;
     instrumentLabel.setBounds(inset, 104, fieldW, 22);
-    articulationLabel.setBounds(inset + fieldW + 22, 104, fieldW, 22);
+    articulationLabel.setBounds(inset + fieldW + 15, 104, fieldW, 22);
+    sourceLabel.setBounds(inset + (fieldW + 15) * 2, 104, fieldW, 22);
     instrumentBox.setBounds(inset, 130, fieldW, 41);
-    articulationBox.setBounds(inset + fieldW + 22, 130, fieldW, 41);
+    articulationBox.setBounds(inset + fieldW + 15, 130, fieldW, 41);
+    sourceBox.setBounds(inset + (fieldW + 15) * 2, 130, fieldW, 41);
 
     const int contentWidth = getWidth() - 62;
     const int cellWidth = contentWidth / 5;
