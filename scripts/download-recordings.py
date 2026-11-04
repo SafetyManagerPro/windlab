@@ -23,10 +23,18 @@ import wave
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "Resources" / "Samples"
 OUT.mkdir(parents=True, exist_ok=True)
+# GitHub Actions caches a bank only after this success marker is written.
+# Keyed by the downloader script hash, so a new mapping always rebuilds it.
+if (OUT / ".download-complete").exists() and (OUT / "SampleManifest.h").exists():
+    files = list(OUT.glob("*.wav"))
+    if len(files) >= 105 and all(p.stat().st_size > 12000 for p in files):
+        print(f"USING CACHED CC0 BANK: {len(files)} validated files", flush=True)
+        raise SystemExit(0)
+
 SOURCE = "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/"
-USER_AGENT = {"User-Agent": "WindLab-open-licensed-multisample-builder/0.4"}
-# Small, musically useful three-zone starter mapping; note/octave in filenames
-# follow the library's own naming, NOT a newly invented pitch assignment.
+USER_AGENT = {"User-Agent": "WindLab-open-licensed-multisample-builder/0.5"}
+# Curated pitch zones with original soft/loud takes and genuine staccato.
+# Note/octave filenames retain source pitch identity.
 VSCO = [
     ("trumpet", 0, 45, 1, "sustain", 1, "Brass/Trumpet/sus/Sum_SHTrumpet_sus_A2_v1_rr1.wav"),
     ("trumpet", 0, 45, 3, "sustain", 1, "Brass/Trumpet/sus/Sum_SHTrumpet_sus_A2_v3_rr1.wav"),
@@ -194,8 +202,8 @@ for label, inst, root, velocity_layer, articulation, rr, path in VSCO:
     install(filename, inst, root, velocity_layer, articulation, rr, get(url),
             "VSCO 2 CE / Versilian Studios (CC0)", path)
 
-# VCSL->FreePats tenor sax: smaller CC0 edition, looped sax notes.
-# Select a handful of spaced natural-pitch zones from the bank's SFZ map.
+# VCSL->FreePats tenor sax: full-resolution CC0 edition with mapped layers.
+# Select multiple source pitches, retaining original looped WAV recordings.
 # If mirror is unreachable, fail: do not present a synthetic sax as recorded.
 SAX_SOURCE = "https://freepats.zenvoid.org/Reed/TenorSaxophone/TenorSaxophone-SFZ-20200717.tar.xz"
 archive = tarfile.open(fileobj=io.BytesIO(get(SAX_SOURCE)), mode="r:xz")
@@ -307,4 +315,5 @@ for _, root, velocity_layer, articulation, rr, name, credit, provenance, sha in 
                    f"{articulation}, variation {rr}; {credit}; "
                    f"source {provenance}; sha256={sha}")
 (OUT / "CREDITS.md").write_text("\n".join(credits) + "\n")
-print(f"READY: {len(records)} recorded WAV instruments zones. Embedded when building WindLab.")
+(OUT / ".download-complete").write_text(f"{len(records)} samples, downloaded successfully\\n")
+print(f"READY: {len(records)} recorded WAV articulations/velocity zones. Embedded when building WindLab.")
