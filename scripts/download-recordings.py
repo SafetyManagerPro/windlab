@@ -7,11 +7,15 @@ Fetch at CI build-time to avoid bloating source Git history. Embedded in VST3/AU
 using juce_add_binary_data; runtime needs no separate sample installation.
 """
 import hashlib
+import http.client
 import io
 import os
 from pathlib import Path
 import re
+import socket
 import tarfile
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import wave
@@ -46,9 +50,34 @@ VSCO = [
 ]
 
 def get(url):
+    """Retry transient source outages, without swallowing permanent errors.
+
+    Fresh GitHub Actions runners download the samples every time; a temporary
+    HTTP 503 from the hosting CDN must not fail the entire plugin build.
+    Non-retriable responses (for example HTTP 404) still fail immediately.
+    """
+    retries = 5
+    retryable_http = {408, 425, 429, 500, 502, 503, 504}
     request = urllib.request.Request(url, headers=USER_AGENT)
-    with urllib.request.urlopen(request, timeout=90) as response:
-        return response.read()
+    for attempt in range(1, retries + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=90) as response:
+                return response.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code not in retryable_http or attempt == retries:
+                raise
+            problem = f"HTTP {exc.code}"
+        except (urllib.error.URLError, TimeoutError, ConnectionError,
+                socket.timeout, http.client.IncompleteRead,
+                http.client.RemoteDisconnected) as exc:
+            if attempt == retries:
+                raise
+            problem = type(exc).__name__
+        backoff = min(2 ** attempt, 16)
+        print(f"[download] transient {problem}; retry {attempt}/{retries - 1} "
+              f"in {backoff}s: {url.split('/')[-1]}", flush=True)
+        time.sleep(backoff)
+    raise RuntimeError("unreachable: download retry loop exhausted")
 
 def valid_wave(blob):
     with wave.open(io.BytesIO(blob), "rb") as w:
