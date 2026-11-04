@@ -1,4 +1,41 @@
-# WindLab 0.4 — Acoustic Recorded Winds (AU/VST3)
+# WindLab 0.5 — Recorded Dynamic Winds (AU/VST3/Standalone)
+
+## New in v0.5 — real dynamic and articulation layers
+
+Unlike the 0.4 first-pass bank, the v0.5 library selects actual **soft/loud
+performances** from Versilian VSCO 2 CE and **genuine staccato recordings**
+with two different takes for repeat notes. There are over 100 CC0 VSCO WAV
+zones, plus selected original **full-quality** FreePats tenor sax samples.
+
+- **Velocity sensitivity:** note-on velocity selects a corresponding recorded
+  instrument intensity. A weighted MIDI keyboard can now change the tone,
+  not merely the gain. The exact available layer varies by instrument/zone.
+- **Real staccato:** in Staccato mode the plugin plays short, originally
+  recorded attacks, rather than the same looped sustain with a shorter envelope.
+- **Round robin:** successive notes alternate recorded takes where available.
+- **More pitch zones:** fewer and smaller repitch intervals.
+- **Full-resolution tenor sax:** use the CC0 high-quality FreePats SFZ WAV
+  package instead of the previous lightweight version.
+- **Build hardening:** retry temporary HTTP failures, cache downloaded WAVs
+  in GitHub Actions, and validate at CI time that real recordings, velocity
+  layers, and actual staccatos are present.
+
+The original Synth and Hybrid source modes, breath length, vibrato,
+bass/mid/treble EQ, room reverb, MIDI CC and standalone hosts remain.
+The sample library is embedded into Mac AU/VST3/Standalone and Windows
+VST3/Standalone, so it does not need a separate end-user download.
+
+This is a higher-quality multisample prototype, **not a commercial deep-sampling
+library**. Natural legato transitions, seamless note-specific loop tuning,
+multi-mic recording, and MPE will still require substantial further work.
+
+**Licenses:** VSCO 2 CE and FreePats tenor sax are both CC0. The download script
+pins and records original filenames; the generated `CREDITS.md` lists SHA-256.
+Sources: https://versilian-studios.com/vsco-community/ and
+https://freepats.zenvoid.org/Reed/saxophone.html
+
+## Earlier: v0.4 — embedded acoustic samples
+
 
 ## Windows Standalone — no DAW required
 
