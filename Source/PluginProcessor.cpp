@@ -108,7 +108,7 @@ namespace
                          attack->load(), release->load(),
                          static_cast<windlab::Articulation>(articulationIndex));
             modeAtNoteOn = juce::jlimit(0, 2, static_cast<int>(sourceMode->load()));
-            const auto* sample = modeAtNoteOn == 2 ? nullptr : sampleSource.nearest(instrumentIndex, midiNoteNumber);
+            const auto* sample = modeAtNoteOn == 2 ? nullptr : sampleSource.select(instrumentIndex, midiNoteNumber, velocity, articulationIndex);
             cursor.start(sample, 440.0 * std::exp2((midiNoteNumber - 69.0) / 12.0), getSampleRate());
         }
 
