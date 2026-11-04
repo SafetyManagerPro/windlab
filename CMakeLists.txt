@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WindLab VERSION 0.2.0 LANGUAGES C CXX)
+project(WindLab VERSION 0.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,7 +27,7 @@ juce_add_plugin(WindLab
     PLUGIN_MANUFACTURER_CODE Wlab
     PLUGIN_CODE Wl01
     PRODUCT_NAME "WindLab"
-    DESCRIPTION "Six expressive wind synth sketches (development prototype)"
+    DESCRIPTION "Expressive wind synthesis with live EQ, breath shaping and reverb (prototype)"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
@@ -40,7 +40,8 @@ target_sources(WindLab PRIVATE
     Source/PluginProcessor.h
     Source/PluginEditor.cpp
     Source/PluginEditor.h
-    Source/Dsp/WindEngine.h)
+    Source/Dsp/WindEngine.h
+    Source/Dsp/ToneEQ.h)
 
 # WindLab has never shipped as VST2: do not claim VST2 replacement compatibility.
 # JUCE 9 rejects modern VST3 parameter IDs when VST2 replacement is enabled.
