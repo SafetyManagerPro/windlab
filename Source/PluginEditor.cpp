@@ -150,6 +150,30 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     keyboard.setWantsKeyboardFocus(inputModeBox.getSelectedId() == 2);
     changeKeyboardOctave(0);
 
+    quickRecordButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffa34b43));
+    quickRecordButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    quickRecordButton.setTooltip("Registra due battute di MIDI senza coprire la tastiera PC. Dopo premi VEDI TAKE.");
+    addAndMakeVisible(quickRecordButton);
+    quickRecordButton.onClick = [this] {
+        const int state = processor.phraseRecorder.status();
+        if (state == windlab::PhraseRecorder::Recording)
+            processor.phraseRecorder.requestStop();
+        else if (state == windlab::PhraseRecorder::Ready)
+        {
+            phrasePanel->setVisible(true);
+            phrasePanel->toFront(true);
+        }
+        else
+        {
+            processor.phrase.setPlaying(false);
+            processor.phraseRecorder.requestStart();
+        }
+        // Return focus to virtual keys after interacting with REC MIDI.
+        if (inputModeBox.getSelectedId() == 2 && processor.phraseRecorder.status() != windlab::PhraseRecorder::Ready)
+            keyboard.grabKeyboardFocus();
+        timerCallback();
+    };
+
     phraseButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffb8754d));
     phraseButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     addAndMakeVisible(phraseButton);
@@ -205,6 +229,17 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
         midiLearnPanel->setVisible(show);
         if (show) midiLearnPanel->toFront(true);
     };
+    startTimerHz(8);
+}
+
+void WindLabAudioProcessorEditor::timerCallback()
+{
+    const int status = processor.phraseRecorder.status();
+    const juce::String label =
+        status == windlab::PhraseRecorder::Recording ? "STOP REC" :
+        status == windlab::PhraseRecorder::Ready ? "VEDI TAKE" : "REC MIDI";
+    if (quickRecordButton.getButtonText() != label)
+        quickRecordButton.setButtonText(label);
 }
 
 void WindLabAudioProcessorEditor::showGuide(int topic)
@@ -307,6 +342,7 @@ void WindLabAudioProcessorEditor::resized()
     midiHelpButton.setBounds(967, 729, 78, 32);
     keyboard.setBounds(30, 786, getWidth() - 60, 53);
     phraseButton.setBounds(getWidth() - 205, 20, 176, 41);
+    quickRecordButton.setBounds(getWidth() - 550, 20, 123, 41);
     helpButton.setBounds(getWidth() - 263, 20, 45, 41);
     midiLearnButton.setBounds(getWidth() - 418, 20, 145, 41);
     if (phrasePanel) phrasePanel->setBounds(getLocalBounds());
