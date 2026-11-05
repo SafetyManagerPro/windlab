@@ -27,5 +27,7 @@ int main()
     assert(route(4, true, 2, 4, 4).action == R::Keep);
     assert(route(7, true, 2, 1, 16).action == R::Keep);
     assert(route(7, true, 2, 0, 7).action == R::Keep);
+    assert(windlab::routeHybrid(7, true, 74, 4, 7, 1, 2, 11, true).action == R::Remap);
+    assert(windlab::routeHybrid(7, false, -1, 4, 7, 1, 2, 11, true).action == R::Drop);
     std::cout << "WindLab hybrid MIDI route: PASS\\n";
 }
