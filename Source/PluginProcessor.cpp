@@ -344,8 +344,10 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             const int translated =
                 cc == midiLearn.binding(windlab::MidiLearnBindings::Vibrato) ? 1 :
                 cc == midiLearn.binding(windlab::MidiLearnBindings::Breath) ? 2 :
-                cc == midiLearn.binding(windlab::MidiLearnBindings::Expression) ? 11 : cc;
-            phraseRecorder.controller(channel, translated, message.getControllerValue(), offset);
+                cc == midiLearn.binding(windlab::MidiLearnBindings::Expression) ? 11 :
+                (cc == 1 || cc == 2 || cc == 11 ? -1 : cc);
+            if (translated > 0)
+                phraseRecorder.controller(channel, translated, message.getControllerValue(), offset);
         }
         else if (message.isPitchWheel())
             phraseRecorder.pitchWheel(channel, message.getPitchWheelValue(), offset);
