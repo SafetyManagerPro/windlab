@@ -1,9 +1,15 @@
 name: Build WindLab plugins
 
+# CI budget: batch feature changes (normally 3 commits) then mark the draft
+# PR "Ready for review" ONCE to compile all formats. Avoid expensive builds
+# on every opened/synchronize pull_request event. Keep the final main build.
+# For corrections after a failed run: convert PR back to Draft, make grouped
+# commits, then mark Ready again. workflow_dispatch remains available in Actions.
 on:
   push:
     branches: [main]
   pull_request:
+    types: [ready_for_review]
   workflow_dispatch:
 
 permissions:
