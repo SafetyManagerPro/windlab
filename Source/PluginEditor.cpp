@@ -271,6 +271,7 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     addAndMakeVisible(midiLearnButton);
     midiLearnPanel = std::make_unique<WindLabMidiLearnPanel>(
         processor.midiLearn,
+        processor.midiInputMonitor,
         [this] {
             midiLearnPanel->setVisible(false);
             if (inputModeBox.getSelectedId() == 2)
