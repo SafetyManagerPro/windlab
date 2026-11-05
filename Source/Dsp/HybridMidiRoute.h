@@ -11,7 +11,8 @@ struct HybridRoute
 inline HybridRoute routeHybrid(int channel, bool controller, int cc,
                                int noteChannel, int breathChannel,
                                int vibratoCC, int breathCC, int expressionCC,
-                               bool learning = false) noexcept
+                               bool learning = false,
+                               bool noteRelease = false) noexcept
 {
     if (noteChannel < 1 || noteChannel > 15 ||
         breathChannel < 1 || breathChannel > 15 ||
@@ -20,6 +21,9 @@ inline HybridRoute routeHybrid(int channel, bool controller, int cc,
     // Phrase engine owns channel 16 and must remain isolated.
     if (channel == 16) return { HybridRoute::Keep, channel };
     if (channel != breathChannel) return { HybridRoute::Keep, channel };
+    // A note may have started before Hybrid mode was selected. Always let its
+    // release through so changing modes cannot leave a voice hanging.
+    if (noteRelease) return { HybridRoute::Keep, channel };
     if (controller && (learning || cc == vibratoCC || cc == breathCC || cc == expressionCC))
         return { HybridRoute::Remap, noteChannel };
     return { HybridRoute::Drop, channel };
