@@ -3,6 +3,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "Dsp/ToneEQ.h"
 #include "Dsp/RecordedWinds.h"
+#include "Dsp/PhraseEngine.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <memory>
 #include <vector>
@@ -36,6 +37,7 @@ public:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::AudioProcessorValueTreeState parameters;
     juce::MidiKeyboardState keyboardState;
+    windlab::PhraseEngine phrase; // persistent, edit-safe expression lane and MIDI sequencer
 
 private:
     windlab::RecordedWinds sampleBank;
