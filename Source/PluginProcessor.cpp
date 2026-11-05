@@ -354,7 +354,8 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                 const auto decision = windlab::routeHybrid(
                     msg.getChannel(), msg.isController(),
                     msg.isController() ? msg.getControllerNumber() : -1,
-                    notesCh, breathCh, vibratoCC, breathCC, expressionCC);
+                    notesCh, breathCh, vibratoCC, breathCC, expressionCC,
+                    midiLearn.armedTarget() != windlab::MidiLearnBindings::None);
                 if (decision.action == windlab::HybridRoute::Drop) continue;
                 if (decision.action == windlab::HybridRoute::Remap)
                     msg.setChannel(decision.channel);
