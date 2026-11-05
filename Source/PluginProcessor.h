@@ -6,6 +6,7 @@
 #include "Dsp/PhraseEngine.h"
 #include "Dsp/PhraseRecorder.h"
 #include "Dsp/MidiLearnBindings.h"
+#include "Dsp/MidiInputMonitor.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <memory>
 #include <vector>
@@ -42,6 +43,7 @@ public:
     windlab::PhraseEngine phrase; // persistent, edit-safe expression lane and MIDI sequencer
     windlab::PhraseRecorder phraseRecorder; // isolated, non-destructive two-bar MIDI recorder
     windlab::MidiLearnBindings midiLearn; // atomic CC assignments, persisted with project
+    windlab::MidiInputMonitor midiInputMonitor; // MIDI diagnostic snapshots, not persisted
 
 private:
     windlab::RecordedWinds sampleBank;
