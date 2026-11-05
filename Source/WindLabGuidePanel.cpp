@@ -170,7 +170,7 @@ Clicca PHRASE EDITOR nella schermata principale.
 - LEGATO: seleziona una nota e attiva LEGATO per sovrapporre brevemente la transizione con la precedente.
 - BPM: velocita' del loop interno, su 16 step / due battute.
 
-CORSE GRAFICHE:
+CORSIE GRAFICHE:
 BREATH (CC2) = pressione del fiato.
 VELOCITY = forza iniziale / timbro della nota.
 VOLUME (CC11) = volume continuo.
