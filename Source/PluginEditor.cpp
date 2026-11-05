@@ -54,6 +54,30 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     performanceModeLabel.setFont(juce::Font(12.0f, juce::Font::bold));
     addAndMakeVisible(performanceModeLabel);
 
+    for (int ch = 1; ch <= 15; ++ch)
+    {
+        noteMidiChannelBox.addItem(juce::String(ch), ch);
+        breathMidiChannelBox.addItem(juce::String(ch), ch);
+    }
+    for (auto* box : {&noteMidiChannelBox, &breathMidiChannelBox})
+    {
+        box->setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff182831));
+        box->setColour(juce::ComboBox::textColourId, juce::Colours::white);
+        addAndMakeVisible(*box);
+    }
+    noteMidiChannelLabel.setText("NOTE CH", juce::dontSendNotification);
+    breathMidiChannelLabel.setText("BREATH CH", juce::dontSendNotification);
+    for (auto* label : {&noteMidiChannelLabel, &breathMidiChannelLabel})
+    {
+        label->setColour(juce::Label::textColourId, juce::Colour(0xffbfd0d3));
+        label->setFont(juce::Font(12.0f, juce::Font::bold));
+        addAndMakeVisible(*label);
+    }
+    noteMidiChannelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processor.parameters, "noteMidiChannel", noteMidiChannelBox);
+    breathMidiChannelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processor.parameters, "breathMidiChannel", breathMidiChannelBox);
+
     const std::array<juce::String, 15> names {
         "ATTACK", "RELEASE", "BREATH LENGTH", "VIBRATO", "NATURAL",
         "BRIGHTNESS", "AIR", "BASS dB", "MID dB", "TREBLE dB",
@@ -334,6 +358,10 @@ void WindLabAudioProcessorEditor::resized()
 
     performanceModeLabel.setBounds(35, 177, 180, 23);
     performanceModeBox.setBounds(215, 175, 330, 27);
+    noteMidiChannelLabel.setBounds(558, 177, 73, 23);
+    noteMidiChannelBox.setBounds(633, 175, 68, 27);
+    breathMidiChannelLabel.setBounds(722, 177, 93, 23);
+    breathMidiChannelBox.setBounds(818, 175, 68, 27);
     const int contentWidth = getWidth() - 62;
     const int cellWidth = contentWidth / 5;
     constexpr int rowTop[3] {207, 359, 511};
