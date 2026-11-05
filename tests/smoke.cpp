@@ -1,5 +1,6 @@
 #include "Dsp/WindEngine.h"
 #include "Dsp/ToneEQ.h"
+#include "Dsp/VelocityResponse.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -139,5 +140,26 @@ int main()
             assert(std::abs(left) < 1.0f && std::abs(right) < 1.0f);
         }
     }
-    std::cout << "WindLab 0.3 DSP: PASS (winds, breath length, natural variation, EQ, controllers, 3 rates).\\n";
+    // MIDI controller response: preserve original velocity unless user opts in.
+    using windlab::applyVelocityResponse;
+    assert(std::abs(applyVelocityResponse(.4f, 0) - .4f) < 1e-6f);
+    assert(applyVelocityResponse(.25f, 1) > .25f); // light keys become more expressive
+    assert(applyVelocityResponse(.25f, 2) < .25f); // weighted key dynamic resolution
+    assert(applyVelocityResponse(.25f, 3) > .7f);  // CC2 provides the breath dynamic
+    assert(applyVelocityResponse(.0f, 3) == .0f); // velocity-zero still means note off
+    for (int profile = 0; profile < 4; ++profile)
+    {
+        float previous = 0.0f;
+        for (int n = 0; n <= 127; ++n)
+        {
+            const float v = applyVelocityResponse(n / 127.0f, profile);
+            assert(std::isfinite(v) && v >= 0.0f && v <= 1.0f);
+            assert(v + 1e-6f >= previous);
+            previous = v;
+        }
+        assert(applyVelocityResponse(-4.0f, profile) == 0.0f);
+        assert(applyVelocityResponse(4.0f, profile) == 1.0f);
+    }
+
+    std::cout << "WindLab 0.6 DSP: PASS (winds, breath length, natural variation, EQ, controllers, 3 rates).\\n";
 }
