@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WindLab VERSION 0.9.2 LANGUAGES C CXX)
+project(WindLab VERSION 0.9.3 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -52,6 +52,7 @@ target_sources(WindLab PRIVATE
     Source/Dsp/SampleLoopPlan.h
     Source/Dsp/VelocityResponse.h
     Source/Dsp/PhraseEngine.h
+    Source/Dsp/PhraseRecorder.h
     Source/Dsp/MidiLearnBindings.h)
 
 # WindLab has never shipped as VST2: do not claim VST2 replacement compatibility.
@@ -99,4 +100,8 @@ if (BUILD_TESTING)
     add_executable(windlab_midi_learn_smoke tests/midi-learn-smoke.cpp)
     target_include_directories(windlab_midi_learn_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_midi_learn_smoke COMMAND windlab_midi_learn_smoke)
+
+    add_executable(windlab_phrase_record_smoke tests/phrase-record-smoke.cpp)
+    target_include_directories(windlab_phrase_record_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    add_test(NAME windlab_phrase_record_smoke COMMAND windlab_phrase_record_smoke)
 endif()
