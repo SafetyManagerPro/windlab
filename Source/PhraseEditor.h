@@ -1,5 +1,6 @@
 #pragma once
 #include "Dsp/PhraseEngine.h"
+#include "Dsp/PhraseRecorder.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <functional>
 
@@ -8,8 +9,8 @@
 class WindLabPhraseEditor final : public juce::Component, private juce::Timer
 {
 public:
-    WindLabPhraseEditor(windlab::PhraseEngine& engine, std::function<void()> close,
-                        std::function<void()> help);
+    WindLabPhraseEditor(windlab::PhraseEngine& engine, windlab::PhraseRecorder& recorder,
+                        std::function<void()> close, std::function<void()> help);
     ~WindLabPhraseEditor() override { stopTimer(); }
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -19,12 +20,15 @@ public:
 
 private:
     windlab::PhraseEngine& phrase;
+    windlab::PhraseRecorder& capture;
     std::function<void()> onClose;
     std::function<void()> onHelp;
     juce::TextButton playButton {"PLAY"}, demoButton {"DEMO"},
                      clearButton {"CLEAR"}, legatoButton {"LEGATO: OFF"},
                      closeButton {"CLOSE"}, hostButton {"HOST BPM: OFF"},
-                     scoreButton {"SCORE VIEW"}, helpButton {"?"};
+                     scoreButton {"SCORE VIEW"}, helpButton {"?"},
+                     recordButton {"REC"}, importButton {"IMPORTA"};
+    juce::Label recordingStatus;
     juce::Slider tempoSlider;
     juce::ComboBox laneBox;
     juce::Label tempoLabel;
