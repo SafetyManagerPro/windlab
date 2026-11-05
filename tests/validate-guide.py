@@ -26,6 +26,14 @@ assert "Logic Pro" in manual and "PC / NOTEBOOK" in manual
 assert "HOST BPM" in manual and "CC2" in manual
 assert "legato" in manual.lower() and "AU" in manual
 assert "senza Internet" in manual and "VST3" in manual
+learn_header = (root / "Source/WindLabMidiLearnPanel.h").read_text(encoding="utf8")
+learn_panel = (root / "Source/WindLabMidiLearnPanel.cpp").read_text(encoding="utf8")
+assert "midiLearnButton" in main
+assert "WindLabMidiLearnPanel" in learn_header
+assert "midiLearn.arm" in learn_panel and "midiLearn.reset" in learn_panel
+assert "MIDI LEARN" in panel and "MIDI LEARN" in manual
+assert "Source/WindLabMidiLearnPanel.cpp" in cmake
+assert "midiLearn.route" not in main  # audio routing belongs in processor, not editor
 
 # A plugin can be compiled successfully even when a child overlay is 0x0.
 # Editor setSize runs before overlays are constructed; require explicit bounds
@@ -42,5 +50,24 @@ for child in ("phrasePanel", "guidePanel", "midiLearnPanel"):
         f"{child}: missing initial bounds before UI attachment; overlay will be invisible")
 assert "if (phrasePanel) phrasePanel->setBounds(getLocalBounds())" in main
 assert "if (guidePanel) guidePanel->setBounds(getLocalBounds())" in main
+
+# MIDI recorder popup controls must be part of the actual plugin GUI.
+phrase_header = (root / "Source/PhraseEditor.h").read_text(encoding="utf8")
+recorder_header = (root / "Source/Dsp/PhraseRecorder.h").read_text(encoding="utf8")
+processor = (root / "Source/PluginProcessor.cpp").read_text(encoding="utf8")
+for token in ("recordButton", "importButton", "recordingStatus"):
+    assert token in phrase_header and token in phrase, f"Missing {token}"
+assert "phraseRecorder.beginBlock" in processor and "phraseRecorder.endBlock" in processor
+assert processor.index("phraseRecorder.endBlock") < processor.index("phrase.process("), "Prevent channel16 playback recapture"
+assert "capture.importInto(phrase)" in phrase
+assert "quickRecordButton" in main
+assert "processor.phraseRecorder.requestStart()" in main
+assert "processor.phraseRecorder.requestStop()" in main
+assert "VEDI TAKE" in main
+assert "REC MIDI" in manual and "VEDI TAKE" in manual
+assert "std::array<std::atomic<std::uint64_t>" in recorder_header
+assert "Source/Dsp/PhraseRecorder.h" in cmake and "windlab_phrase_record_smoke" in cmake
+assert "REC" in manual and "IMPORTA" in manual
+assert "popup" in manual.lower()
 
 print("PASS: 12 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")

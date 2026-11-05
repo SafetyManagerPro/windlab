@@ -100,7 +100,19 @@ CC11 = espressione / volume
 Pitch Bend = intonazione continua
 Aftertouch = pressione, quando inviata dal controller
 
-Configura un eventuale pedale di espressione per trasmettere CC11 o CC2. Il MIDI Learn personalizzato e l'MPE completo non sono ancora disponibili.)";
+MIDI LEARN (v0.9.2):
+1. Premi MIDI LEARN in alto nella schermata principale.
+2. Premi IMPARA accanto a VIBRATO, FIATO o VOLUME.
+3. Muovi un pedale, un knob o uno slider hardware: il primo messaggio CC valido viene riconosciuto.
+4. Verifica il numero CC e premi CHIUDI per tornare allo strumento.
+
+ANNULLA smette di ascoltare senza modificare la mappatura.
+RESET CC ripristina Vibrato CC1, Fiato CC2, Volume CC11.
+Le assegnazioni vengono salvate nel progetto Logic/Studio One e ricordate alla riapertura.
+
+Se due espressioni utilizzano lo stesso numero CC, l'assegnazione precedente viene scambiata automaticamente: una sorgente non controlla due funzioni in conflitto. CC64 puo' essere appreso come pedale di espressione, ma in tal caso non svolge contemporaneamente la funzione sustain. I CC interni del Phrase Editor (canale MIDI 16) sono esclusi dal MIDI Learn.
+
+Il MIDI Learn attuale riguarda tre espressioni: vibrato, fiato e volume. Non e' ancora un MIDI Learn universale di tutte le manopole. L'MPE per singola nota non e' ancora disponibile.)";
 
         case logic: return R"(UTILIZZO IN LOGIC PRO (APPLE SILICON)
 
@@ -163,6 +175,11 @@ Per un fiato credibile usa un po' di air, attacchi non tutti identici, vibrato m
 
 Clicca PHRASE EDITOR nella schermata principale.
 
+- REC MIDI (SCHERMATA PRINCIPALE): consigliato quando suoni con la tastiera PC. Premi REC MIDI, suona le note, poi STOP REC oppure lascia terminare automaticamente due battute. Il pulsante diventa VEDI TAKE: apre la registrazione nel Phrase Editor senza togliere il focus ai tasti durante la ripresa.
+- REC (NEL PHRASE EDITOR): ideale per dispositivi MIDI esterni. La cattura dura al massimo 16 step (due battute); STOP REC termina prima.
+- IMPORTA: soltanto quando la cattura e' pronta, sostituisce le note attualmente nel Phrase Editor con la registrazione. Non cancella la frase prima della tua conferma.
+- Vengono registrate note, velocity, durata, CC2 fiato, CC11 volume, CC1 vibrato e pitch bend. Il risultato e' MIDI modificabile, NON una registrazione audio/WAV.
+- Una nota alla volta per step: accordi e note iniziate sul medesimo step possono essere ignorati. Il registratore quantizza su 16 step di crome (due battute in 4/4).
 - PLAY / STOP: avvia o interrompe il loop interno.
 - DEMO: carica una frase dimostrativa.
 - CLEAR: cancella tutte le note.
@@ -231,12 +248,13 @@ PRESENTE:
 - Tastiera grafica, tastiera PC, ingresso MIDI esterno e profili velocity.
 - Expression & Phrase Editor con 16 step, legato MIDI, fiato, volume, pitch e vibrato.
 - Vista spartito di lettura e opzione HOST BPM.
+- MIDI LEARN per assegnare CC a vibrato, fiato ed espressione, salvato per progetto.
 - Loop delle registrazioni sostenute e coda degli staccati perfezionati.
 
 NON ANCORA IMPLEMENTATO:
 - Legato campionato con vere transizioni fra note.
 - Sincronizzazione automatica della frase alla testina della DAW.
-- MIDI Learn universale e assegnazione visuale dei controller ai pistoni/chiavi.
+- MIDI Learn universale per tutti i parametri e assegnazione visuale dei controller ai pistoni/chiavi.
 - MPE avanzato per ogni singola nota.
 - Spartito completo modificabile, MusicXML e MIDI export.
 - Firma/notarizzazione universale dei pacchetti e collaudo completo in tutte le DAW.
@@ -299,7 +317,16 @@ void WindLabGuidePanel::openTopic(int topic)
 
 void WindLabGuidePanel::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(0xff0e1e26));
+    const auto full = getLocalBounds().toFloat();
+    g.fillAll(juce::Colour(0xff081319));
+    // Host-safe floating dialog presentation within the plugin editor.
+    // Unlike a separate OS window this also works in restrictive DAW hosts.
+    g.setColour(juce::Colour(0xff43606b));
+    g.fillRoundedRectangle(5.0f, 5.0f, full.getWidth() - 10.0f,
+                           full.getHeight() - 10.0f, 13.0f);
+    g.setColour(juce::Colour(0xff122630));
+    g.fillRoundedRectangle(8.0f, 8.0f, full.getWidth() - 16.0f,
+                           full.getHeight() - 16.0f, 11.0f);
     g.setColour(juce::Colour(0xffeab080));
     g.setFont(juce::Font(30.0f, juce::Font::bold));
     g.drawText("WINDLAB   ?   GUIDA", 30, 18, getWidth() - 210, 42,

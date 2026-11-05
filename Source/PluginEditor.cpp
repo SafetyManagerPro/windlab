@@ -150,10 +150,34 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     keyboard.setWantsKeyboardFocus(inputModeBox.getSelectedId() == 2);
     changeKeyboardOctave(0);
 
+    quickRecordButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffa34b43));
+    quickRecordButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    quickRecordButton.setTooltip("Registra due battute di MIDI senza coprire la tastiera PC. Dopo premi VEDI TAKE.");
+    addAndMakeVisible(quickRecordButton);
+    quickRecordButton.onClick = [this] {
+        const int state = processor.phraseRecorder.status();
+        if (state == windlab::PhraseRecorder::Recording)
+            processor.phraseRecorder.requestStop();
+        else if (state == windlab::PhraseRecorder::Ready)
+        {
+            phrasePanel->setVisible(true);
+            phrasePanel->toFront(true);
+        }
+        else
+        {
+            processor.phrase.setPlaying(false);
+            processor.phraseRecorder.requestStart();
+        }
+        // Return focus to virtual keys after interacting with REC MIDI.
+        if (inputModeBox.getSelectedId() == 2 && processor.phraseRecorder.status() != windlab::PhraseRecorder::Ready)
+            keyboard.grabKeyboardFocus();
+        timerCallback();
+    };
+
     phraseButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffb8754d));
     phraseButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     addAndMakeVisible(phraseButton);
-    phrasePanel = std::make_unique<WindLabPhraseEditor>(processor.phrase, [this] {
+    phrasePanel = std::make_unique<WindLabPhraseEditor>(processor.phrase, processor.phraseRecorder, [this] {
         phrasePanel->setVisible(false);
         if (inputModeBox.getSelectedId() == 2) keyboard.grabKeyboardFocus();
     }, [this] { showGuide(WindLabGuidePanel::phraseEditor); });
@@ -175,13 +199,47 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     // without spawning a host-dependent secondary window.
     guidePanel = std::make_unique<WindLabGuidePanel>([this] {
         guidePanel->setVisible(false);
-        if (phrasePanel && phrasePanel->isVisible())
+        if (midiLearnPanel && midiLearnPanel->isVisible())
+            midiLearnPanel->toFront(true);
+        else if (phrasePanel && phrasePanel->isVisible())
             phrasePanel->toFront(true);
         else if (inputModeBox.getSelectedId() == 2)
             keyboard.grabKeyboardFocus();
     });
     guidePanel->setBounds(getLocalBounds()); // standalone AU/VST3: initialize dimensions immediately
     addChildComponent(*guidePanel);
+
+    midiLearnButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff416a64));
+    midiLearnButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    midiLearnButton.setTooltip("Assegna i controller MIDI: vibrato, fiato ed espressione");
+    addAndMakeVisible(midiLearnButton);
+    midiLearnPanel = std::make_unique<WindLabMidiLearnPanel>(
+        processor.midiLearn,
+        [this] {
+            midiLearnPanel->setVisible(false);
+            if (inputModeBox.getSelectedId() == 2)
+                keyboard.grabKeyboardFocus();
+        },
+        [this] { showGuide(WindLabGuidePanel::midi); });
+    midiLearnPanel->setBounds(getLocalBounds()); // same zero-size fix for new MIDI Learn panel
+    addChildComponent(*midiLearnPanel);
+    midiLearnButton.onClick = [this] {
+        const bool show = !midiLearnPanel->isVisible();
+        if (!show) processor.midiLearn.cancel();
+        midiLearnPanel->setVisible(show);
+        if (show) midiLearnPanel->toFront(true);
+    };
+    startTimerHz(8);
+}
+
+void WindLabAudioProcessorEditor::timerCallback()
+{
+    const int status = processor.phraseRecorder.status();
+    const juce::String label =
+        status == windlab::PhraseRecorder::Recording ? "STOP REC" :
+        status == windlab::PhraseRecorder::Ready ? "VEDI TAKE" : "REC MIDI";
+    if (quickRecordButton.getButtonText() != label)
+        quickRecordButton.setButtonText(label);
 }
 
 void WindLabAudioProcessorEditor::showGuide(int topic)
@@ -214,7 +272,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("WINDLAB", 27, 12, 475, 48, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffc2d2d7));
     g.setFont(juce::Font(13.0f));
-    g.drawText("RECORDED WINDS  /  0.9.1  /  PERFORMANCE + REAL WAV + GUIDA INTEGRATA", 32, 63, 910, 21,
+    g.drawText("RECORDED WINDS  /  0.9.3  /  MIDI RECORD + POPUP EDITOR + REAL WAV", 32, 63, 910, 21,
                juce::Justification::centredLeft);
 
     constexpr int rowTop[3] {207, 359, 511};
@@ -284,7 +342,10 @@ void WindLabAudioProcessorEditor::resized()
     midiHelpButton.setBounds(967, 729, 78, 32);
     keyboard.setBounds(30, 786, getWidth() - 60, 53);
     phraseButton.setBounds(getWidth() - 205, 20, 176, 41);
+    quickRecordButton.setBounds(getWidth() - 550, 20, 123, 41);
     helpButton.setBounds(getWidth() - 263, 20, 45, 41);
+    midiLearnButton.setBounds(getWidth() - 418, 20, 145, 41);
     if (phrasePanel) phrasePanel->setBounds(getLocalBounds());
     if (guidePanel) guidePanel->setBounds(getLocalBounds());
+    if (midiLearnPanel) midiLearnPanel->setBounds(getLocalBounds());
 }

@@ -1,3 +1,78 @@
+# WindLab 0.9.3 — REC MIDI → Phrase Editor + popup in-plugin
+
+**CI a basso consumo:** il progetto accumula circa tre commit per PR in
+modalita' Draft e compila tutti i formati solo quando la PR passa a
+**Ready for review**. La build automatica finale su `main` e quella manuale
+`Run workflow` restano disponibili.
+[Procedura per risparmiare minuti GitHub Actions](docs/CI-Minuti-Gratuiti.md).
+
+
+**REC MIDI / STOP REC / VEDI TAKE** nella schermata principale, e
+**REC / STOP REC / IMPORTA** nello **Expression & Phrase Editor**.
+Per usare la tastiera PC premi REC MIDI nella schermata principale: il focus
+rimane sui tasti; quando la registrazione è pronta premi VEDI TAKE e infine
+IMPORTA nell'editor. Con una periferica MIDI esterna puoi registrare anche
+dentro il Phrase Editor.
+Suona una tastiera PC, il piano grafico, un controller USB MIDI, un
+pianoforte pesato o uno strumento MIDI a fiato. WindLab acquisisce fino a
+**due battute / 16 step di crome** in un buffer separato (nessuna cancellazione
+automatica della vecchia frase), poi con **IMPORTA** copia le note e le
+curve registrate nel piano roll modificabile.
+
+- Note-on/off, velocity, durate (gate 1..8), legato in presenza di sovrapposizione.
+- Curve di fiato **CC2**, espressione **CC11**, vibrato **CC1**, pitch bend,
+  anche con i CC fisici rimappati tramite MIDI Learn.
+- Input canali **1–15**. Il playback interno del Phrase Editor sul
+  canale **16** non viene mai registrato di nuovo.
+- Sequencer limitato a **una nota per step**: un accordo sullo stesso step
+  scarta le note in più. Registrazione quantizzata, non una traccia MIDI
+  arbitraria e **non audio WAV**.
+- Solo il risultato **importato** viene salvato nel progetto host.
+  La cattura temporanea non viene ripristinata se si chiude il plugin prima
+  di importarla.
+- Parser di registrazione a dimensione fissa: nessuna allocazione,
+  lock o I/O nell'audio callback. Test C++ dedicati per registrazione e import.
+- **Phrase Editor e ?** mostrati come popup host-safe *interni* alla
+  finestra WindLab, non come finestre native separate (confermato
+  esplicitamente nella guida). Questo preserva la compatibilità AU,
+  VST3 e Standalone.
+
+La compatibilità delle build non prova da sola che tutti i comandi
+siano cliccabili nei diversi host: sono necessari test manuali
+di registrazione/guida/ritorno alla schermata principale in Windows
+Standalone, Mac Standalone e Logic Pro AU.
+
+**[Guida utente in italiano](docs/Guida-Utente-WindLab-IT.md)**
+
+## Precedente: 0.9.2 — MIDI Learn
+
+# WindLab 0.9.2 — MIDI Learn per fiato, vibrato ed espressione
+
+**MIDI LEARN**, disponibile nella schermata principale del plugin,
+permette di assegnare con un movimento di pedale, slider o controller
+hardware uno dei messaggi MIDI CC alle tre funzioni espressive:
+**VIBRATO (CC1)**, **FIATO / BREATH (CC2)**, **VOLUME (CC11)**.
+
+- Premi MIDI LEARN → IMPARA per la destinazione → muovi il controller.
+- Il pannello mostra il numero CC appreso. ANNULLA disarma l'ascolto;
+  RESET CC ripristina CC1, CC2 e CC11.
+- Mappature personalizzate salvate e ripristinate nel progetto AU/VST3
+  come stato del plugin; i progetti più vecchi restano sui CC originali.
+- Cambiare assegnazione di un CC già assegnato a un'altra funzione **scambia**
+  i numeri; le tre funzioni non si sovrappongono.
+- **Canale MIDI 16** del Phrase Editor escluso da learn/routing.
+- Un eventuale pedale CC64 mappato come espressione non invia anche
+  sustain tradizionale durante quella mappatura.
+- Il motore non modifica i campioni CC0, l'identità del plugin o i vecchi
+  ID di automazione. Sono previste compilazioni AU/VST3/Standalone Mac
+  e VST3/Standalone Windows in CI.
+
+Il pulsante **?** della guida apre il capitolo MIDI Learn.
+Consulta il [manuale italiano](docs/Guida-Utente-WindLab-IT.md)
+per la procedura completa e le limitazioni attuali.
+
+## Precedente: 0.9.1 — Guida integrata "?"
+
 # WindLab 0.9.1 — Guida integrata "?" (AU / VST3 / Standalone)
 
 WindLab include ora una **guida offline completa** richiamabile dal pulsante

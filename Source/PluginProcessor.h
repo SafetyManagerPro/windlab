@@ -4,6 +4,8 @@
 #include "Dsp/ToneEQ.h"
 #include "Dsp/RecordedWinds.h"
 #include "Dsp/PhraseEngine.h"
+#include "Dsp/PhraseRecorder.h"
+#include "Dsp/MidiLearnBindings.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <memory>
 #include <vector>
@@ -38,6 +40,8 @@ public:
     juce::AudioProcessorValueTreeState parameters;
     juce::MidiKeyboardState keyboardState;
     windlab::PhraseEngine phrase; // persistent, edit-safe expression lane and MIDI sequencer
+    windlab::PhraseRecorder phraseRecorder; // isolated, non-destructive two-bar MIDI recorder
+    windlab::MidiLearnBindings midiLearn; // atomic CC assignments, persisted with project
 
 private:
     windlab::RecordedWinds sampleBank;

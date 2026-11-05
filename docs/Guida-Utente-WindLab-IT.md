@@ -1,6 +1,6 @@
 # WindLab — Guida utente (italiano)
 
-> Aggiornata per WindLab **0.9.1**. La stessa guida è consultabile **senza Internet** aprendo il pulsante **?** nella schermata principale del plugin o della Standalone. Nel Phrase Editor, il **?** apre direttamente la sezione dedicata alla creazione e modifica delle frasi.
+> Aggiornata per WindLab **0.9.3**. La stessa guida è consultabile **senza Internet** aprendo il pulsante **?** nella schermata principale del plugin o della Standalone. Nel Phrase Editor, il **?** apre direttamente la sezione dedicata alla creazione e modifica delle frasi.
 
 ## 1. Avvio e formati
 
@@ -66,6 +66,36 @@ Per un **pianoforte a tasti pesati**, collegare la porta USB-MIDI o MIDI DIN con
 
 **Controller**: CC1 vibrato, CC2 fiato, CC11 espressione/volume, pitch bend intonazione, aftertouch pressione. Il controller deve essere configurato per emettere questi messaggi.
 
+### MIDI LEARN — assegnazione rapida di pedali e controller (0.9.2)
+
+Il pulsante **MIDI LEARN** è nella parte superiore della finestra principale.
+Funziona anche nella **Standalone Mac** e in **Logic Pro AU**, oltre che nelle
+versioni VST3.
+
+1. Collega la periferica e assicurati che il suo MIDI arrivi alla traccia strumento.
+2. Apri **MIDI LEARN**; scegli **IMPARA** nella riga **VIBRATO**, **FIATO**
+   oppure **VOLUME / EXPRESSION**.
+3. Muovi il pedale, il fader, la rotella o il potenziometro hardware. WindLab
+   acquisisce il primo messaggio MIDI CC valido sui canali MIDI 1–15.
+4. Controlla il numero **CC** visualizzato, premi **CHIUDI X** e prova a suonare.
+
+**ANNULLA** interrompe l'apprendimento senza modificare la mappatura.
+**RESET CC** ripristina i valori iniziali: CC1 per vibrato, CC2 per fiato,
+CC11 per volume/espressione. Le assegnazioni sono memorizzate *nel progetto
+Logic/Studio One* insieme alle impostazioni WindLab, non a livello globale
+su tutto il computer.
+
+Se assegni a un controllo un CC già utilizzato, WindLab **scambia i due
+numeri** invece di assegnare involontariamente un unico controllo a due
+funzioni. Puoi anche imparare **CC64** da un pedale sustain: in quel caso
+il messaggio viene destinato all'espressione selezionata, **non** al sustain
+tradizionale. I messaggi della sequenza interna sul **canale 16** rimangono
+esclusi dall'apprendimento.
+
+Il MIDI Learn attuale copre tre destinazioni (vibrato, fiato e volume).
+Non è ancora disponibile l'assegnazione universale di ogni manopola,
+né il controllo MIDI MPE separato per singola nota.
+
 ## 4. Manopole del suono
 
 | Gruppo | Comandi |
@@ -75,6 +105,52 @@ Per un **pianoforte a tasti pesati**, collegare la porta USB-MIDI o MIDI DIN con
 | Ambiente | Room, Reverb, Reverb Size, Damping, Output |
 
 Per un risultato più realistico, iniziare da timbro pulito e poco riverbero; aggiungere variazioni graduali di fiato ed espressione invece di tenere una dinamica perfettamente piatta.
+
+## 5. Registrare quello che suoni e modificarlo nel Phrase Editor (v0.9.3)
+
+WindLab puo' registrare **eventi MIDI**, non l'audio WAV, dalla tastiera
+grafica, dal computer, da una tastiera esterna e dai controller MIDI a fiato
+che inviano note e segnali compatibili. In questa prima versione la
+registrazione e' limitata a **due battute in 4/4, quantizzate su 16 crome**,
+perche' il Phrase Editor contiene 16 step. Non registra ancora una lunga
+performance libera o una regione MIDI completa della DAW.
+
+**Come fare:**
+
+1. Per suonare con i tasti del **computer**, seleziona **PC / NOTEBOOK**
+   e premi **REC MIDI** direttamente nella schermata principale: la tastiera
+   continua a ricevere i tasti senza dover aprire il popup dell'editor.
+   Per strumenti MIDI esterni puoi anche premere **REC** nel Phrase Editor.
+2. Imposta il BPM interno dal Phrase Editor, oppure attiva HOST BPM per
+   seguire il BPM di Logic/Studio One (non la posizione della testina).
+3. Premi **REC MIDI** / **REC** e suona la frase: note, fiato e pitch bend.
+4. La registrazione termina dopo 16 step o quando premi **STOP REC**.
+   Il pulsante principale diventa **VEDI TAKE**, che apre il Phrase Editor.
+5. Prima di importare, la frase precedente rimane invariata. Premi
+   **IMPORTA** dentro il Phrase Editor per sostituirla esplicitamente.
+6. Correggi altezza, lunghezza, velocity, legato, fiato, volume, pitch e
+   vibrato con il piano roll e le corsie grafiche. Poi premi **PLAY**.
+
+**Viene registrato:** Note On/Off, velocity, durata, CC2 (breath),
+CC11 (expression), CC1 (vibrato) e pitch bend. Se hai configurato il
+MIDI Learn, vengono riconosciuti anche i CC hardware assegnati a queste
+tre espressioni. Le curve CC sono campionate sulla griglia dell'editor.
+
+**Limiti espliciti:** una nota registrata per ogni step; accordi o altri
+attacchi sul medesimo step possono essere scartati. Il tono/volume
+dell'audio WAV non viene analizzato per estrarre nuove note. I dati della
+cattura provvisoria non sono salvati finche' non premi **IMPORTA**;
+la frase importata viene salvata nello stato del plugin insieme al
+progetto Logic/Studio One. Eventi MPE per singola nota e sincronizzazione
+automatizzata con la posizione del trasporto DAW restano da sviluppare.
+
+### Popup per Phrase Editor e guida
+
+**PHRASE EDITOR** e **?** si aprono come finestre popup sovrapposte
+e chiudibili **dentro la finestra del plugin**. La scelta evita problemi
+di finestre native separate in Logic Pro/AU e altri host. Nella Standalone
+l'esperienza resta la stessa. Per il momento non si tratta di finestre
+del sistema operativo staccabili e spostabili su un secondo monitor.
 
 ## 5. Phrase Editor e legato
 
@@ -112,7 +188,7 @@ Le frasi sono salvate **nel progetto della DAW** tramite lo stato del plugin. Qu
 
 ## 8. Limiti attuali (non confondere con funzioni già disponibili)
 
-WindLab è ancora un prototipo in sviluppo. **Non** sono disponibili: legato con registrazioni autentiche di transizione, MIDI Learn universale, sincronizzazione automatica della frase con la posizione della DAW, MPE per-nota completo, spartito completamente modificabile/MusicXML, esportazione MIDI dalla frase e pacchetti universalmente firmati/notarizzati.
+WindLab è ancora un prototipo in sviluppo. **Non** sono disponibili: legato con registrazioni autentiche di transizione, MIDI Learn universale per tutte le manopole, sincronizzazione automatica della frase con la posizione della DAW, MPE per-nota completo, spartito completamente modificabile/MusicXML, esportazione MIDI dalla frase e pacchetti universalmente firmati/notarizzati.
 
 La compilazione su GitHub di AU/VST3/Standalone e i test automatici non sostituiscono un **test d'ascolto e caricamento manuale** in Logic Pro e Studio One.
 
