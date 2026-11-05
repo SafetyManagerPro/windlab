@@ -100,7 +100,19 @@ CC11 = espressione / volume
 Pitch Bend = intonazione continua
 Aftertouch = pressione, quando inviata dal controller
 
-Configura un eventuale pedale di espressione per trasmettere CC11 o CC2. Il MIDI Learn personalizzato e l'MPE completo non sono ancora disponibili.)";
+MIDI LEARN (v0.9.2):
+1. Premi MIDI LEARN in alto nella schermata principale.
+2. Premi IMPARA accanto a VIBRATO, FIATO o VOLUME.
+3. Muovi un pedale, un knob o uno slider hardware: il primo messaggio CC valido viene riconosciuto.
+4. Verifica il numero CC e premi CHIUDI per tornare allo strumento.
+
+ANNULLA smette di ascoltare senza modificare la mappatura.
+RESET CC ripristina Vibrato CC1, Fiato CC2, Volume CC11.
+Le assegnazioni vengono salvate nel progetto Logic/Studio One e ricordate alla riapertura.
+
+Se due espressioni utilizzano lo stesso numero CC, l'assegnazione precedente viene scambiata automaticamente: una sorgente non controlla due funzioni in conflitto. CC64 puo' essere appreso come pedale di espressione, ma in tal caso non svolge contemporaneamente la funzione sustain. I CC interni del Phrase Editor (canale MIDI 16) sono esclusi dal MIDI Learn.
+
+Il MIDI Learn attuale riguarda tre espressioni: vibrato, fiato e volume. Non e' ancora un MIDI Learn universale di tutte le manopole. L'MPE per singola nota non e' ancora disponibile.)";
 
         case logic: return R"(UTILIZZO IN LOGIC PRO (APPLE SILICON)
 
@@ -231,12 +243,13 @@ PRESENTE:
 - Tastiera grafica, tastiera PC, ingresso MIDI esterno e profili velocity.
 - Expression & Phrase Editor con 16 step, legato MIDI, fiato, volume, pitch e vibrato.
 - Vista spartito di lettura e opzione HOST BPM.
+- MIDI LEARN per assegnare CC a vibrato, fiato ed espressione, salvato per progetto.
 - Loop delle registrazioni sostenute e coda degli staccati perfezionati.
 
 NON ANCORA IMPLEMENTATO:
 - Legato campionato con vere transizioni fra note.
 - Sincronizzazione automatica della frase alla testina della DAW.
-- MIDI Learn universale e assegnazione visuale dei controller ai pistoni/chiavi.
+- MIDI Learn universale per tutti i parametri e assegnazione visuale dei controller ai pistoni/chiavi.
 - MPE avanzato per ogni singola nota.
 - Spartito completo modificabile, MusicXML e MIDI export.
 - Firma/notarizzazione universale dei pacchetti e collaudo completo in tutte le DAW.
