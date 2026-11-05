@@ -1,6 +1,6 @@
 # WindLab — Guida utente (italiano)
 
-> Aggiornata per WindLab **0.9.2**. La stessa guida è consultabile **senza Internet** aprendo il pulsante **?** nella schermata principale del plugin o della Standalone. Nel Phrase Editor, il **?** apre direttamente la sezione dedicata alla creazione e modifica delle frasi.
+> Aggiornata per WindLab **0.9.3**. La stessa guida è consultabile **senza Internet** aprendo il pulsante **?** nella schermata principale del plugin o della Standalone. Nel Phrase Editor, il **?** apre direttamente la sezione dedicata alla creazione e modifica delle frasi.
 
 ## 1. Avvio e formati
 
@@ -105,6 +105,50 @@ né il controllo MIDI MPE separato per singola nota.
 | Ambiente | Room, Reverb, Reverb Size, Damping, Output |
 
 Per un risultato più realistico, iniziare da timbro pulito e poco riverbero; aggiungere variazioni graduali di fiato ed espressione invece di tenere una dinamica perfettamente piatta.
+
+## 5. Registrare quello che suoni e modificarlo nel Phrase Editor (v0.9.3)
+
+WindLab puo' registrare **eventi MIDI**, non l'audio WAV, dalla tastiera
+grafica, dal computer, da una tastiera esterna e dai controller MIDI a fiato
+che inviano note e segnali compatibili. In questa prima versione la
+registrazione e' limitata a **due battute in 4/4, quantizzate su 16 crome**,
+perche' il Phrase Editor contiene 16 step. Non registra ancora una lunga
+performance libera o una regione MIDI completa della DAW.
+
+**Come fare:**
+
+1. Apri **PHRASE EDITOR** nella schermata principale.
+2. Imposta il BPM interno, oppure attiva HOST BPM se vuoi seguire il tempo
+   comunicato da Logic Pro o Studio One (non segue ancora la testina).
+3. Premi **REC** e suona: puoi usare piano PC, piano virtuale, MIDI esterno
+   o uno strumento a fiato MIDI collegato tramite la DAW/Standalone.
+4. La registrazione termina dopo 16 step oppure quando premi **STOP REC**.
+5. Prima di importare, il contenuto della frase precedente e' invariato.
+   Premi **IMPORTA** soltanto quando desideri sostituire la frase con
+   quella appena registrata.
+6. Correggi altezza, lunghezza, velocity, legato, fiato, volume, pitch e
+   vibrato con il piano roll e le corsie grafiche. Poi premi **PLAY**.
+
+**Viene registrato:** Note On/Off, velocity, durata, CC2 (breath),
+CC11 (expression), CC1 (vibrato) e pitch bend. Se hai configurato il
+MIDI Learn, vengono riconosciuti anche i CC hardware assegnati a queste
+tre espressioni. Le curve CC sono campionate sulla griglia dell'editor.
+
+**Limiti espliciti:** una nota registrata per ogni step; accordi o altri
+attacchi sul medesimo step possono essere scartati. Il tono/volume
+dell'audio WAV non viene analizzato per estrarre nuove note. I dati della
+cattura provvisoria non sono salvati finche' non premi **IMPORTA**;
+la frase importata viene salvata nello stato del plugin insieme al
+progetto Logic/Studio One. Eventi MPE per singola nota e sincronizzazione
+automatizzata con la posizione del trasporto DAW restano da sviluppare.
+
+### Popup per Phrase Editor e guida
+
+**PHRASE EDITOR** e **?** si aprono come finestre popup sovrapposte
+e chiudibili **dentro la finestra del plugin**. La scelta evita problemi
+di finestre native separate in Logic Pro/AU e altri host. Nella Standalone
+l'esperienza resta la stessa. Per il momento non si tratta di finestre
+del sistema operativo staccabili e spostabili su un secondo monitor.
 
 ## 5. Phrase Editor e legato
 
