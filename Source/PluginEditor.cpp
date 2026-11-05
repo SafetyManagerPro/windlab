@@ -157,6 +157,7 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
         phrasePanel->setVisible(false);
         if (inputModeBox.getSelectedId() == 2) keyboard.grabKeyboardFocus();
     }, [this] { showGuide(WindLabGuidePanel::phraseEditor); });
+    phrasePanel->setBounds(getLocalBounds()); // created after initial setSize: must not stay 0x0
     addChildComponent(*phrasePanel); // overlay; host-safe, no floating native dialog
     phraseButton.onClick = [this] {
         const bool show = !phrasePanel->isVisible();
@@ -179,6 +180,7 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
         else if (inputModeBox.getSelectedId() == 2)
             keyboard.grabKeyboardFocus();
     });
+    guidePanel->setBounds(getLocalBounds()); // standalone AU/VST3: initialize dimensions immediately
     addChildComponent(*guidePanel);
 }
 
