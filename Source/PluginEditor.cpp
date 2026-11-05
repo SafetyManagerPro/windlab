@@ -148,13 +148,15 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
         juce::AlertWindow::showMessageBoxAsync(
             juce::MessageBoxIconType::InfoIcon, "WindLab MIDI input",
             "STANDALONE: open the application's Options menu, then Audio/MIDI Settings "
-            "to enable your USB MIDI keyboard or breath controller.\\n\\n"
+            "to enable your USB MIDI keyboard or breath controller.\n\n"
             "VST3 / AU: enable your keyboard in the DAW, route its MIDI to WindLab "
-            "and arm the instrument track.\\n\\n"
+            "and arm the instrument track.\n\n"
             "Piano keys and external MIDI work together. CC2 = breath, "
             "CC11 = expression, CC1 = vibrato, CC64 = sustain pedal.",
             "OK", this);
     };
+    // A DAW may restore a saved PC input mode before the editor opens.
+    keyboard.setWantsKeyboardFocus(inputModeBox.getSelectedId() == 2);
     changeKeyboardOctave(0);
 }
 
