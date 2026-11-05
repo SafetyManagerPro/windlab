@@ -175,7 +175,8 @@ Per un fiato credibile usa un po' di air, attacchi non tutti identici, vibrato m
 
 Clicca PHRASE EDITOR nella schermata principale.
 
-- REC: acquisisce quello che suoni su una tastiera MIDI, tastiera PC o controller a fiato MIDI. La cattura dura al massimo 16 step (due battute); STOP REC termina prima.
+- REC MIDI (SCHERMATA PRINCIPALE): consigliato quando suoni con la tastiera PC. Premi REC MIDI, suona le note, poi STOP REC oppure lascia terminare automaticamente due battute. Il pulsante diventa VEDI TAKE: apre la registrazione nel Phrase Editor senza togliere il focus ai tasti durante la ripresa.
+- REC (NEL PHRASE EDITOR): ideale per dispositivi MIDI esterni. La cattura dura al massimo 16 step (due battute); STOP REC termina prima.
 - IMPORTA: soltanto quando la cattura e' pronta, sostituisce le note attualmente nel Phrase Editor con la registrazione. Non cancella la frase prima della tua conferma.
 - Vengono registrate note, velocity, durata, CC2 fiato, CC11 volume, CC1 vibrato e pitch bend. Il risultato e' MIDI modificabile, NON una registrazione audio/WAV.
 - Una nota alla volta per step: accordi e note iniziate sul medesimo step possono essere ignorati. Il registratore quantizza su 16 step di crome (due battute in 4/4).
