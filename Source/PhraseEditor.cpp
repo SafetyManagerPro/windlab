@@ -3,17 +3,44 @@
 #include <cmath>
 
 WindLabPhraseEditor::WindLabPhraseEditor(windlab::PhraseEngine& engine,
+                                       windlab::PhraseRecorder& recorder,
                                        std::function<void()> close,
                                        std::function<void()> help)
-    : phrase(engine), onClose(std::move(close)), onHelp(std::move(help))
+    : phrase(engine), capture(recorder), onClose(std::move(close)), onHelp(std::move(help))
 {
     setOpaque(true);
-    for (auto* b : {&playButton, &demoButton, &clearButton, &legatoButton, &closeButton, &hostButton, &scoreButton, &helpButton})
+    for (auto* b : {&playButton, &demoButton, &clearButton, &legatoButton, &closeButton, &hostButton, &scoreButton, &helpButton, &recordButton, &importButton})
     {
         b->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff294651));
         b->setColour(juce::TextButton::textColourOffId, juce::Colours::white);
         addAndMakeVisible(*b);
     }
+    recordingStatus.setColour(juce::Label::textColourId, juce::Colour(0xffb5d0dc));
+    recordingStatus.setFont(juce::Font(12.0f, juce::Font::bold));
+    addAndMakeVisible(recordingStatus);
+    recordButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffad433b));
+    recordButton.setTooltip("Registra MIDI esterno o dalla tastiera PC per due battute (16 step)");
+    importButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff507e5c));
+    importButton.setTooltip("Sostituisce la frase del piano roll con la registrazione completata");
+    recordButton.onClick = [this] {
+        if (capture.status() == windlab::PhraseRecorder::Recording)
+            capture.requestStop();
+        else
+        {
+            phrase.setPlaying(false);
+            capture.requestStart();
+        }
+        updateButtons();
+    };
+    importButton.onClick = [this] {
+        if (capture.importInto(phrase))
+        {
+            selectedStep = 0;
+            scoreView = false;
+            updateButtons();
+            repaint();
+        }
+    };
     playButton.onClick = [this] {
         phrase.setPlaying(!phrase.isPlaying());
         updateButtons();
@@ -39,6 +66,8 @@ WindLabPhraseEditor::WindLabPhraseEditor(windlab::PhraseEngine& engine,
         repaint();
     };
     closeButton.onClick = [this] {
+        if (capture.status() == windlab::PhraseRecorder::Recording)
+            capture.requestStop();
         if (onClose) onClose();
     };
     helpButton.onClick = [this] { if (onHelp) onHelp(); };
@@ -114,6 +143,9 @@ void WindLabPhraseEditor::resized()
     tempoLabel.setBounds(538, 66, 130, 20);
     tempoSlider.setBounds(525, 87, 214, 30);
     closeButton.setBounds(getWidth() - 145, 28, 108, 36);
+    recordButton.setBounds(getWidth() - 640, 27, 102, 36);
+    importButton.setBounds(getWidth() - 526, 27, 125, 36);
+    recordingStatus.setBounds(getWidth() - 389, 29, 180, 34);
     helpButton.setBounds(getWidth() - 199, 28, 43, 36);
     hostButton.setBounds(757, 80, 147, 38);
     scoreButton.setBounds(911, 80, 140, 38);
@@ -129,23 +161,44 @@ void WindLabPhraseEditor::updateButtons()
         ? "HOST " + juce::String(phrase.effectiveTempo()) + " BPM" : "HOST BPM: OFF");
     scoreButton.setButtonText(scoreView ? "PIANO ROLL" : "SCORE VIEW");
     tempoSlider.setEnabled(!phrase.followsHostTempo());
+    const int recordState = capture.status();
+    recordButton.setButtonText(recordState == windlab::PhraseRecorder::Recording
+                                  ? "STOP REC" : "REC");
+    importButton.setEnabled(recordState == windlab::PhraseRecorder::Ready);
+    const juce::String recordText =
+        recordState == windlab::PhraseRecorder::Recording
+        ? ("REC " + juce::String(capture.progress()) + "/16")
+        : recordState == windlab::PhraseRecorder::Ready
+          ? ("PRONTA " + juce::String(capture.notesCaptured()) + " NOTE")
+          : "MIDI: PRONTO";
+    if (recordingStatus.getText() != recordText)
+        recordingStatus.setText(recordText, juce::dontSendNotification);
 }
 
 void WindLabPhraseEditor::paint(juce::Graphics& g)
 {
     const auto full = getLocalBounds().toFloat();
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff0b151c), 0, 0,
+    g.fillAll(juce::Colour(0xff0a151b));
+    // Dialog-like window rendered within the plugin: works in hosts which
+    // restrict external native windows (AU and VST3), and in Standalone.
+    g.setColour(juce::Colour(0xff42606c));
+    g.fillRoundedRectangle(5.0f, 5.0f, full.getWidth() - 10.0f, full.getHeight() - 10.0f, 13.0f);
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff152b35), 0, 0,
                 juce::Colour(0xff203b45), full.getRight(), full.getBottom(), false));
-    g.fillAll();
+    g.fillRoundedRectangle(8.0f, 8.0f, full.getWidth() - 16.0f, full.getHeight() - 16.0f, 11.0f);
     g.setColour(juce::Colour(0xffeeb17d));
-    g.setFont(juce::Font(26.0f, juce::Font::bold));
-    g.drawText("WINDLAB  /  EXPRESSION & PHRASE EDITOR", 31, 19,
-               getWidth() - 205, 38, juce::Justification::centredLeft);
+    g.setFont(juce::Font(21.0f, juce::Font::bold));
+    g.drawText("WINDLAB / PHRASE EDITOR", 27, 19,
+               395, 38, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffb7cbd0));
     g.setFont(juce::Font(13.0f));
-    g.drawText(scoreView
-                   ? "Score preview: staff, accidentals, note lengths and slurs. Switch to Piano Roll for editing."
-                   : "16 steps = 2 bars of eighth-notes. Click to add a note; drag sideways for length, vertically for pitch.",
+    g.drawText(capture.status() == windlab::PhraseRecorder::Recording
+                   ? "REGISTRAZIONE MIDI IN CORSO: suona la tastiera o il controller. STOP REC per terminare prima."
+                   : (capture.status() == windlab::PhraseRecorder::Ready
+                      ? "REGISTRAZIONE PRONTA: premi IMPORTA per modificare le note; la frase originale non e' stata cancellata."
+                      : (scoreView
+                         ? "Score preview: staff, accidentals, note lengths and slurs. Switch to Piano Roll for editing."
+                         : "16 steps = 2 bars of eighth-notes. Click to add a note; drag sideways for length, vertically for pitch.")),
                34, 129, getWidth() - 65, 28, juce::Justification::centredLeft);
 
     const auto r = rollBounds(), lane = laneBounds();
