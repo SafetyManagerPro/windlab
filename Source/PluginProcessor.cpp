@@ -321,6 +321,7 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                         windlab::PhraseEngine::midiChannel, noteOrController), offset);
                     break;
                 case windlab::PhraseEvent::Breath:
+                case windlab::PhraseEvent::Expression:
                     midiMessages.addEvent(juce::MidiMessage::controllerEvent(
                         windlab::PhraseEngine::midiChannel, noteOrController, value), offset);
                     break;
