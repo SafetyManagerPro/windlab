@@ -29,5 +29,7 @@ int main()
     assert(route(7, true, 2, 0, 7).action == R::Keep);
     assert(windlab::routeHybrid(7, true, 74, 4, 7, 1, 2, 11, true).action == R::Remap);
     assert(windlab::routeHybrid(7, false, -1, 4, 7, 1, 2, 11, true).action == R::Drop);
-    std::cout << "WindLab hybrid MIDI route: PASS\\n";
+    // Releasing a note that began before switching to Hybrid must never be filtered.
+    assert(windlab::routeHybrid(7, false, -1, 4, 7, 1, 2, 11, false, true).action == R::Keep);
+    std::cout << "WindLab hybrid MIDI route: PASS\n";
 }
