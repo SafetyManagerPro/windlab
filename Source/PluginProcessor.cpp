@@ -2,6 +2,7 @@
 #include "PluginEditor.h"
 #include "Dsp/WindEngine.h"
 #include "Dsp/VelocityResponse.h"
+#include "Dsp/HybridMidiRoute.h"
 #include <array>
 #include <cmath>
 
@@ -259,6 +260,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"performanceMode", 1}, "MIDI Performance Mode",
         juce::StringArray {"Keyboard / Universal", "Wind MIDI", "Hybrid: Ch1 keys + Ch2 breath"}, 0));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"noteMidiChannel", 1}, "Hybrid Note MIDI Channel",
+        juce::StringArray {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"}, 0));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"breathMidiChannel", 1}, "Hybrid Breath MIDI Channel",
+        juce::StringArray {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"}, 1));
     return layout;
 }
 
@@ -329,33 +336,32 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     // MIDI (notes + CC curves), not a bounced WAV file. Recording and playing
     // use separate buffers so REC never destroys an existing phrase.
     keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
-    // Hybrid: note events arrive on channel 1, expressive MIDI on channel 2.
-    // Mapped CCs are forwarded to Ch1 before recording and synthesis.
-    // Unrelated Ch2 notes are deliberately not played or recorded.
+    // Hybrid combines note input and expression from separate MIDI channels.
+    // Same-channel choices are intentionally treated as passthrough.
     if (static_cast<int>(parameters.getRawParameterValue("performanceMode")->load()) == 2)
     {
-        juce::MidiBuffer merged;
-        const int vibratoCC = midiLearn.binding(windlab::MidiLearnBindings::Vibrato);
-        const int breathCC = midiLearn.binding(windlab::MidiLearnBindings::Breath);
-        const int expressionCC = midiLearn.binding(windlab::MidiLearnBindings::Expression);
-        for (const auto event : midiMessages)
+        const int notesCh = 1 + static_cast<int>(parameters.getRawParameterValue("noteMidiChannel")->load());
+        const int breathCh = 1 + static_cast<int>(parameters.getRawParameterValue("breathMidiChannel")->load());
+        if (notesCh != breathCh)
         {
-            auto msg = event.getMessage();
-            if (msg.getChannel() == 2)
+            juce::MidiBuffer merged;
+            const int vibratoCC = midiLearn.binding(windlab::MidiLearnBindings::Vibrato);
+            const int breathCC = midiLearn.binding(windlab::MidiLearnBindings::Breath);
+            const int expressionCC = midiLearn.binding(windlab::MidiLearnBindings::Expression);
+            for (const auto event : midiMessages)
             {
-                if (msg.isController())
-                {
-                    const int cc = msg.getControllerNumber();
-                    if (cc == vibratoCC || cc == breathCC || cc == expressionCC)
-                    {
-                        msg.setChannel(1);
-                        merged.addEvent(msg, event.samplePosition);
-                    }
-                }
+                auto msg = event.getMessage();
+                const auto decision = windlab::routeHybrid(
+                    msg.getChannel(), msg.isController(),
+                    msg.isController() ? msg.getControllerNumber() : -1,
+                    notesCh, breathCh, vibratoCC, breathCC, expressionCC);
+                if (decision.action == windlab::HybridRoute::Drop) continue;
+                if (decision.action == windlab::HybridRoute::Remap)
+                    msg.setChannel(decision.channel);
+                merged.addEvent(msg, event.samplePosition);
             }
-            else merged.addEvent(msg, event.samplePosition);
+            midiMessages.swapWith(merged);
         }
-        midiMessages.swapWith(merged);
     }
     phraseRecorder.beginBlock(buffer.getNumSamples(), getSampleRate(), phrase.effectiveTempo());
     for (const auto metadata : midiMessages)
