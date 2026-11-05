@@ -20,3 +20,14 @@ WindLab now offers **MIDI PERFORMANCE** below the instrument selectors.
 - In the plugin, OS hardware port selection and BLE pairing remain the responsibility of the DAW; Standalone relies on JUCE's audio/MIDI settings.
 - The existing MIDI Learn, project persistence, sample bank and internal channel-16 phrase playback remain unchanged.
 - Live validation should cover Windows Standalone/VST3, macOS Standalone/AU/VST3, CC2 and learned CC11 routing, both modes and switching modes while notes are held.
+
+## Breath calibration (new)
+The bottom strip now includes **SOFFIO: SOGLIA** and **SOFFIO: CURVA**.
+
+- **Soglia / activation threshold**: 0–0.50. Values below the threshold result in silent breath; values above it are normalized to 0–1.
+- **Curva / response exponent**: 0.35–3.00. 1.0 is linear; lower values give more response to soft breath, higher values give more precision at stronger breath levels.
+- Defaults (0.0 and 1.0) preserve previous external MIDI CC2 behaviour.
+- Calibration is applied to incoming MIDI CCs mapped to breath, before the existing WindEngine smoothing, both on held notes and before note-on. Internal Phrase Editor channel 16 is deliberately excluded from external hardware calibration.
+- The settings are plugin parameters and persist in the DAW project.
+
+**Test**: a separate JUCE-free `windlab_breath_calibration_smoke` checks the default identity curve, activation threshold, normalization, exponent response and input bounds. CI/build is still required before claiming runtime compatibility.
