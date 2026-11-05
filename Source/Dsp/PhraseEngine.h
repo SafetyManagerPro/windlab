@@ -16,6 +16,7 @@ struct PhraseNote
     int velocity = 96;       // note-on timbre / intensity
     int breath = 112;        // CC2, automatically interpolated into next step
     int expression = 110;   // CC11, continuous held-note volume
+    int vibrato = 0;        // CC1 modulation, continuous vibrato intensity
     int bend = 64;           // 0..127: 64 = centre, +-2 semitones
     int gate = 1;            // duration in eighth-note steps (1..8)
     bool active = false;
@@ -32,7 +33,8 @@ inline std::uint64_t packPhraseNote(PhraseNote n) noexcept
         | (static_cast<std::uint64_t>(clamp(n.gate, 1, 8)) << 28)
         | (static_cast<std::uint64_t>(n.active ? 1 : 0) << 32)
         | (static_cast<std::uint64_t>(n.legato ? 1 : 0) << 33)
-        | (static_cast<std::uint64_t>(clamp(n.expression, 0, 127)) << 34);
+        | (static_cast<std::uint64_t>(clamp(n.expression, 0, 127)) << 34)
+        | (static_cast<std::uint64_t>(clamp(n.vibrato, 0, 127)) << 41);
 }
 
 inline PhraseNote unpackPhraseNote(std::uint64_t p) noexcept
@@ -46,10 +48,11 @@ inline PhraseNote unpackPhraseNote(std::uint64_t p) noexcept
     n.active = ((p >> 32) & 1u) != 0;
     n.legato = ((p >> 33) & 1u) != 0;
     n.expression = static_cast<int>((p >> 34) & 127u);
+    n.vibrato = static_cast<int>((p >> 41) & 127u);
     return n;
 }
 
-enum class PhraseEvent : int { NoteOn, NoteOff, Breath, Expression, PitchWheel };
+enum class PhraseEvent : int { NoteOn, NoteOff, Breath, Expression, PitchWheel, ModWheel };
 
 class PhraseEngine
 {
@@ -111,6 +114,20 @@ public:
     bool isPlaying() const noexcept { return playing.load(std::memory_order_acquire); }
     void setTempo(int v) noexcept { tempo.store(std::clamp(v, 45, 220), std::memory_order_release); }
     int getTempo() const noexcept { return tempo.load(std::memory_order_acquire); }
+    void setFollowHostTempo(bool enabled) noexcept { followHostTempo.store(enabled, std::memory_order_release); }
+    bool followsHostTempo() const noexcept { return followHostTempo.load(std::memory_order_acquire); }
+    // Audio callback may read host BPM without changing the editor's internal tempo.
+    // This follows the DAW's tempo, not the DAW playhead/song position.
+    void setHostTempo(double bpm) noexcept
+    {
+        if (std::isfinite(bpm) && bpm > 0.0)
+            hostTempo.store(std::clamp(static_cast<int>(std::lround(bpm)), 30, 300),
+                            std::memory_order_release);
+    }
+    int effectiveTempo() const noexcept
+    {
+        return followsHostTempo() ? hostTempo.load(std::memory_order_acquire) : getTempo();
+    }
     int visualStep() const noexcept { return displayedStep.load(std::memory_order_relaxed); }
 
     template <class Emit>
@@ -133,7 +150,7 @@ public:
 
         // 16 eighth-note steps = two 4/4 bars. Tempo intentionally independent
         // of DAW transport in this version; Play/Stop is explicit and predictable.
-        const double stepSamples = sampleRate * 30.0 / static_cast<double>(getTempo());
+        const double stepSamples = sampleRate * 30.0 / static_cast<double>(effectiveTempo());
         const double controlInterval = std::max(32.0, sampleRate / 55.0);
         for (int i = 0; i < blockSamples; ++i)
         {
@@ -156,6 +173,7 @@ public:
                 // starts at the intended breath and pitch, not the previous step.
                 emit(PhraseEvent::Breath, 2, n.breath, i);
                 emit(PhraseEvent::Expression, 11, n.expression, i);
+                emit(PhraseEvent::ModWheel, 1, n.vibrato, i);
                 emit(PhraseEvent::PitchWheel, 0,
                      std::clamp(8192 + (n.bend - 64) * 128, 0, 16383), i);
                 if (n.active)
@@ -192,6 +210,9 @@ public:
                     a.expression + (b.expression - a.expression) * fraction)), 0, 127);
                 emit(PhraseEvent::Breath, 2, cc2, i);
                 emit(PhraseEvent::Expression, 11, cc11, i);
+                const int cc1 = std::clamp(static_cast<int>(std::lround(
+                    a.vibrato + (b.vibrato - a.vibrato) * fraction)), 0, 127);
+                emit(PhraseEvent::ModWheel, 1, cc1, i);
                 emit(PhraseEvent::PitchWheel, 0, std::clamp(8192 + (bend - 64) * 128, 0, 16383), i);
                 controllerCountdown += controlInterval;
             }
@@ -210,7 +231,8 @@ private:
     struct Voice { int pitch = 60; double remaining = 0.0; bool active = false; };
     std::array<std::atomic<std::uint64_t>, steps> notes {};
     std::atomic<bool> playing {false};
-    std::atomic<int> tempo {110}, displayedStep {0};
+    std::atomic<int> tempo {110}, hostTempo {110}, displayedStep {0};
+    std::atomic<bool> followHostTempo {false};
     std::atomic<unsigned> revision {0};
     // Below: audio-thread only.
     std::array<Voice, 16> voices {};

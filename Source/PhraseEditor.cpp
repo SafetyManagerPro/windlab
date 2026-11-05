@@ -7,7 +7,7 @@ WindLabPhraseEditor::WindLabPhraseEditor(windlab::PhraseEngine& engine,
     : phrase(engine), onClose(std::move(close))
 {
     setOpaque(true);
-    for (auto* b : {&playButton, &demoButton, &clearButton, &legatoButton, &closeButton})
+    for (auto* b : {&playButton, &demoButton, &clearButton, &legatoButton, &closeButton, &hostButton, &scoreButton})
     {
         b->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff294651));
         b->setColour(juce::TextButton::textColourOffId, juce::Colours::white);
@@ -40,11 +40,21 @@ WindLabPhraseEditor::WindLabPhraseEditor(windlab::PhraseEngine& engine,
     closeButton.onClick = [this] {
         if (onClose) onClose();
     };
+    hostButton.onClick = [this] {
+        phrase.setFollowHostTempo(!phrase.followsHostTempo());
+        updateButtons();
+    };
+    scoreButton.onClick = [this] {
+        scoreView = !scoreView;
+        updateButtons();
+        repaint();
+    };
 
     laneBox.addItem("BREATH / FIATO (CC2)", 1);
     laneBox.addItem("VELOCITY / INTENSITY", 2);
     laneBox.addItem("VOLUME / EXPRESSION CC11", 3);
     laneBox.addItem("PITCH BEND (+/-2 SEMI)", 4);
+    laneBox.addItem("VIBRATO / MOD WHEEL (CC1)", 5);
     laneBox.setSelectedId(1, juce::dontSendNotification);
     laneBox.onChange = [this] { repaint(); };
     laneBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff213943));
@@ -101,6 +111,8 @@ void WindLabPhraseEditor::resized()
     tempoLabel.setBounds(538, 66, 130, 20);
     tempoSlider.setBounds(525, 87, 214, 30);
     closeButton.setBounds(getWidth() - 145, 28, 108, 36);
+    hostButton.setBounds(757, 80, 147, 38);
+    scoreButton.setBounds(911, 80, 140, 38);
     laneBox.setBounds(75, 543, 287, 34);
 }
 
@@ -109,6 +121,10 @@ void WindLabPhraseEditor::updateButtons()
     playButton.setButtonText(phrase.isPlaying() ? "STOP" : "PLAY");
     legatoButton.setButtonText(phrase.note(selectedStep).legato
                              ? "LEGATO: ON" : "LEGATO: OFF");
+    hostButton.setButtonText(phrase.followsHostTempo()
+        ? "HOST " + juce::String(phrase.effectiveTempo()) + " BPM" : "HOST BPM: OFF");
+    scoreButton.setButtonText(scoreView ? "PIANO ROLL" : "SCORE VIEW");
+    tempoSlider.setEnabled(!phrase.followsHostTempo());
 }
 
 void WindLabPhraseEditor::paint(juce::Graphics& g)
@@ -123,7 +139,9 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
                getWidth() - 205, 38, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffb7cbd0));
     g.setFont(juce::Font(13.0f));
-    g.drawText("16 steps = 2 bars of eighth-notes. Click to add a note; drag sideways for length, vertically for pitch.",
+    g.drawText(scoreView
+                   ? "Score preview: staff, accidentals, note lengths and slurs. Switch to Piano Roll for editing."
+                   : "16 steps = 2 bars of eighth-notes. Click to add a note; drag sideways for length, vertically for pitch.",
                34, 129, getWidth() - 65, 28, juce::Justification::centredLeft);
 
     const auto r = rollBounds(), lane = laneBounds();
@@ -133,6 +151,8 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
 
     const auto stepWidth = r.getWidth() / 16.0f;
     const auto pitchHeight = r.getHeight() / 37.0f;
+    if (!scoreView)
+    {
     for (int pitch = 48; pitch <= 84; ++pitch)
     {
         const float y = r.getY() + (84 - pitch) * pitchHeight;
@@ -150,6 +170,25 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
             g.setColour(juce::Colour(0xff213943));
             g.drawHorizontalLine(static_cast<int>(y), r.getX(), r.getRight());
         }
+    }
+
+    }
+    else
+    {
+        // Staff preview uses semitone-aware diatonic positions. The on-screen
+        // piano roll remains the primary editable representation.
+        const float staffBottom = r.getY() + 277.0f;
+        constexpr float halfSpace = 9.3f;
+        for (int line = 0; line < 5; ++line)
+        {
+            const float y = staffBottom - line * (2.0f * halfSpace);
+            g.setColour(juce::Colour(0xff9bb4ba));
+            g.drawLine(r.getX() + 2.0f, y, r.getRight() - 3.0f, y, 1.2f);
+        }
+        g.setColour(juce::Colour(0xffe4c19f));
+        g.setFont(juce::Font(14.0f, juce::Font::bold));
+        g.drawText("TREBLE   E4 - F5", static_cast<int>(r.getX() + 7), 
+                   static_cast<int>(staffBottom + 33), 235, 24, juce::Justification::centredLeft);
     }
 
     for (int step = 0; step <= 16; ++step)
@@ -175,6 +214,8 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
         g.fillRect(x, r.getY(), stepWidth, lane.getBottom() - r.getY());
     }
 
+    if (!scoreView)
+    {
     for (int step = 0; step < 16; ++step)
     {
         const auto n = phrase.note(step);
@@ -194,17 +235,96 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
         }
     }
 
+    }
+    else
+    {
+        const float staffBottom = r.getY() + 277.0f;
+        constexpr float halfSpace = 9.3f;
+        constexpr int semiToDiatonic[12] {0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6};
+        const auto staffIndex = [&](int midi) {
+            const int clamped = juce::jlimit(0, 127, midi);
+            return (clamped / 12 - 5) * 7 + semiToDiatonic[clamped % 12];
+        };
+        const auto noteY = [&](int midi) {
+            return staffBottom - (staffIndex(midi) - 2) * halfSpace;
+        };
+        for (int step = 0; step < 16; ++step)
+        {
+            const auto n = phrase.note(step);
+            if (!n.active) continue;
+            const float x = r.getX() + (step + .5f) * stepWidth;
+            const float y = noteY(n.pitch);
+            const int staff = staffIndex(n.pitch);
+            g.setColour(juce::Colour(0xff96b5c0));
+            for (int index = 0; index >= staff; index -= 2)
+            {
+                const float ly = staffBottom - (index - 2) * halfSpace;
+                g.drawLine(x - 12.0f, ly, x + 16.0f, ly, 1.1f);
+            }
+            for (int index = 12; index <= staff; index += 2)
+            {
+                const float ly = staffBottom - (index - 2) * halfSpace;
+                g.drawLine(x - 12.0f, ly, x + 16.0f, ly, 1.1f);
+            }
+            g.setColour(step == selectedStep ? juce::Colour(0xffffd18e)
+                                             : juce::Colour(0xffeeaa79));
+            g.fillEllipse(x - 9.0f, y - 5.5f, 18.0f, 11.0f);
+            if (staff < 6)
+                g.drawLine(x + 8.0f, y, x + 8.0f, y - 29.0f, 1.7f);
+            else
+                g.drawLine(x - 8.0f, y, x - 8.0f, y + 29.0f, 1.7f);
+            const int pitchClass = juce::jlimit(0, 127, n.pitch) % 12;
+            if (pitchClass == 1 || pitchClass == 3 || pitchClass == 6 ||
+                pitchClass == 8 || pitchClass == 10)
+            {
+                g.setFont(juce::Font(15.0f, juce::Font::bold));
+                g.drawText("#", static_cast<int>(x - 23), static_cast<int>(y - 12), 14, 25,
+                           juce::Justification::centred);
+            }
+            // Length is represented visually by an unobtrusive duration guide,
+            // not an invented musical rhythmic value.
+            if (n.gate > 1)
+            {
+                g.setColour(juce::Colour(0xff688c94));
+                g.drawLine(x + 12.0f, y + 12.0f,
+                           std::min(r.getRight() - 3.0f,
+                                    x + stepWidth * (n.gate - 1) + 12.0f),
+                           y + 12.0f, 1.8f);
+            }
+            // In the MIDI engine, LEGATO belongs to the destination note:
+            // draw a slur from a previous sounding note into this attack.
+            if (n.legato)
+            {
+                for (int previous = step - 1; previous >= 0; --previous)
+                {
+                    const auto src = phrase.note(previous);
+                    if (!src.active || previous + src.gate < step) continue;
+                    const float x0 = r.getX() + (previous + .5f) * stepWidth;
+                    const float y0 = noteY(src.pitch);
+                    juce::Path slur;
+                    slur.startNewSubPath(x0 + 9.0f, y0 - 9.0f);
+                    slur.quadraticTo((x0 + x) * .5f, std::min(y0, y) - 29.0f,
+                                    x - 9.0f, y - 9.0f);
+                    g.setColour(juce::Colour(0xffa6ebef));
+                    g.strokePath(slur, juce::PathStrokeType(1.8f));
+                    break;
+                }
+            }
+        }
+    }
+
     // Draw editable continuous expression points: no score renderer required.
     const int laneType = laneBox.getSelectedId();
     g.setColour(juce::Colour(0xffa6bbc1));
     g.setFont(juce::Font(12.0f, juce::Font::bold));
     g.drawText(laneType == 1 ? "BREATH CC2" :
                laneType == 2 ? "NOTE VELOCITY" :
-               laneType == 3 ? "VOLUME CC11" : "PITCH BEND", 377, 545, 210, 26,
+               laneType == 3 ? "VOLUME CC11" :
+               laneType == 4 ? "PITCH BEND" : "VIBRATO CC1", 377, 545, 210, 26,
                juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xff92aeb6));
     g.setFont(juce::Font(11.0f));
-    g.drawText("Drag curve points. Breath, volume and pitch interpolate while notes sustain.",
+    g.drawText("Drag lane points. Breath, volume, pitch and vibrato interpolate during held notes.",
                565, 549, getWidth() - 610, 22, juce::Justification::centredLeft);
 
     if (laneType == 4)
@@ -218,7 +338,8 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
             const auto n = phrase.note(s);
             return laneType == 1 ? n.breath :
                    laneType == 2 ? n.velocity :
-                   laneType == 3 ? n.expression : n.bend;
+                   laneType == 3 ? n.expression :
+                   laneType == 4 ? n.bend : n.vibrato;
         };
         const float x = lane.getX() + (step + .5f) * stepWidth;
         const float y = lane.getBottom() - (getValue(step) / 127.0f) * lane.getHeight();
@@ -243,12 +364,16 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
         + "   BREATH " + juce::String(current.breath)
         + "   VOLUME " + juce::String(current.expression)
         + "   BEND " + juce::String(current.bend - 64)
+        + "   VIBRATO " + juce::String(current.vibrato)
         + "   LENGTH " + juce::String(current.gate) + " STEPS",
         75, 781, getWidth() - 115, 23, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xff91aeb7));
     g.setFont(juce::Font(11.0f));
-    g.drawText("Right click note = delete. LEGATO joins adjacent phrases with a short overlap. "
-               "Free-running tempo; DAW timeline synchronization will follow.",
+    g.drawText(scoreView
+              ? "Notation is a preview, not editable. Use Piano Roll to edit notes and legato."
+              : (phrase.followsHostTempo()
+                 ? "Tempo follows DAW BPM; Play remains manual and does not follow host transport position."
+                 : "Right-click note = delete. LEGATO creates a short overlap. Use HOST BPM for tempo."),
                75, 806, getWidth() - 115, 27, juce::Justification::centredLeft);
 }
 
@@ -257,6 +382,7 @@ void WindLabPhraseEditor::mouseDown(const juce::MouseEvent& e)
     if (rollBounds().contains(e.position))
     {
         selectedStep = stepAt(e.position.x);
+        if (scoreView) { updateButtons(); repaint(); return; }
         firstDragStep = selectedStep;
         editingNote = true;
         auto n = phrase.note(selectedStep);
@@ -314,6 +440,7 @@ void WindLabPhraseEditor::updateLane(float x, float y)
         case 2: n.velocity = std::max(1, value); break;
         case 3: n.expression = value; break;
         case 4: n.bend = value; break;
+        case 5: n.vibrato = value; break;
         default: return;
     }
     phrase.setNote(step, n);

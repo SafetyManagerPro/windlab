@@ -303,6 +303,16 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     juce::ScopedNoDenormals noDenormals;
     buffer.clear();
 
+    if (phrase.followsHostTempo())
+    {
+        // Tempo is independent of transport start/stop in v0.8.
+        // If a standalone player has no host, the last known (or 110) BPM is used.
+        if (auto* host = getPlayHead())
+            if (const auto position = host->getPosition())
+                if (const auto bpm = position->getBpm())
+                    phrase.setHostTempo(*bpm);
+    }
+
     // Phrase Editor uses an isolated channel 16; external MIDI and the on-screen
     // keyboard remain available on their normal channels. MIDI generation is
     // bounded and sample-accurate within this audio block.
@@ -322,6 +332,7 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                     break;
                 case windlab::PhraseEvent::Breath:
                 case windlab::PhraseEvent::Expression:
+                case windlab::PhraseEvent::ModWheel:
                     midiMessages.addEvent(juce::MidiMessage::controllerEvent(
                         windlab::PhraseEngine::midiChannel, noteOrController, value), offset);
                     break;
@@ -398,6 +409,7 @@ void WindLabAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
         // remain intact. UI/audio handoff consists only of atomic reads.
         auto* phraseXml = xml->createNewChildElement("WindLabPhraseV1");
         phraseXml->setAttribute("tempo", phrase.getTempo());
+        phraseXml->setAttribute("followHostTempo", phrase.followsHostTempo() ? 1 : 0);
         for (int i = 0; i < windlab::PhraseEngine::steps; ++i)
             phraseXml->setAttribute("s" + juce::String(i),
                 juce::String(static_cast<juce::int64>(phrase.packed(i))));
@@ -412,9 +424,11 @@ void WindLabAudioProcessor::setStateInformation(const void* data, int sizeInByte
         if (!xml->hasTagName(parameters.state.getType())) return;
         phrase.setPlaying(false); // project recall must never auto-start a phrase
         phrase.clear();
+        phrase.setFollowHostTempo(false); // old sessions keep their v0.7 tempo
         if (auto* phraseXml = xml->getChildByName("WindLabPhraseV1"))
         {
             phrase.setTempo(phraseXml->getIntAttribute("tempo", 110));
+            phrase.setFollowHostTempo(phraseXml->getBoolAttribute("followHostTempo", false));
             for (int i = 0; i < windlab::PhraseEngine::steps; ++i)
             {
                 const auto name = "s" + juce::String(i);

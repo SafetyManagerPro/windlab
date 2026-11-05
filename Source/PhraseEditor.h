@@ -21,12 +21,14 @@ private:
     std::function<void()> onClose;
     juce::TextButton playButton {"PLAY"}, demoButton {"DEMO"},
                      clearButton {"CLEAR"}, legatoButton {"LEGATO: OFF"},
-                     closeButton {"CLOSE"};
+                     closeButton {"CLOSE"}, hostButton {"HOST BPM: OFF"},
+                     scoreButton {"SCORE VIEW"};
     juce::Slider tempoSlider;
     juce::ComboBox laneBox;
     juce::Label tempoLabel;
     int selectedStep = 0, firstDragStep = 0;
     bool editingNote = false, editingLane = false;
+    bool scoreView = false;
     juce::Rectangle<float> rollBounds() const;
     juce::Rectangle<float> laneBounds() const;
     int stepAt(float x) const;

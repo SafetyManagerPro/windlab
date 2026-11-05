@@ -1,3 +1,39 @@
+# WindLab 0.8 — Score Preview, Host BPM and Vibrato Lane
+
+## Consolidated music editing improvements
+
+The **PHRASE EDITOR** now includes the original v0.7 piano roll and four
+expressive lanes, plus:
+
+- **SCORE VIEW / PIANO ROLL:** alternate between the editable piano roll and
+  a read-only staff preview (treble clef register E4–F5 with ledger lines).
+  The preview displays pitches, sharp accidentals, visual note-duration
+  guides and the LEGATO slur to the next note. It is **not** a formal
+  engraving engine or a MusicXML editor; edit pitches, durations and
+  legato in Piano Roll.
+- **VIBRATO / MOD WHEEL (CC1):** a fifth expression lane with editable
+  0–127 points. Playback interpolates vibrato between steps at the same
+  control rate as breath, volume and pitch bend.
+- **HOST BPM:** optionally follow the tempo reported by Logic Pro, Studio
+  One or another AU/VST3 host. Turn it off for the original independent
+  45–220 BPM tempo. This preference and the vibrato points are saved in
+  project state alongside the existing phrase data.
+- **Transport limitation:** pressing PLAY is still necessary, and the phrase
+  currently loops independently of the DAW song position. HOST BPM follows
+  **tempo only**, not the DAW playback state or measure/beat location.
+  In Standalone, without a DAW tempo provider, the last known tempo (or
+  110 BPM initially) is used.
+- **Project compatibility:** existing v0.7 phrases load; their new
+  vibrato lane defaults to zero and HOST BPM is off. Previous parameter
+  IDs, sound bank and MIDI channel mapping remain unchanged.
+
+The audio engine still uses recorded VSCO/FreePats CC0 instruments;
+legato currently overlaps note envelopes. True recorded transitions,
+DAW song-position sync, polyphonic MPE pitch and fully editable notation
+remain future development tasks and are **not** claimed in v0.8.
+
+## Previous: v0.7 Expression & Phrase Editor
+
 # WindLab 0.7 — Expression & Phrase Editor (AU / VST3 / Standalone)
 
 ## New: edit notes, join phrases and draw breath/pitch curves
