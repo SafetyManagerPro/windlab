@@ -1,6 +1,7 @@
 #include "Dsp/WindEngine.h"
 #include "Dsp/ToneEQ.h"
 #include "Dsp/VelocityResponse.h"
+#include "Dsp/SampleLoopPlan.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -161,5 +162,28 @@ int main()
         assert(applyVelocityResponse(4.0f, profile) == 1.0f);
     }
 
-    std::cout << "WindLab 0.6 DSP: PASS (winds, breath length, natural variation, EQ, controllers, 3 rates).\\n";
+    // Real WAV sustain regions are aligned to nearby rising zero crossings.
+    std::array<float, 48000> syntheticSample {};
+    for (std::size_t i = 0; i < syntheticSample.size(); ++i)
+        syntheticSample[i] = .6f * static_cast<float>(
+            std::sin(6.28318530718 * 440.0 * static_cast<double>(i) / 48000.0));
+    const auto plan = windlab::chooseSampleLoop(syntheticSample.data(),
+                                                 static_cast<int>(syntheticSample.size()), 48000.0);
+    assert(plan.valid);
+    assert(plan.start > 12000 && plan.start < 15000);
+    assert(plan.end > 34500 && plan.end < 37500);
+    assert(plan.fade >= 16 && plan.end > plan.start + plan.fade * 3);
+    assert(syntheticSample[static_cast<std::size_t>(plan.start - 1)] <= 0.0f);
+    assert(syntheticSample[static_cast<std::size_t>(plan.start)] > 0.0f);
+    assert(syntheticSample[static_cast<std::size_t>(plan.end - 1)] <= 0.0f);
+    assert(syntheticSample[static_cast<std::size_t>(plan.end)] > 0.0f);
+    assert(!windlab::chooseSampleLoop(nullptr, 1000, 48000.0).valid);
+
+    // Authentic staccato one-shots must approach silence without hard cuts.
+    assert(windlab::oneShotTailGain(0.0, 48000, 48000.0) == 1.0f);
+    assert(windlab::oneShotTailGain(48000 - 2, 48000, 48000.0) == 0.0f);
+    assert(windlab::oneShotTailGain(48000 - 2 - 336, 48000, 48000.0) > .45f);
+    assert(windlab::oneShotTailGain(48000 - 2 - 336, 48000, 48000.0) < .55f);
+
+    std::cout << "WindLab 0.9 DSP: PASS (winds, breath length, natural variation, EQ, controllers, 3 rates).\\n";
 }
