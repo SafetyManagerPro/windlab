@@ -51,12 +51,12 @@ int main()
     const auto emit = [&](windlab::PhraseEvent t, int p, int v, int offset)
     { events.push_back({t, p, v, offset}); };
     phrase.setPlaying(true);
-    phrase.process(49000, 48000.0, emit); // four 1/8 steps at 120 BPM
+    phrase.process(33000, 48000.0, emit); // into third 1/8-step note
     int on60 = 0, on67 = 0, off60 = 0, breathEvents = 0, pitchEvents = 0;
     bool sawInterpolatedBreath = false;
     for (const auto& e : events)
     {
-        if (!check(e.offset >= 0 && e.offset < 49000, "event must be inside buffer")) return 2;
+        if (!check(e.offset >= 0 && e.offset < 33000, "event must be inside buffer")) return 2;
         if (e.type == windlab::PhraseEvent::NoteOn)
         {
             if (e.note == 60 && e.value == 91) ++on60;
