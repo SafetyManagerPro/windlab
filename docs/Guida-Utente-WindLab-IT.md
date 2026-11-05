@@ -1,6 +1,6 @@
 # WindLab — Guida utente (italiano)
 
-> Aggiornata per WindLab **0.9.1**. La stessa guida è consultabile **senza Internet** aprendo il pulsante **?** nella schermata principale del plugin o della Standalone. Nel Phrase Editor, il **?** apre direttamente la sezione dedicata alla creazione e modifica delle frasi.
+> Aggiornata per WindLab **0.9.2**. La stessa guida è consultabile **senza Internet** aprendo il pulsante **?** nella schermata principale del plugin o della Standalone. Nel Phrase Editor, il **?** apre direttamente la sezione dedicata alla creazione e modifica delle frasi.
 
 ## 1. Avvio e formati
 
@@ -66,6 +66,36 @@ Per un **pianoforte a tasti pesati**, collegare la porta USB-MIDI o MIDI DIN con
 
 **Controller**: CC1 vibrato, CC2 fiato, CC11 espressione/volume, pitch bend intonazione, aftertouch pressione. Il controller deve essere configurato per emettere questi messaggi.
 
+### MIDI LEARN — assegnazione rapida di pedali e controller (0.9.2)
+
+Il pulsante **MIDI LEARN** è nella parte superiore della finestra principale.
+Funziona anche nella **Standalone Mac** e in **Logic Pro AU**, oltre che nelle
+versioni VST3.
+
+1. Collega la periferica e assicurati che il suo MIDI arrivi alla traccia strumento.
+2. Apri **MIDI LEARN**; scegli **IMPARA** nella riga **VIBRATO**, **FIATO**
+   oppure **VOLUME / EXPRESSION**.
+3. Muovi il pedale, il fader, la rotella o il potenziometro hardware. WindLab
+   acquisisce il primo messaggio MIDI CC valido sui canali MIDI 1–15.
+4. Controlla il numero **CC** visualizzato, premi **CHIUDI X** e prova a suonare.
+
+**ANNULLA** interrompe l'apprendimento senza modificare la mappatura.
+**RESET CC** ripristina i valori iniziali: CC1 per vibrato, CC2 per fiato,
+CC11 per volume/espressione. Le assegnazioni sono memorizzate *nel progetto
+Logic/Studio One* insieme alle impostazioni WindLab, non a livello globale
+su tutto il computer.
+
+Se assegni a un controllo un CC già utilizzato, WindLab **scambia i due
+numeri** invece di assegnare involontariamente un unico controllo a due
+funzioni. Puoi anche imparare **CC64** da un pedale sustain: in quel caso
+il messaggio viene destinato all'espressione selezionata, **non** al sustain
+tradizionale. I messaggi della sequenza interna sul **canale 16** rimangono
+esclusi dall'apprendimento.
+
+Il MIDI Learn attuale copre tre destinazioni (vibrato, fiato e volume).
+Non è ancora disponibile l'assegnazione universale di ogni manopola,
+né il controllo MIDI MPE separato per singola nota.
+
 ## 4. Manopole del suono
 
 | Gruppo | Comandi |
@@ -112,7 +142,7 @@ Le frasi sono salvate **nel progetto della DAW** tramite lo stato del plugin. Qu
 
 ## 8. Limiti attuali (non confondere con funzioni già disponibili)
 
-WindLab è ancora un prototipo in sviluppo. **Non** sono disponibili: legato con registrazioni autentiche di transizione, MIDI Learn universale, sincronizzazione automatica della frase con la posizione della DAW, MPE per-nota completo, spartito completamente modificabile/MusicXML, esportazione MIDI dalla frase e pacchetti universalmente firmati/notarizzati.
+WindLab è ancora un prototipo in sviluppo. **Non** sono disponibili: legato con registrazioni autentiche di transizione, MIDI Learn universale per tutte le manopole, sincronizzazione automatica della frase con la posizione della DAW, MPE per-nota completo, spartito completamente modificabile/MusicXML, esportazione MIDI dalla frase e pacchetti universalmente firmati/notarizzati.
 
 La compilazione su GitHub di AU/VST3/Standalone e i test automatici non sostituiscono un **test d'ascolto e caricamento manuale** in Logic Pro e Studio One.
 
