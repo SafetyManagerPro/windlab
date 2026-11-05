@@ -22,9 +22,20 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Cache recorded CC0 WAV bank
+        uses: actions/cache@v4
+        with:
+          path: Resources/Samples
+          key: windlab-cc0-v05-${{ runner.os }}-${{ hashFiles('scripts/download-recordings.py') }}
+
+
       - name: Fetch CC0 acoustic samples
         shell: pwsh
         run: python scripts/download-recordings.py
+
+      - name: Verify acoustic recordings, velocity layers and staccatos
+        shell: pwsh
+        run: python tests/validate-recorded-bank.py
 
       - name: Configure (Visual Studio 2022)
         shell: pwsh
@@ -88,6 +99,13 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Cache recorded CC0 WAV bank
+        uses: actions/cache@v4
+        with:
+          path: Resources/Samples
+          key: windlab-cc0-v05-${{ runner.os }}-${{ hashFiles('scripts/download-recordings.py') }}
+
+
       - name: Verify tools and architecture
         shell: bash
         run: |
@@ -98,6 +116,10 @@ jobs:
       - name: Fetch CC0 acoustic samples
         shell: bash
         run: python3 scripts/download-recordings.py
+
+      - name: Verify acoustic recordings, velocity layers and staccatos
+        shell: bash
+        run: python3 tests/validate-recorded-bank.py
 
       - name: Configure (Xcode, arm64)
         shell: bash
