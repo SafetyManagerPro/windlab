@@ -1,6 +1,11 @@
 # WindLab 0.9.3 — REC MIDI → Phrase Editor + popup in-plugin
 
+**REC MIDI / STOP REC / VEDI TAKE** nella schermata principale, e
 **REC / STOP REC / IMPORTA** nello **Expression & Phrase Editor**.
+Per usare la tastiera PC premi REC MIDI nella schermata principale: il focus
+rimane sui tasti; quando la registrazione è pronta premi VEDI TAKE e infine
+IMPORTA nell'editor. Con una periferica MIDI esterna puoi registrare anche
+dentro il Phrase Editor.
 Suona una tastiera PC, il piano grafico, un controller USB MIDI, un
 pianoforte pesato o uno strumento MIDI a fiato. WindLab acquisisce fino a
 **due battute / 16 step di crome** in un buffer separato (nessuna cancellazione
