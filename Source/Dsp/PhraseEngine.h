@@ -15,6 +15,7 @@ struct PhraseNote
     int pitch = 60;          // MIDI note
     int velocity = 96;       // note-on timbre / intensity
     int breath = 112;        // CC2, automatically interpolated into next step
+    int expression = 110;   // CC11, continuous held-note volume
     int bend = 64;           // 0..127: 64 = centre, +-2 semitones
     int gate = 1;            // duration in eighth-note steps (1..8)
     bool active = false;
@@ -30,7 +31,8 @@ inline std::uint64_t packPhraseNote(PhraseNote n) noexcept
         | (static_cast<std::uint64_t>(clamp(n.bend, 0, 127)) << 21)
         | (static_cast<std::uint64_t>(clamp(n.gate, 1, 8)) << 28)
         | (static_cast<std::uint64_t>(n.active ? 1 : 0) << 32)
-        | (static_cast<std::uint64_t>(n.legato ? 1 : 0) << 33);
+        | (static_cast<std::uint64_t>(n.legato ? 1 : 0) << 33)
+        | (static_cast<std::uint64_t>(clamp(n.expression, 0, 127)) << 34);
 }
 
 inline PhraseNote unpackPhraseNote(std::uint64_t p) noexcept
@@ -43,10 +45,11 @@ inline PhraseNote unpackPhraseNote(std::uint64_t p) noexcept
     n.gate = std::clamp(static_cast<int>((p >> 28) & 15u), 1, 8);
     n.active = ((p >> 32) & 1u) != 0;
     n.legato = ((p >> 33) & 1u) != 0;
+    n.expression = static_cast<int>((p >> 34) & 127u);
     return n;
 }
 
-enum class PhraseEvent : int { NoteOn, NoteOff, Breath, PitchWheel };
+enum class PhraseEvent : int { NoteOn, NoteOff, Breath, Expression, PitchWheel };
 
 class PhraseEngine
 {
@@ -91,6 +94,7 @@ public:
             n.pitch = pitches[i];
             n.velocity = 70 + (i % 3) * 16;
             n.breath = 80 + (i % 4) * 12;
+            n.expression = 80 + (i % 3) * 16;
             n.bend = 64;
             n.active = true;
             n.legato = i > 0 && i < 6;
@@ -151,6 +155,7 @@ public:
                 // Set the wind controllers before note-on so the first sample
                 // starts at the intended breath and pitch, not the previous step.
                 emit(PhraseEvent::Breath, 2, n.breath, i);
+                emit(PhraseEvent::Expression, 11, n.expression, i);
                 emit(PhraseEvent::PitchWheel, 0,
                      std::clamp(8192 + (n.bend - 64) * 128, 0, 16383), i);
                 if (n.active)
@@ -183,7 +188,10 @@ public:
                     a.breath + (b.breath - a.breath) * fraction)), 0, 127);
                 const int bend = std::clamp(static_cast<int>(std::lround(
                     a.bend + (b.bend - a.bend) * fraction)), 0, 127);
+                const int cc11 = std::clamp(static_cast<int>(std::lround(
+                    a.expression + (b.expression - a.expression) * fraction)), 0, 127);
                 emit(PhraseEvent::Breath, 2, cc2, i);
+                emit(PhraseEvent::Expression, 11, cc11, i);
                 emit(PhraseEvent::PitchWheel, 0, std::clamp(8192 + (bend - 64) * 128, 0, 16383), i);
                 controllerCountdown += controlInterval;
             }
