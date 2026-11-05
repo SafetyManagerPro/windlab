@@ -23,6 +23,8 @@ private:
     juce::Label sourceLabel, activity, noteLabel, eventLabel, instructions;
     juce::TextEditor devices;
     juce::TextButton enableButton {"ATTIVA WIND MIDI"}, refreshButton {"AGGIORNA DISPOSITIVI"},
-                     helpButton {"?"}, closeButton {"CHIUDI X"};
+                     resetButton {"AZZERA MONITOR"}, helpButton {"?"}, closeButton {"CHIUDI X"};
+    std::uint64_t lastReceivedCount = 0;
+    juce::uint32 lastMidiTick = 0;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WindMidiPanel)
 };

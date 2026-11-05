@@ -4,6 +4,8 @@ Un terzo tipo di input **WIND MIDI / EWI** compare ora accanto a
 **PIANO + MIDI** e **PC / NOTEBOOK**. Il pulsante **WIND SETUP** apre
 un popup con scelta della sorgente del fiato (CC2, CC11 o Channel Pressure)
 e monitor in tempo reale delle note, del canale MIDI e dei CC ricevuti.
+Il monitor distingue eventi **recenti** da quelli **storici** e dispone
+di **AZZERA MONITOR** per una nuova prova di connessione.
 
 L'elenco delle periferiche mostra quelle visibili al sistema operativo,
 non prova il routing verso il plugin. In Standalone abilita il dispositivo

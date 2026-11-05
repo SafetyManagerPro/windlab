@@ -41,7 +41,7 @@ WindMidiPanel::WindMidiPanel(windlab::WindMidiSettings& config,
     devices.setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xff122c35));
     devices.setColour(juce::TextEditor::textColourId, juce::Colours::white);
     addAndMakeVisible(devices);
-    for (auto* b : {&enableButton,&refreshButton,&helpButton,&closeButton})
+    for (auto* b : {&enableButton,&refreshButton,&resetButton,&helpButton,&closeButton})
     {
         b->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff395b65));
         b->setColour(juce::TextButton::textColourOffId, juce::Colours::white);
@@ -51,6 +51,12 @@ WindMidiPanel::WindMidiPanel(windlab::WindMidiSettings& config,
     closeButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffaa7652));
     enableButton.onClick = [this] { if(onEnable) onEnable(); };
     refreshButton.onClick = [this] { refreshDevices(); };
+    resetButton.onClick = [this] {
+        monitor.reset();
+        lastReceivedCount = 0;
+        lastMidiTick = 0;
+        timerCallback();
+    };
     helpButton.onClick = [this] { if(onHelp) onHelp(); };
     closeButton.onClick = [this] { if(onClose) onClose(); };
     refreshDevices();
@@ -75,8 +81,19 @@ void WindMidiPanel::timerCallback()
     if(sourceBox.getSelectedId()!=id) sourceBox.setSelectedId(id,juce::dontSendNotification);
     enableButton.setButtonText(settings.isEnabled() ? "WIND MIDI ATTIVO" : "ATTIVA WIND MIDI");
     const auto s = monitor.snapshot();
-    const auto activityText = s.received == 0 ? juce::String("NESSUN MIDI RICEVUTO")
-        : juce::String("MIDI RICEVUTO - ") +
+    // A cumulative count is historical, not proof that a device is
+    // connected right now. Indicate recent traffic only within 3 seconds.
+    const auto now = juce::Time::getMillisecondCounter();
+    if (s.received != lastReceivedCount)
+    {
+        lastReceivedCount = s.received;
+        lastMidiTick = now;
+    }
+    const bool recent = s.received > 0 &&
+        static_cast<juce::uint32>(now - lastMidiTick) < 3000u;
+    const juce::String activityText = s.received == 0
+        ? "NESSUN MIDI RICEVUTO"
+        : (recent ? "MIDI IN ARRIVO - " : "ULTIMO MIDI (STORICO) - ") +
           juce::String(static_cast<juce::int64>(s.received)) + " eventi";
     if(activity.getText()!=activityText)
         activity.setText(activityText,juce::dontSendNotification);
@@ -133,6 +150,7 @@ void WindMidiPanel::resized()
     activity.setBounds(53,254,w-104,30);
     noteLabel.setBounds(53,289,w-104,30);
     eventLabel.setBounds(53,326,w-104,31);
+    resetButton.setBounds(38,385,172,39);
     refreshButton.setBounds(w-257,385,217,39);
     devices.setBounds(36,433,w-72,177);
     instructions.setBounds(37,621,w-74,115);

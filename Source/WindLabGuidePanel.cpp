@@ -99,6 +99,9 @@ WIND MIDI / EWI (v0.9.4):
    (Standalone) o nella traccia e nelle preferenze MIDI della DAW.
 6. AGGIORNA DISPOSITIVI mostra soltanto le periferiche viste dal sistema.
    Un dispositivo elencato NON significa automaticamente che WindLab lo riceva.
+7. MIDI IN ARRIVO significa messaggi ricevuti negli ultimi tre secondi.
+   ULTIMO MIDI (STORICO) non dimostra una connessione ancora attiva.
+   AZZERA MONITOR cancella i messaggi precedenti per una prova nuova.
 
 Il fiato CC11 viene interpretato come CC2: in questa modalita' CC11 non agisce
 contemporaneamente da controllo volume. In modalita' CHANNEL PRESSURE, i CC2 esterni

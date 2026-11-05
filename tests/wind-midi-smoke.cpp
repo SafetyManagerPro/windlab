@@ -44,6 +44,7 @@ int main()
     s = monitor.snapshot();
     assert(s.received == 1 && s.kind == WindMidiMonitor::NoteOn);
     assert(s.channel == 1 && s.lastNote == 60 && s.velocity == 108);
+    assert(s.value == 108); // note-on should not display stale CC data
     monitor.observeController(2, 74, 83);
     s = monitor.snapshot();
     assert(s.received == 2 && s.kind == WindMidiMonitor::Controller);
@@ -52,6 +53,7 @@ int main()
     s = monitor.snapshot();
     assert(s.received == 3 && s.kind == WindMidiMonitor::Pressure);
     assert(s.channel == 3 && s.lastPressure == 109);
+    assert(s.value == 109);
     monitor.observePitchWheel(4, 10000);
     s = monitor.snapshot();
     assert(s.received == 4 && s.kind == WindMidiMonitor::PitchWheel);
@@ -59,6 +61,7 @@ int main()
     monitor.observeNoteOff(1, 60);
     s = monitor.snapshot();
     assert(s.received == 5 && s.kind == WindMidiMonitor::NoteOff);
+    assert(s.value == 0); // note-off must not reuse pitch-bend value
     monitor.observeController(16, 2, 88); // internal phrase channel must not be reported
     monitor.observeNoteOn(16, 62, 120);
     monitor.observePressure(0, 12);

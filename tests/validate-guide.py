@@ -77,6 +77,10 @@ wind_dsp = (root / "Source/Dsp/WindMidiInput.h").read_text(encoding="utf8")
 assert "WIND MIDI / EWI" in main and "windSetupButton" in main
 assert "WindMidiPanel" in wind_header and "getAvailableDevices()" in wind_cpp
 assert "monitor.snapshot()" in wind_cpp
+assert "AZZERA MONITOR" in wind_header
+assert "ULTIMO MIDI (STORICO)" in wind_cpp
+assert "lastMidiTick" in wind_cpp
+assert "value.store(noteVelocity" in wind_dsp
 assert "WindMidiSettings" in wind_dsp and "WindMidiMonitor" in wind_dsp
 assert "windMidi.setEnabled" in processor
 assert "WindLabWindMidiV1" in processor

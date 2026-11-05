@@ -87,6 +87,10 @@ senza cambiare le vecchie impostazioni **PIANO + MIDI** e **PC / NOTEBOOK**.
    effettivamente ricevuti da WindLab.
 7. **AGGIORNA DISPOSITIVI** elenca le porte viste dal sistema:
    non garantisce che la DAW le stia instradando al plugin.
+8. Se compare **MIDI IN ARRIVO**, sono stati ricevuti messaggi negli ultimi
+   tre secondi. **ULTIMO MIDI (STORICO)** indica eventi passati, non la
+   certezza che il controller sia ancora collegato. Premi **AZZERA MONITOR**
+   e suona di nuovo per controllare l'ingresso da zero.
 
 Se il monitor resta su **NESSUN MIDI RICEVUTO**, il controller potrebbe
 non essere abilitato nel pannello della Standalone, o la DAW potrebbe

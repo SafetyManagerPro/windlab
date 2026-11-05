@@ -87,6 +87,7 @@ public:
         channel.store(midiChannel, std::memory_order_relaxed);
         lastNote.store(pitch, std::memory_order_relaxed);
         velocity.store(noteVelocity, std::memory_order_relaxed);
+        value.store(noteVelocity, std::memory_order_relaxed);
         eventKind.store(NoteOn, std::memory_order_release);
         count.fetch_add(1, std::memory_order_release);
     }
@@ -95,6 +96,7 @@ public:
         if (!validChannel(midiChannel)) return;
         channel.store(midiChannel, std::memory_order_relaxed);
         lastNote.store(pitch, std::memory_order_relaxed);
+        value.store(0, std::memory_order_relaxed);
         eventKind.store(NoteOff, std::memory_order_release);
         count.fetch_add(1, std::memory_order_release);
     }
@@ -112,6 +114,7 @@ public:
         if (!validChannel(midiChannel)) return;
         channel.store(midiChannel, std::memory_order_relaxed);
         pressure.store(p, std::memory_order_relaxed);
+        value.store(p, std::memory_order_relaxed);
         eventKind.store(Pressure, std::memory_order_release);
         count.fetch_add(1, std::memory_order_release);
     }
