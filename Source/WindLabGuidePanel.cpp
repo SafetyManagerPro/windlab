@@ -87,6 +87,30 @@ Per strumenti con porta MIDI DIN usa un'interfaccia MIDI compatibile.
 STANDALONE: apri Options > Audio/MIDI Settings, scegli dispositivo audio e abilita l'ingresso MIDI.
 DAW: abilita il dispositivo nelle preferenze della DAW, seleziona WindLab su una traccia strumento e attiva il monitoraggio.
 
+WIND MIDI / EWI (v0.9.4):
+1. In INPUT METHOD seleziona WIND MIDI / EWI.
+2. Premi WIND SETUP a fianco di INPUT METHOD per aprire il pannello.
+3. Scegli la sorgente del fiato che invia il tuo strumento:
+   CC2 = Breath Controller standard; CC11 = pedale/expression usato come fiato;
+   CHANNEL PRESSURE = aftertouch globale del canale MIDI.
+4. Premi ATTIVA WIND MIDI. Quando suoni vedrai nel monitor gli eventi ricevuti:
+   nota, velocity, canale MIDI, ultimo CC e valore.
+5. Se non compare alcun evento, abilita il controller in Options > Audio/MIDI Settings
+   (Standalone) o nella traccia e nelle preferenze MIDI della DAW.
+6. AGGIORNA DISPOSITIVI mostra soltanto le periferiche viste dal sistema.
+   Un dispositivo elencato NON significa automaticamente che WindLab lo riceva.
+7. MIDI IN ARRIVO significa messaggi ricevuti negli ultimi tre secondi.
+   ULTIMO MIDI (STORICO) non dimostra una connessione ancora attiva.
+   AZZERA MONITOR cancella i messaggi precedenti per una prova nuova.
+
+Il fiato CC11 viene interpretato come CC2: in questa modalita' CC11 non agisce
+contemporaneamente da controllo volume. In modalita' CHANNEL PRESSURE, i CC2 esterni
+non pilotano il fiato. Il Phrase Editor sul canale 16 resta separato. Le note MIDI
+arrivano ai sei strumenti campionati come prima: il pannello non aggiunge nuove
+diteggiature virtuali per EWI, sax, flauto o tromba.
+La scelta della sorgente viene salvata nel progetto; i vecchi progetti continuano
+ad usare la modalita' Piano/PC esistente e il CC2.
+
 MIDI DYNAMICS:
 - NATURAL: usa la velocity originale.
 - LIGHT TOUCH: adatto a tastiere leggere; facilità nell'ottenere intensità superiori.

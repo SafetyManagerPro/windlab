@@ -1,3 +1,7 @@
+// Runtime assertions must remain enabled even in optimized Release CI.
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include "Dsp/PhraseEngine.h"
 #include "Dsp/PhraseRecorder.h"
 #include <cassert>

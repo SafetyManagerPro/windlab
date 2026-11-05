@@ -21,8 +21,9 @@ namespace
     class PerformanceSynthesiser final : public juce::Synthesiser
     {
     public:
-        explicit PerformanceSynthesiser(windlab::MidiLearnBindings& learned)
-            : ccAssignments(learned) {}
+        explicit PerformanceSynthesiser(windlab::MidiLearnBindings& learned,
+                                       windlab::WindMidiSettings& wind)
+            : ccAssignments(learned), windInput(wind) {}
         ChannelControls currentlyStartingControls() const noexcept
         {
             return channels[static_cast<std::size_t>(juce::jlimit(1, 16, startingChannel) - 1)];
@@ -43,6 +44,29 @@ namespace
             // uses channel 16 and never participates in MIDI Learn.
             controllerNumber = ccAssignments.route(midiChannel, controllerNumber);
             if (controllerNumber < 0) return;
+
+            if (midiChannel != windlab::PhraseEngine::midiChannel)
+            {
+                // In WIND/CC11 mode the expression controller is repurposed
+                // as breath. Reset any prior CC11 volume attenuation once,
+                // otherwise a previously muted channel stays inaudible even
+                // when the musician starts blowing. Keep CC11 volume behavior
+                // unchanged in Piano, PC, CC2 and Pressure modes.
+                if (windInput.isEnabled() &&
+                    windInput.source() == windlab::WindMidiSettings::CC11 &&
+                    controllerNumber == 11 &&
+                    juce::isPositiveAndBelow(midiChannel - 1, 16))
+                {
+                    auto& channel = channels[static_cast<std::size_t>(midiChannel - 1)];
+                    if (channel.expression < 0.999f)
+                    {
+                        channel.expression = 1.0f;
+                        juce::Synthesiser::handleController(midiChannel, 11, 127);
+                    }
+                }
+                controllerNumber = windInput.routeController(controllerNumber);
+            }
+            if (controllerNumber < 0) return;
             if (juce::isPositiveAndBelow(midiChannel - 1, 16))
             {
                 auto& c = channels[static_cast<std::size_t>(midiChannel - 1)];
@@ -57,11 +81,24 @@ namespace
         void handleChannelPressure(int midiChannel, int value) override
         {
             if (juce::isPositiveAndBelow(midiChannel - 1, 16))
-                channels[static_cast<std::size_t>(midiChannel - 1)].pressure = value / 127.0f;
+            {
+                auto& controls = channels[static_cast<std::size_t>(midiChannel - 1)];
+                controls.pressure = value / 127.0f;
+                if (midiChannel != windlab::PhraseEngine::midiChannel &&
+                    windInput.usesPressure())
+                {
+                    controls.breath = value / 127.0f;
+                    controls.breathEnabled = true;
+                    // Convert channel pressure into the breath (CC2) engine input
+                    // without rewriting other non-wind or phrase channels.
+                    juce::Synthesiser::handleController(midiChannel, 2, value);
+                }
+            }
             juce::Synthesiser::handleChannelPressure(midiChannel, value);
         }
     private:
         windlab::MidiLearnBindings& ccAssignments;
+        windlab::WindMidiSettings& windInput;
         std::array<ChannelControls, 16> channels{};
         int startingChannel = 1;
     };
@@ -255,13 +292,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"inputMode", 1}, "Keyboard Input Mode",
         juce::StringArray {"Piano + MIDI", "PC / Notebook"}, 0));
+    // APPEND rather than modifying the older 2-option inputMode parameter:
+    // this preserves its old normalized automation values and project recalls.
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID {"windMidiMode", 1}, "Wind MIDI / EWI Input", false));
     return layout;
 }
 
 WindLabAudioProcessor::WindLabAudioProcessor()
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, juce::Identifier("WindLabState"), createParameterLayout()),
-      synthesiser(std::make_unique<PerformanceSynthesiser>(midiLearn))
+      synthesiser(std::make_unique<PerformanceSynthesiser>(midiLearn, windMidi))
 {
     auto& synth = *static_cast<PerformanceSynthesiser*>(synthesiser.get());
     for (int i = 0; i < 12; ++i)
@@ -276,6 +317,7 @@ void WindLabAudioProcessor::prepareToPlay(double sampleRate, int)
     synthesiser->allNotesOff(0, false);
     static_cast<PerformanceSynthesiser*>(synthesiser.get())->resetControllers();
     keyboardState.reset();
+    windMonitor.reset();
     eq.prepare(sampleRate);
     stereoReverb.setSampleRate(sampleRate);
     stereoReverb.reset();
@@ -320,6 +362,8 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                     phrase.setHostTempo(*bpm);
     }
 
+    // The older keyboard inputMode automation retains its two original choices.
+    windMidi.setEnabled(parameters.getRawParameterValue("windMidiMode")->load() >= .5f);
     // Capture external MIDI and virtual PC/piano notes BEFORE the internal
     // Phrase Editor injects its channel-16 playback. The recording is strictly
     // MIDI (notes + CC curves), not a bounced WAV file. Recording and playing
@@ -332,12 +376,22 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         const int channel = message.getChannel();
         const int offset = metadata.samplePosition;
         if (channel == windlab::PhraseEngine::midiChannel) continue;
+        // MIDI monitor observes the ORIGINAL device data; never claim a
+        // physical device is connected merely because it appears in the OS.
         if (message.isNoteOn())
+        {
+            windMonitor.observeNoteOn(channel, message.getNoteNumber(), message.getVelocity());
             phraseRecorder.noteOn(channel, message.getNoteNumber(), message.getVelocity(), offset);
+        }
         else if (message.isNoteOff())
+        {
+            windMonitor.observeNoteOff(channel, message.getNoteNumber());
             phraseRecorder.noteOff(channel, message.getNoteNumber(), offset);
+        }
         else if (message.isController())
         {
+            windMonitor.observeController(channel, message.getControllerNumber(),
+                                          message.getControllerValue());
             // Capture the post-mapping expressive function without consuming
             // the pending MIDI Learn assignment in the audio synthesizer.
             const int cc = message.getControllerNumber();
@@ -347,10 +401,23 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                 cc == midiLearn.binding(windlab::MidiLearnBindings::Expression) ? 11 :
                 (cc == 1 || cc == 2 || cc == 11 ? -1 : cc);
             if (translated > 0)
-                phraseRecorder.controller(channel, translated, message.getControllerValue(), offset);
+            {
+                const int windCC = windMidi.routeController(translated);
+                if (windCC > 0)
+                    phraseRecorder.controller(channel, windCC, message.getControllerValue(), offset);
+            }
+        }
+        else if (message.isChannelPressure())
+        {
+            windMonitor.observePressure(channel, message.getChannelPressureValue());
+            if (windMidi.usesPressure())
+                phraseRecorder.controller(channel, 2, message.getChannelPressureValue(), offset);
         }
         else if (message.isPitchWheel())
+        {
+            windMonitor.observePitchWheel(channel, message.getPitchWheelValue());
             phraseRecorder.pitchWheel(channel, message.getPitchWheelValue(), offset);
+        }
     }
     phraseRecorder.endBlock();
 
@@ -456,6 +523,8 @@ void WindLabAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
         // while MIDI Learn starts with standard CC1/CC2/CC11 defaults.
         auto* learnXml = xml->createNewChildElement("WindLabMidiLearnV1");
         learnXml->setAttribute("ccMap", static_cast<int>(midiLearn.snapshot()));
+        auto* windXml = xml->createNewChildElement("WindLabWindMidiV1");
+        windXml->setAttribute("breathSource", windMidi.source());
         copyXmlToBinary(*xml, destData);
     }
 }
@@ -469,6 +538,7 @@ void WindLabAudioProcessor::setStateInformation(const void* data, int sizeInByte
         phrase.clear();
         phrase.setFollowHostTempo(false); // old sessions keep their v0.7 tempo
         midiLearn.reset(); // old sessions preserve default CC assignments
+        windMidi.setSource(windlab::WindMidiSettings::CC2); // old sessions use CC2
         if (auto* phraseXml = xml->getChildByName("WindLabPhraseV1"))
         {
             phrase.setTempo(phraseXml->getIntAttribute("tempo", 110));
@@ -488,6 +558,11 @@ void WindLabAudioProcessor::setStateInformation(const void* data, int sizeInByte
             midiLearn.restore(static_cast<std::uint32_t>(
                 learnXml->getIntAttribute("ccMap", static_cast<int>(windlab::MidiLearnBindings::defaults()))));
             xml->removeChildElement(learnXml, true);
+        }
+        if (auto* windXml = xml->getChildByName("WindLabWindMidiV1"))
+        {
+            windMidi.setSource(windXml->getIntAttribute("breathSource", 0));
+            xml->removeChildElement(windXml, true);
         }
         parameters.replaceState(juce::ValueTree::fromXml(*xml));
     }
