@@ -37,6 +37,10 @@ jobs:
         shell: pwsh
         run: python tests/validate-recorded-bank.py
 
+      - name: Validate offline user guide and help buttons
+        shell: pwsh
+        run: python tests/validate-guide.py
+
       - name: Configure (Visual Studio 2022)
         shell: pwsh
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
@@ -120,6 +124,10 @@ jobs:
       - name: Verify acoustic recordings, velocity layers and staccatos
         shell: bash
         run: python3 tests/validate-recorded-bank.py
+
+      - name: Validate offline user guide and help buttons
+        shell: bash
+        run: python3 tests/validate-guide.py
 
       - name: Configure (Xcode, arm64)
         shell: bash

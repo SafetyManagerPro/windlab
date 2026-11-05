@@ -3,11 +3,12 @@
 #include <cmath>
 
 WindLabPhraseEditor::WindLabPhraseEditor(windlab::PhraseEngine& engine,
-                                       std::function<void()> close)
-    : phrase(engine), onClose(std::move(close))
+                                       std::function<void()> close,
+                                       std::function<void()> help)
+    : phrase(engine), onClose(std::move(close)), onHelp(std::move(help))
 {
     setOpaque(true);
-    for (auto* b : {&playButton, &demoButton, &clearButton, &legatoButton, &closeButton, &hostButton, &scoreButton})
+    for (auto* b : {&playButton, &demoButton, &clearButton, &legatoButton, &closeButton, &hostButton, &scoreButton, &helpButton})
     {
         b->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff294651));
         b->setColour(juce::TextButton::textColourOffId, juce::Colours::white);
@@ -40,6 +41,8 @@ WindLabPhraseEditor::WindLabPhraseEditor(windlab::PhraseEngine& engine,
     closeButton.onClick = [this] {
         if (onClose) onClose();
     };
+    helpButton.onClick = [this] { if (onHelp) onHelp(); };
+    helpButton.setTooltip("Guida Expression & Phrase Editor");
     hostButton.onClick = [this] {
         phrase.setFollowHostTempo(!phrase.followsHostTempo());
         updateButtons();
@@ -111,6 +114,7 @@ void WindLabPhraseEditor::resized()
     tempoLabel.setBounds(538, 66, 130, 20);
     tempoSlider.setBounds(525, 87, 214, 30);
     closeButton.setBounds(getWidth() - 145, 28, 108, 36);
+    helpButton.setBounds(getWidth() - 199, 28, 43, 36);
     hostButton.setBounds(757, 80, 147, 38);
     scoreButton.setBounds(911, 80, 140, 38);
     laneBox.setBounds(75, 543, 287, 34);

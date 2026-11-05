@@ -144,17 +144,8 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
             keyboard.grabKeyboardFocus();
         repaint();
     };
-    midiHelpButton.onClick = [this] {
-        juce::AlertWindow::showMessageBoxAsync(
-            juce::MessageBoxIconType::InfoIcon, "WindLab MIDI input",
-            "STANDALONE: open the application's Options menu, then Audio/MIDI Settings "
-            "to enable your USB MIDI keyboard or breath controller.\n\n"
-            "VST3 / AU: enable your keyboard in the DAW, route its MIDI to WindLab "
-            "and arm the instrument track.\n\n"
-            "Piano keys and external MIDI work together. CC2 = breath, "
-            "CC11 = expression, CC1 = vibrato, CC64 = sustain pedal.",
-            "OK", this);
-    };
+    // The short MIDI explanation is now a chapter of the full offline guide.
+    midiHelpButton.onClick = [this] { showGuide(WindLabGuidePanel::midi); };
     // A DAW may restore a saved PC input mode before the editor opens.
     keyboard.setWantsKeyboardFocus(inputModeBox.getSelectedId() == 2);
     changeKeyboardOctave(0);
@@ -165,13 +156,38 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     phrasePanel = std::make_unique<WindLabPhraseEditor>(processor.phrase, [this] {
         phrasePanel->setVisible(false);
         if (inputModeBox.getSelectedId() == 2) keyboard.grabKeyboardFocus();
-    });
+    }, [this] { showGuide(WindLabGuidePanel::phraseEditor); });
     addChildComponent(*phrasePanel); // overlay; host-safe, no floating native dialog
     phraseButton.onClick = [this] {
         const bool show = !phrasePanel->isVisible();
         phrasePanel->setVisible(show);
         if (show) phrasePanel->toFront(true);
     };
+
+    helpButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff36525e));
+    helpButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    helpButton.setTooltip("Apri la guida completa di WindLab");
+    addAndMakeVisible(helpButton);
+    helpButton.onClick = [this] { showGuide(WindLabGuidePanel::start); };
+
+    // One shared guide handles both the main instrument and Phrase Editor,
+    // without spawning a host-dependent secondary window.
+    guidePanel = std::make_unique<WindLabGuidePanel>([this] {
+        guidePanel->setVisible(false);
+        if (phrasePanel && phrasePanel->isVisible())
+            phrasePanel->toFront(true);
+        else if (inputModeBox.getSelectedId() == 2)
+            keyboard.grabKeyboardFocus();
+    });
+    addChildComponent(*guidePanel);
+}
+
+void WindLabAudioProcessorEditor::showGuide(int topic)
+{
+    if (!guidePanel) return;
+    guidePanel->openTopic(topic);
+    guidePanel->setVisible(true);
+    guidePanel->toFront(true);
 }
 
 void WindLabAudioProcessorEditor::changeKeyboardOctave(int delta)
@@ -196,7 +212,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("WINDLAB", 27, 12, 475, 48, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffc2d2d7));
     g.setFont(juce::Font(13.0f));
-    g.drawText("RECORDED WINDS  /  0.9  /  SUSTAIN LOOP + STACCATO TAIL REFINEMENT", 32, 63, 910, 21,
+    g.drawText("RECORDED WINDS  /  0.9.1  /  PERFORMANCE + REAL WAV + GUIDA INTEGRATA", 32, 63, 910, 21,
                juce::Justification::centredLeft);
 
     constexpr int rowTop[3] {207, 359, 511};
@@ -266,5 +282,7 @@ void WindLabAudioProcessorEditor::resized()
     midiHelpButton.setBounds(967, 729, 78, 32);
     keyboard.setBounds(30, 786, getWidth() - 60, 53);
     phraseButton.setBounds(getWidth() - 205, 20, 176, 41);
+    helpButton.setBounds(getWidth() - 263, 20, 45, 41);
     if (phrasePanel) phrasePanel->setBounds(getLocalBounds());
+    if (guidePanel) guidePanel->setBounds(getLocalBounds());
 }
