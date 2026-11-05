@@ -148,6 +148,11 @@ public:
             {
                 displayedStep.store(currentStep, std::memory_order_relaxed);
                 const auto n = note(currentStep);
+                // Set the wind controllers before note-on so the first sample
+                // starts at the intended breath and pitch, not the previous step.
+                emit(PhraseEvent::Breath, 2, n.breath, i);
+                emit(PhraseEvent::PitchWheel, 0,
+                     std::clamp(8192 + (n.bend - 64) * 128, 0, 16383), i);
                 if (n.active)
                 {
                     // A detached note ends previous phrase notes before retrigger;
