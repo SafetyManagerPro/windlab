@@ -1,5 +1,6 @@
 #pragma once
 #include "PluginProcessor.h"
+#include "PhraseEditor.h"
 #include <array>
 #include <memory>
 
@@ -19,6 +20,8 @@ private:
     juce::Label inputModeLabel, velocityLabel, octaveLabel, velocityResponseLabel;
     juce::TextButton octaveDown {"-"}, octaveUp {"+"}, midiHelpButton {"MIDI ?"};
     juce::Slider keyVelocity;
+    juce::TextButton phraseButton {"PHRASE EDITOR"};
+    std::unique_ptr<WindLabPhraseEditor> phrasePanel;
     int keyboardOctave = 5; // physical keyboard A = MIDI 60 (middle C)
     void changeKeyboardOctave(int delta);
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> instrumentAttachment;

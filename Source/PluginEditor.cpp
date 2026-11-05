@@ -158,6 +158,20 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     // A DAW may restore a saved PC input mode before the editor opens.
     keyboard.setWantsKeyboardFocus(inputModeBox.getSelectedId() == 2);
     changeKeyboardOctave(0);
+
+    phraseButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffb8754d));
+    phraseButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    addAndMakeVisible(phraseButton);
+    phrasePanel = std::make_unique<WindLabPhraseEditor>(processor.phrase, [this] {
+        phrasePanel->setVisible(false);
+        if (inputModeBox.getSelectedId() == 2) keyboard.grabKeyboardFocus();
+    });
+    addChildComponent(*phrasePanel); // overlay; host-safe, no floating native dialog
+    phraseButton.onClick = [this] {
+        const bool show = !phrasePanel->isVisible();
+        phrasePanel->setVisible(show);
+        if (show) phrasePanel->toFront(true);
+    };
 }
 
 void WindLabAudioProcessorEditor::changeKeyboardOctave(int delta)
@@ -182,7 +196,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("WINDLAB", 27, 12, 475, 48, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffc2d2d7));
     g.setFont(juce::Font(13.0f));
-    g.drawText("RECORDED WINDS  /  0.6  /  PERFORMANCE CONTROLLER + MULTISAMPLES", 32, 63, 910, 21,
+    g.drawText("RECORDED WINDS  /  0.7  /  EXPRESSION + PHRASE EDITOR", 32, 63, 910, 21,
                juce::Justification::centredLeft);
 
     constexpr int rowTop[3] {207, 359, 511};
@@ -251,4 +265,6 @@ void WindLabAudioProcessorEditor::resized()
     velocityResponseBox.setBounds(710, 729, 245, 32);
     midiHelpButton.setBounds(967, 729, 78, 32);
     keyboard.setBounds(30, 786, getWidth() - 60, 53);
+    phraseButton.setBounds(getWidth() - 205, 20, 176, 41);
+    if (phrasePanel) phrasePanel->setBounds(getLocalBounds());
 }
