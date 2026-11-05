@@ -1,5 +1,6 @@
 #pragma once
 #include "Dsp/MidiLearnBindings.h"
+#include "Dsp/WindControllerProfiles.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <array>
 #include <functional>
@@ -23,6 +24,8 @@ private:
     std::array<juce::TextButton, 3> learnButtons;
     std::array<juce::Label, 3> targetLabels, ccLabels;
     juce::Label status, instructions;
+    juce::ComboBox profileBox;
+    juce::TextButton applyProfileButton {"APPLICA PROFILO"};
     juce::TextButton resetButton {"RESET CC"}, cancelButton {"ANNULLA"},
                      helpButton {"?"}, closeButton {"CHIUDI X"};
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WindLabMidiLearnPanel)
