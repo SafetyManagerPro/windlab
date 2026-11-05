@@ -1,5 +1,6 @@
 #pragma once
 #include "Dsp/MidiLearnBindings.h"
+#include "Dsp/MidiInputMonitor.h"
 #include "Dsp/WindControllerProfiles.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <array>
