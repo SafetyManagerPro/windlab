@@ -1,5 +1,12 @@
 # WindLab 0.9.3 — REC MIDI → Phrase Editor + popup in-plugin
 
+**CI a basso consumo:** il progetto accumula circa tre commit per PR in
+modalita' Draft e compila tutti i formati solo quando la PR passa a
+**Ready for review**. La build automatica finale su `main` e quella manuale
+`Run workflow` restano disponibili.
+[Procedura per risparmiare minuti GitHub Actions](docs/CI-Minuti-Gratuiti.md).
+
+
 **REC MIDI / STOP REC / VEDI TAKE** nella schermata principale, e
 **REC / STOP REC / IMPORTA** nello **Expression & Phrase Editor**.
 Per usare la tastiera PC premi REC MIDI nella schermata principale: il focus
