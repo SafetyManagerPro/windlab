@@ -43,7 +43,8 @@ WindLabPhraseEditor::WindLabPhraseEditor(windlab::PhraseEngine& engine,
 
     laneBox.addItem("BREATH / FIATO (CC2)", 1);
     laneBox.addItem("VELOCITY / INTENSITY", 2);
-    laneBox.addItem("PITCH BEND (+/-2 SEMI)", 3);
+    laneBox.addItem("VOLUME / EXPRESSION CC11", 3);
+    laneBox.addItem("PITCH BEND (+/-2 SEMI)", 4);
     laneBox.setSelectedId(1, juce::dontSendNotification);
     laneBox.onChange = [this] { repaint(); };
     laneBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff213943));
@@ -198,14 +199,15 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
     g.setColour(juce::Colour(0xffa6bbc1));
     g.setFont(juce::Font(12.0f, juce::Font::bold));
     g.drawText(laneType == 1 ? "BREATH CC2" :
-               laneType == 2 ? "NOTE VELOCITY" : "PITCH BEND", 377, 545, 210, 26,
+               laneType == 2 ? "NOTE VELOCITY" :
+               laneType == 3 ? "VOLUME CC11" : "PITCH BEND", 377, 545, 210, 26,
                juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xff92aeb6));
     g.setFont(juce::Font(11.0f));
-    g.drawText("Drag points in the expression lane. Breath and pitch interpolate during playback.",
+    g.drawText("Drag curve points. Breath, volume and pitch interpolate while notes sustain.",
                565, 549, getWidth() - 610, 22, juce::Justification::centredLeft);
 
-    if (laneType == 3)
+    if (laneType == 4)
     {
         g.setColour(juce::Colour(0xff4c6871));
         g.drawHorizontalLine(static_cast<int>(lane.getCentreY()), lane.getX(), lane.getRight());
@@ -214,7 +216,9 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
     {
         auto getValue = [this, laneType](int s) {
             const auto n = phrase.note(s);
-            return laneType == 1 ? n.breath : laneType == 2 ? n.velocity : n.bend;
+            return laneType == 1 ? n.breath :
+                   laneType == 2 ? n.velocity :
+                   laneType == 3 ? n.expression : n.bend;
         };
         const float x = lane.getX() + (step + .5f) * stepWidth;
         const float y = lane.getBottom() - (getValue(step) / 127.0f) * lane.getHeight();
@@ -237,6 +241,7 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
         + "   MIDI " + juce::String(current.pitch)
         + "   VELOCITY " + juce::String(current.velocity)
         + "   BREATH " + juce::String(current.breath)
+        + "   VOLUME " + juce::String(current.expression)
         + "   BEND " + juce::String(current.bend - 64)
         + "   LENGTH " + juce::String(current.gate) + " STEPS",
         75, 781, getWidth() - 115, 23, juce::Justification::centredLeft);
@@ -307,7 +312,8 @@ void WindLabPhraseEditor::updateLane(float x, float y)
     {
         case 1: n.breath = value; break;
         case 2: n.velocity = std::max(1, value); break;
-        case 3: n.bend = value; break;
+        case 3: n.expression = value; break;
+        case 4: n.bend = value; break;
         default: return;
     }
     phrase.setNote(step, n);
