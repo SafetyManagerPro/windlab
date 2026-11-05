@@ -151,6 +151,8 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
 
     const auto stepWidth = r.getWidth() / 16.0f;
     const auto pitchHeight = r.getHeight() / 37.0f;
+    if (!scoreView)
+    {
     for (int pitch = 48; pitch <= 84; ++pitch)
     {
         const float y = r.getY() + (84 - pitch) * pitchHeight;
@@ -168,6 +170,25 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
             g.setColour(juce::Colour(0xff213943));
             g.drawHorizontalLine(static_cast<int>(y), r.getX(), r.getRight());
         }
+    }
+
+    }
+    else
+    {
+        // Staff preview uses semitone-aware diatonic positions. The on-screen
+        // piano roll remains the primary editable representation.
+        const float staffBottom = r.getY() + 277.0f;
+        constexpr float halfSpace = 9.3f;
+        for (int line = 0; line < 5; ++line)
+        {
+            const float y = staffBottom - line * (2.0f * halfSpace);
+            g.setColour(juce::Colour(0xff9bb4ba));
+            g.drawLine(r.getX() + 2.0f, y, r.getRight() - 3.0f, y, 1.2f);
+        }
+        g.setColour(juce::Colour(0xffe4c19f));
+        g.setFont(juce::Font(14.0f, juce::Font::bold));
+        g.drawText("TREBLE   E4 - F5", static_cast<int>(r.getX() + 7), 
+                   static_cast<int>(staffBottom + 33), 235, 24, juce::Justification::centredLeft);
     }
 
     for (int step = 0; step <= 16; ++step)
@@ -193,6 +214,8 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
         g.fillRect(x, r.getY(), stepWidth, lane.getBottom() - r.getY());
     }
 
+    if (!scoreView)
+    {
     for (int step = 0; step < 16; ++step)
     {
         const auto n = phrase.note(step);
@@ -209,6 +232,82 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
             g.setColour(juce::Colour(0xffb0eff1));
             g.drawLine(x + width - 11.0f, y - 3.0f,
                        x + width + 4.0f, y - 3.0f, 2.0f);
+        }
+    }
+
+    }
+    else
+    {
+        const float staffBottom = r.getY() + 277.0f;
+        constexpr float halfSpace = 9.3f;
+        constexpr int semiToDiatonic[12] {0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6};
+        const auto staffIndex = [&](int midi) {
+            const int clamped = juce::jlimit(0, 127, midi);
+            return (clamped / 12 - 5) * 7 + semiToDiatonic[clamped % 12];
+        };
+        const auto noteY = [&](int midi) {
+            return staffBottom - (staffIndex(midi) - 2) * halfSpace;
+        };
+        for (int step = 0; step < 16; ++step)
+        {
+            const auto n = phrase.note(step);
+            if (!n.active) continue;
+            const float x = r.getX() + (step + .5f) * stepWidth;
+            const float y = noteY(n.pitch);
+            const int staff = staffIndex(n.pitch);
+            g.setColour(juce::Colour(0xff96b5c0));
+            for (int index = 0; index >= staff; index -= 2)
+            {
+                const float ly = staffBottom - (index - 2) * halfSpace;
+                g.drawLine(x - 12.0f, ly, x + 16.0f, ly, 1.1f);
+            }
+            for (int index = 12; index <= staff; index += 2)
+            {
+                const float ly = staffBottom - (index - 2) * halfSpace;
+                g.drawLine(x - 12.0f, ly, x + 16.0f, ly, 1.1f);
+            }
+            g.setColour(step == selectedStep ? juce::Colour(0xffffd18e)
+                                             : juce::Colour(0xffeeaa79));
+            g.fillEllipse(x - 9.0f, y - 5.5f, 18.0f, 11.0f);
+            if (staff < 6)
+                g.drawLine(x + 8.0f, y, x + 8.0f, y - 29.0f, 1.7f);
+            else
+                g.drawLine(x - 8.0f, y, x - 8.0f, y + 29.0f, 1.7f);
+            const int pitchClass = juce::jlimit(0, 127, n.pitch) % 12;
+            if (pitchClass == 1 || pitchClass == 3 || pitchClass == 6 ||
+                pitchClass == 8 || pitchClass == 10)
+            {
+                g.setFont(juce::Font(15.0f, juce::Font::bold));
+                g.drawText("#", static_cast<int>(x - 23), static_cast<int>(y - 12), 14, 25,
+                           juce::Justification::centred);
+            }
+            // Length is represented visually by an unobtrusive duration guide,
+            // not an invented musical rhythmic value.
+            if (n.gate > 1)
+            {
+                g.setColour(juce::Colour(0xff688c94));
+                g.drawLine(x + 12.0f, y + 12.0f,
+                           std::min(r.getRight() - 3.0f,
+                                    x + stepWidth * (n.gate - 1) + 12.0f),
+                           y + 12.0f, 1.8f);
+            }
+            if (n.legato)
+            {
+                for (int next = step + 1; next < 16; ++next)
+                {
+                    const auto dest = phrase.note(next);
+                    if (!dest.active) continue;
+                    const float x2 = r.getX() + (next + .5f) * stepWidth;
+                    const float y2 = noteY(dest.pitch);
+                    juce::Path slur;
+                    slur.startNewSubPath(x + 9.0f, y - 9.0f);
+                    slur.quadraticTo((x + x2) * .5f, std::min(y, y2) - 29.0f,
+                                    x2 - 9.0f, y2 - 9.0f);
+                    g.setColour(juce::Colour(0xffa6ebef));
+                    g.strokePath(slur, juce::PathStrokeType(1.8f));
+                    break;
+                }
+            }
         }
     }
 
