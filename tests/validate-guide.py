@@ -80,7 +80,16 @@ assert "monitor.snapshot()" in wind_cpp
 assert "WindMidiSettings" in wind_dsp and "WindMidiMonitor" in wind_dsp
 assert "windMidi.setEnabled" in processor
 assert "WindLabWindMidiV1" in processor
+assert "channel.expression = 1.0f" in processor
+assert "windInput.source() == windlab::WindMidiSettings::CC11" in processor
 assert "Source/WindMidiPanel.cpp" in cmake and "Source/Dsp/WindMidiInput.h" in cmake
 assert "windlab_wind_midi_smoke" in cmake
+# Verify the C++ assertions run in optimized Release jobs, not just Debug.
+for filename in ("smoke.cpp", "midi-learn-smoke.cpp",
+                 "phrase-record-smoke.cpp", "wind-midi-smoke.cpp"):
+    code = (root / "tests" / filename).read_text(encoding="utf8")
+    assert "#undef NDEBUG" in code, f"Release asserts are disabled: {filename}"
+# phrase-smoke.cpp uses explicit return-code checks, not C assert.
+assert "static bool check(" in (root / "tests/phrase-smoke.cpp").read_text(encoding="utf8")
 assert "WIND MIDI" in panel and "WIND SETUP" in manual
 print("PASS: 12 offline chapters, popup bounds, MIDI recorder/learn and Wind MIDI mode/monitor")

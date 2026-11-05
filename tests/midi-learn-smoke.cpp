@@ -1,3 +1,7 @@
+// Runtime assertions must remain enabled even in optimized Release CI.
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include "Dsp/MidiLearnBindings.h"
 #include <cassert>
 #include <cstdint>
