@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WindLab VERSION 0.8.0 LANGUAGES C CXX)
+project(WindLab VERSION 0.9.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -45,6 +45,7 @@ target_sources(WindLab PRIVATE
     Source/Dsp/WindEngine.h
     Source/Dsp/ToneEQ.h
     Source/Dsp/RecordedWinds.h
+    Source/Dsp/SampleLoopPlan.h
     Source/Dsp/VelocityResponse.h
     Source/Dsp/PhraseEngine.h)
 
