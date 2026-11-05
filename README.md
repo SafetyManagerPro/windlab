@@ -1,3 +1,30 @@
+# WindLab 0.9 — Natural Sample Loop & Staccato Tail Refinement
+
+## First realism-engine tranche (non-destructive)
+
+The CC0 VSCO/FreePats WAV library is unchanged. This update improves how
+individual recordings are reproduced in the existing AU/VST3/Standalone:
+
+- **Sustain-loop alignment:** inspect each authentic sampled note *once* at
+  instrument loading and move both internal loop boundaries toward nearby
+  rising zero crossings. This reduces the risk of clicks and discontinuity
+  during long sustained notes without fabricating additional recordings.
+- **Real staccato tail shaping:** short original staccato WAVs now receive a
+  smooth 14ms fade at their natural end; they are still one-shot recordings,
+  never turned into artificial sustain loops.
+- **No real-time analysis:** expensive loop scanning is done before audio
+  starts; render callbacks retain immutable samples, simple arithmetic and
+  allocation-free per-note cursors.
+- **DSP regression coverage:** run deterministic checks for zero-crossing
+  alignment, valid loop regions and sample-tail fades on macOS and Windows.
+
+This does **not** synthesize authentic legato transitions or crossfade between
+velocity layers during held notes. Future recordings or careful audio
+crossfading will be needed for true legato realism; we do not call a soft
+sustain loop a recorded legato transition.
+
+## Previous: v0.8 — Score Preview, Host BPM and Vibrato
+
 # WindLab 0.8 — Score Preview, Host BPM and Vibrato Lane
 
 ## Consolidated music editing improvements
