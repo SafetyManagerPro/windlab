@@ -56,7 +56,8 @@ target_sources(WindLab PRIVATE
     Source/Dsp/MidiLearnBindings.h
     Source/Dsp/HybridMidiRoute.h
     Source/Dsp/BreathCalibration.h
-    Source/Dsp/WindControllerProfiles.h)
+    Source/Dsp/WindControllerProfiles.h
+    Source/Dsp/MidiInputMonitor.h)
 
 # WindLab has never shipped as VST2: do not claim VST2 replacement compatibility.
 # JUCE 9 rejects modern VST3 parameter IDs when VST2 replacement is enabled.
@@ -107,6 +108,10 @@ if (BUILD_TESTING)
     add_executable(windlab_breath_calibration_smoke tests/breath-calibration-smoke.cpp)
     target_include_directories(windlab_breath_calibration_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_breath_calibration_smoke COMMAND windlab_breath_calibration_smoke)
+
+    add_executable(windlab_midi_input_monitor_smoke tests/midi-input-monitor-smoke.cpp)
+    target_include_directories(windlab_midi_input_monitor_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    add_test(NAME windlab_midi_input_monitor_smoke COMMAND windlab_midi_input_monitor_smoke)
 
     add_executable(windlab_controller_profiles_smoke tests/wind-controller-profiles-smoke.cpp)
     target_include_directories(windlab_controller_profiles_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
