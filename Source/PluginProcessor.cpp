@@ -3,6 +3,7 @@
 #include "Dsp/WindEngine.h"
 #include "Dsp/VelocityResponse.h"
 #include "Dsp/HybridMidiRoute.h"
+#include "Dsp/BreathCalibration.h"
 #include <array>
 #include <cmath>
 
@@ -22,8 +23,9 @@ namespace
     class PerformanceSynthesiser final : public juce::Synthesiser
     {
     public:
-        explicit PerformanceSynthesiser(windlab::MidiLearnBindings& learned)
-            : ccAssignments(learned) {}
+        explicit PerformanceSynthesiser(windlab::MidiLearnBindings& learned, juce::AudioProcessorValueTreeState& params)
+            : ccAssignments(learned), breathThreshold(params.getRawParameterValue("breathThreshold")),
+              breathCurve(params.getRawParameterValue("breathCurve")) {}
         ChannelControls currentlyStartingControls() const noexcept
         {
             return channels[static_cast<std::size_t>(juce::jlimit(1, 16, startingChannel) - 1)];
@@ -53,6 +55,13 @@ namespace
                 if (controllerNumber == 11) c.expression = v;
                 if (controllerNumber == 121) c = ChannelControls{};
             }
+            if (controllerNumber == 2 && midiChannel >= 1 && midiChannel < 16)
+            {
+                const auto normalized = windlab::calibrateBreath(controllerValue / 127.0f,
+                    breathThreshold->load(), breathCurve->load());
+                controllerValue = juce::jlimit(0, 127, static_cast<int>(std::lround(normalized * 127.0f)));
+                channels[static_cast<std::size_t>(midiChannel - 1)].breath = controllerValue / 127.0f;
+            }
             juce::Synthesiser::handleController(midiChannel, controllerNumber, controllerValue);
         }
         void handleChannelPressure(int midiChannel, int value) override
@@ -63,6 +72,8 @@ namespace
         }
     private:
         windlab::MidiLearnBindings& ccAssignments;
+        std::atomic<float>* breathThreshold;
+        std::atomic<float>* breathCurve;
         std::array<ChannelControls, 16> channels{};
         int startingChannel = 1;
     };
@@ -266,13 +277,19 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"breathMidiChannel", 1}, "Hybrid Breath MIDI Channel",
         juce::StringArray {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"}, 1));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID {"breathThreshold", 1}, "Breath Activation Threshold",
+        juce::NormalisableRange<float>(0.0f, 0.5f, 0.005f), 0.0f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID {"breathCurve", 1}, "Breath Response Curve",
+        juce::NormalisableRange<float>(0.35f, 3.0f, 0.01f), 1.0f));
     return layout;
 }
 
 WindLabAudioProcessor::WindLabAudioProcessor()
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, juce::Identifier("WindLabState"), createParameterLayout()),
-      synthesiser(std::make_unique<PerformanceSynthesiser>(midiLearn))
+      synthesiser(std::make_unique<PerformanceSynthesiser>(midiLearn, parameters))
 {
     auto& synth = *static_cast<PerformanceSynthesiser*>(synthesiser.get());
     for (int i = 0; i < 12; ++i)
