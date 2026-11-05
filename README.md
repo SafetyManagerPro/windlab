@@ -1,4 +1,48 @@
-# WindLab 0.6 — Performance Controller (AU/VST3/Standalone)
+# WindLab 0.7 — Expression & Phrase Editor (AU / VST3 / Standalone)
+
+## New: edit notes, join phrases and draw breath/pitch curves
+
+Click **PHRASE EDITOR** on the main WindLab screen. The editor is displayed
+*inside* the instrument window, so the same interface works in Logic Pro (AU),
+Studio One (VST3) and both Standalone applications.
+
+- **Piano-roll grid:** 16 eighth-note steps (two bars), pitches C3–C6.
+  Left-click a step to insert/select a note; drag vertically to change pitch
+  and horizontally to extend the gate up to eight eighth-note steps.
+  Right-click a note to erase it.
+- **LEGATO:** select a step, press LEGATO to connect with a short overlapping
+  note gate. This is a MIDI-style legato gesture and does **not** claim to
+  provide authentic recorded inter-note legato transitions yet.
+- **Editable expression lanes:** choose **BREATH CC2**, **VELOCITY**, or
+  **PITCH BEND** from the selector beneath the piano roll. Click/drag points
+  to alter individual steps. Breath and pitch bend are smoothly interpolated
+  during playback. Velocity changes the recorded acoustic sample layer on
+  each note-on, in line with v0.5/v0.6.
+- **PLAY / STOP:** audition the repeating phrase through WindLab's actual
+  audio engine; supports all six wind instruments and the existing effects.
+  **DEMO** loads a simple example; **CLEAR** clears all 16 note positions.
+- **Tempo:** the editor has its own 45–220 BPM tempo. It is currently a
+  **free-running two-bar loop**, deliberately not synced to the Logic/Studio
+  One song position. Stop the phrase before editing an unrelated host project.
+- **No external routing required:** the phrase generates real internal MIDI
+  notes and controllers on MIDI **channel 16**; normal keyboard/MIDI input
+  remains available. Avoid external channel 16 for unrelated instruments.
+- **Save and recall:** notes, per-step breath, velocity, bend, duration,
+  legato and phrase BPM are embedded inside the existing AU/VST3 project state.
+  For predictable project loading, playback always starts stopped.
+
+### Current limitations
+
+Pitch bend is channel-wide on the dedicated phrase channel, so simultaneous
+overlapping note tails share the same bend curve. True per-note MPE pitch,
+natural legato transition recordings, dynamic crossfade between acoustic layers,
+MIDI file export and a notation/score view are **not implemented in v0.7**.
+Those are candidates for v0.8/v0.9 after listening tests. The phrase is a
+live internal sound sequencer, not a separate Logic MIDI region.
+
+## Previously: v0.6 — Computer and MIDI Performance Controller
+
+
 
 ## New in v0.6 — PC keyboard, MIDI expression and weighted piano
 
