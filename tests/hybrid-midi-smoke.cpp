@@ -1,0 +1,31 @@
+#include "Dsp/HybridMidiRoute.h"
+#include <cassert>
+#include <iostream>
+
+int main()
+{
+    using R = windlab::HybridRoute;
+    const auto route = [](int ch, bool isCC, int cc, int noteCh, int breathCh)
+    { return windlab::routeHybrid(ch, isCC, cc, noteCh, breathCh, 1, 2, 11); };
+
+    assert(route(1, false, -1, 1, 2).action == R::Keep);
+    assert(route(2, true, 2, 1, 2).action == R::Remap);
+    assert(route(2, true, 2, 1, 2).channel == 1);
+    assert(route(2, true, 11, 1, 2).action == R::Remap);
+    assert(route(2, true, 1, 1, 2).action == R::Remap);
+    assert(route(2, true, 64, 1, 2).action == R::Drop);
+    assert(route(2, false, -1, 1, 2).action == R::Drop);
+    assert(route(16, true, 2, 1, 2).action == R::Keep);
+    assert(route(16, false, -1, 1, 2).action == R::Keep);
+
+    assert(route(4, false, -1, 4, 7).action == R::Keep);
+    assert(route(7, true, 2, 4, 7).action == R::Remap);
+    assert(route(7, true, 2, 4, 7).channel == 4);
+    assert(route(7, false, -1, 4, 7).action == R::Drop);
+    assert(route(7, true, 74, 4, 7).action == R::Drop);
+    assert(route(4, false, -1, 4, 4).action == R::Keep);
+    assert(route(4, true, 2, 4, 4).action == R::Keep);
+    assert(route(7, true, 2, 1, 16).action == R::Keep);
+    assert(route(7, true, 2, 0, 7).action == R::Keep);
+    std::cout << "WindLab hybrid MIDI route: PASS\\n";
+}
