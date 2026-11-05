@@ -1,0 +1,321 @@
+#include "WindLabGuidePanel.h"
+#include <utility>
+
+juce::StringArray WindLabGuidePanel::sectionTitles()
+{
+    return {
+        "01  Primo avvio",
+        "02  Scegliere uno strumento",
+        "03  Suoni e articolazioni",
+        "04  Tastiera PC / notebook",
+        "05  Tastiere MIDI e controller",
+        "06  Logic Pro (Mac)",
+        "07  Studio One e altre DAW",
+        "08  Controlli del suono",
+        "09  Phrase Editor e curve",
+        "10  Vista spartito e BPM",
+        "11  Risolvere i problemi",
+        "12  Limiti e prossimi sviluppi"
+    };
+}
+
+juce::String WindLabGuidePanel::articleFor(int topic)
+{
+    switch (topic)
+    {
+        case start: return R"(PRIMO AVVIO - IN 5 PASSAGGI
+
+1. Apri WindLab come STRUMENTO SOFTWARE nella DAW, oppure esegui WindLab Standalone.
+2. Seleziona INSTRUMENT: Trumpet, Tenor Sax, Trombone, Flute, Clarinet o French Horn.
+3. Imposta SOUND ENGINE su ACOUSTIC - REAL WAV per ascoltare le registrazioni originali.
+4. Prova le note sulla tastiera grafica in basso, con una tastiera MIDI, oppure con i tasti PC.
+5. Regola ATTACK, BREATH LENGTH, BRIGHTNESS, ROOM e REVERB in base al brano.
+
+In qualsiasi momento premi il pulsante ? per tornare a questa guida. Dal Phrase Editor puoi aprire direttamente il capitolo relativo alle curve.
+
+La guida e i suoni sono incorporati nel programma e non richiedono una connessione Internet. Il salvataggio dei controlli avviene nel progetto della DAW. Anche le frasi create nel Phrase Editor vengono salvate nello stato del plugin, ma la riproduzione della frase non parte automaticamente quando riapri un progetto.)";
+
+        case instruments: return R"(STRUMENTI DISPONIBILI
+
+TRUMPET - tromba; adatta a linee brillanti, staccati e aperture melodiche.
+TENOR SAX - sassofono tenore; usa campioni FreePats di qualità elevata.
+TROMBONE - registri medio-gravi, frasi ampie e accenti.
+FLUTE - flauto; sonorità leggere e note sostenute.
+CLARINET - clarinetto; timbro morbido e dinamiche delicate.
+FRENCH HORN - corno francese; pad orchestrali, melodie e crescendi.
+
+Per ogni strumento parti dal motore ACOUSTIC e dal registro naturale. Le note molto distanti dal campione originale vengono trasposte e possono risultare meno credibili.
+
+Se il suono appare troppo artificiale prova un attacco leggermente più lento, riduci gli effetti, varia l'intensità MIDI e disegna un fiato che non rimanga perfettamente costante.)";
+
+        case soundEngine: return R"(MOTORE SONORO E ARTICOLAZIONI
+
+SOUND ENGINE
+- ACOUSTIC - REAL WAV: registrazioni autentiche CC0 da VSCO 2 CE / FreePats.
+- HYBRID: miscela campioni acustici e modello sintetico.
+- SYNTH: solo sintesi; utile per timbri creativi e leggeri.
+
+ARTICULATION
+- SUSTAIN: nota tenuta. Gestisci la fine tramite note-off e RELEASE.
+- STACCATO: usa registrazioni staccate quando disponibili; sono one-shot.
+- SWELL: attacco progressivo.
+
+La VELOCITY MIDI influenza l'intensità iniziale e la scelta dei campioni. Il fiato CC2, l'espressione CC11 e le curve modificano la nota mentre viene sostenuta.
+
+Il legato del Phrase Editor produce una piccola sovrapposizione MIDI: non si tratta ancora di registrazioni specifiche della transizione tra note.)";
+
+        case keyboard: return R"(TASTIERA DEL COMPUTER / NOTEBOOK
+
+Nella schermata principale, sotto INPUT METHOD, scegli PC / NOTEBOOK.
+
+MAPPATURA CROMATICA:
+A=C    W=C#    S=D    E=D#    D=E    F=F
+T=F#  G=G     Y=G#   H=A     U=A#   J=B    K=C successivo
+
+Premi i tasti per suonare. I pulsanti - e + spostano l'ottava della tastiera PC: non trasportano le note suonate via MIDI esterno.
+PC / MOUSE VELOCITY regola l'intensità dei tasti del PC e dei clic sul pianoforte virtuale.
+
+Se i tasti scrivono nel campo di una DAW oppure non suonano, fai clic sulla tastiera virtuale o riseleziona PC / NOTEBOOK per recuperare il focus. Alcuni host intercettano i tasti: in quel caso usa la Standalone oppure una tastiera MIDI.
+
+La tastiera QWERTY non misura la forza fisica della pressione. Per avere una velocity reale occorre un controller MIDI.)";
+
+        case midi: return R"(TASTIERE MIDI, PIANOFORTE PESATO E FIATO
+
+Un pianoforte con uscita USB-MIDI puo' inviare note e velocity direttamente al computer: non serve un'interfaccia audio se la tastiera invia MIDI via USB.
+Per strumenti con porta MIDI DIN usa un'interfaccia MIDI compatibile.
+
+STANDALONE: apri Options > Audio/MIDI Settings, scegli dispositivo audio e abilita l'ingresso MIDI.
+DAW: abilita il dispositivo nelle preferenze della DAW, seleziona WindLab su una traccia strumento e attiva il monitoraggio.
+
+MIDI DYNAMICS:
+- NATURAL: usa la velocity originale.
+- LIGHT TOUCH: adatto a tastiere leggere; facilità nell'ottenere intensità superiori.
+- WEIGHTED PIANO: più risoluzione sulle pressioni leggere.
+- BREATH CONTROLLER: prepara un campione udibile; la pressione continua del fiato viene controllata da CC2.
+
+MESSAGGI UTILI:
+CC1 = vibrato / modulation
+CC2 = fiato / breath
+CC11 = espressione / volume
+Pitch Bend = intonazione continua
+Aftertouch = pressione, quando inviata dal controller
+
+Configura un eventuale pedale di espressione per trasmettere CC11 o CC2. Il MIDI Learn personalizzato e l'MPE completo non sono ancora disponibili.)";
+
+        case logic: return R"(UTILIZZO IN LOGIC PRO (APPLE SILICON)
+
+1. Scarica l'artifact macOS AU/VST3/Standalone di WindLab dal workflow GitHub pubblicato.
+2. Copia WindLab.component nella cartella:
+   ~/Library/Audio/Plug-Ins/Components/
+3. Riavvia Logic Pro.
+4. Crea una traccia STRUMENTO SOFTWARE, quindi apri WindLab dal menu AU Instruments.
+5. Seleziona la traccia e attiva la ricezione MIDI. Suona con controller MIDI o piano virtuale.
+
+Se WindLab non compare, apri Logic Pro > Impostazioni > Gestione plug-in e controlla la convalida Audio Unit.
+
+Il formato AU serve per Logic: non usare il file VST3 all'interno di Logic.
+WindLab 0.8+ puo' seguire il BPM letto dalla DAW con HOST BPM, ma non la posizione della timeline. Devi premere PLAY nel Phrase Editor per avviare la frase.
+
+La compilazione AU su macOS viene verificata da GitHub Actions. Il caricamento reale in Logic e la firma/notarizzazione richiedono ancora un collaudo manuale sul Mac.)";
+
+        case studioOne: return R"(UTILIZZO IN STUDIO ONE E ALTRE DAW
+
+1. Installa WindLab.vst3 nella normale cartella VST3 del sistema.
+   macOS: ~/Library/Audio/Plug-Ins/VST3/
+   Windows: C:\\Program Files\\Common Files\\VST3\\
+2. Fai una scansione dei plugin nella DAW.
+3. Crea una traccia strumento, carica WindLab e assegna l'ingresso MIDI.
+4. Attiva il monitoraggio della traccia e prova le note.
+5. Usa l'automazione dei parametri per variare dinamica, EQ e riverbero.
+
+I controlli dei campioni si integrano con il MIDI della DAW.
+Il Phrase Editor e' un sequencer INTERNO del plugin: produce suono, ma non genera automaticamente una regione MIDI modificabile in Studio One.
+
+Il pulsante HOST BPM segue il BPM, NON il transport della timeline. Le note dell'editor possono partire in un punto diverso dalla battuta: premi PLAY manualmente.
+
+Se non senti audio, verifica il monitoraggio, il canale MIDI, l'uscita audio e la scelta dello strumento.)";
+
+        case controls: return R"(CONTROLLO DEI FIATI - COSA FA OGNI MANOPOLA
+
+PERFORMANCE / BREATH:
+ATTACK = velocita' con cui nasce la nota.
+RELEASE = durata della coda dopo il rilascio del tasto.
+BREATH LENGTH = limite del fiato; 30 = nota continua finche' tieni premuto.
+VIBRATO = profondita' di base del vibrato.
+NATURAL = piccole variazioni esecutive / humanize.
+
+TIMBRE / EQ:
+BRIGHTNESS = brillantezza del suono.
+AIR = rumore del fiato.
+BASS dB / MID dB / TREBLE dB = equalizzazione a tre bande.
+
+SPACE / OUTPUT:
+ROOM = prime riflessioni acustiche.
+REVERB = percentuale dell'ambiente.
+REVERB SIZE = dimensione dell'ambiente.
+DAMPING = attenuazione delle alte frequenze nella coda.
+OUTPUT = livello generale.
+
+CONSIGLIO PRATICO:
+Per un fiato credibile usa un po' di air, attacchi non tutti identici, vibrato moderato ed espressione che respiri. Aggiungi riverbero dopo avere stabilizzato il suono diretto.)";
+
+        case phraseEditor: return R"(PHRASE EDITOR - NOTE, LEGATO E AUTOMAZIONE
+
+Clicca PHRASE EDITOR nella schermata principale.
+
+- PLAY / STOP: avvia o interrompe il loop interno.
+- DEMO: carica una frase dimostrativa.
+- CLEAR: cancella tutte le note.
+- Piano Roll: clic sinistro per inserire una nota; trascina in verticale per cambiare altezza, in orizzontale per modificarne la durata. Clic destro per cancellare.
+- LEGATO: seleziona una nota e attiva LEGATO per sovrapporre brevemente la transizione con la precedente.
+- BPM: velocita' del loop interno, su 16 step / due battute.
+
+CORSE GRAFICHE:
+BREATH (CC2) = pressione del fiato.
+VELOCITY = forza iniziale / timbro della nota.
+VOLUME (CC11) = volume continuo.
+PITCH BEND = intonazione continua, circa +/-2 semitoni.
+VIBRATO (CC1) = profondita' del vibrato.
+
+Seleziona una corsia, poi fai clic e trascina i suoi punti. Fiato, volume, pitch e vibrato vengono interpolati fra gli step. La velocity si applica all'attacco della nota.
+
+Le frasi vengono salvate con lo stato del plugin. Al riavvio del progetto non partono da sole. Il MIDI interno della frase utilizza il canale 16.)";
+
+        case notation: return R"(SPARTITO E TEMPO DI LOGIC / STUDIO ONE
+
+Premi SCORE VIEW nell'editor delle frasi per visualizzare il rigo musicale con note, alterazioni (#), indicazioni grafiche di durata e legature di portamento.
+
+Questa vista e' di sola consultazione: premi PIANO ROLL per modificare le note. Non e' ancora un editor MusicXML o un impaginatore di spartiti professionale.
+
+BPM:
+- HOST BPM: legge la velocita' del progetto della DAW se disponibile.
+- HOST BPM: OFF: usa il tempo interno impostato con il cursore.
+
+IMPORTANTE: il tempo puo' seguire Logic o Studio One, ma la sequenza non segue automaticamente play, stop o la posizione della testina nella DAW. Per sincronizzarla a orecchio avvia il loop con PLAY.
+
+La notazione rappresenta indicativamente l'altezza delle note; la durata reale e' quella degli step del sequencer e delle gate MIDI, non una trascrizione ritmica completa.)";
+
+        case troubleshooting: return R"(RISOLUZIONE DEI PROBLEMI
+
+NON SENTO AUDIO
+- Seleziona uno strumento e controlla OUTPUT.
+- Verifica dispositivo audio, uscita e monitoraggio della traccia.
+- Prova una nota sulla tastiera virtuale e poi via MIDI.
+- Controlla BREATH/CC2 e EXPRESSION/CC11: valori a zero possono silenziare la nota.
+
+WINDLAB NON COMPARE IN LOGIC
+- Verifica WindLab.component nella cartella Audio Unit corretta.
+- Riavvia Logic, quindi ripeti la convalida nella Gestione plug-in.
+- Usa la build macOS AU; un file VST3 non e' caricabile in Logic.
+
+LA TASTIERA PC NON SUONA
+- Seleziona PC / NOTEBOOK.
+- Clicca i tasti del piano virtuale per ottenere focus.
+- Alcune DAW intercettano i tasti: usa un controller MIDI esterno.
+
+LO SPARTITO NON SI MODIFICA
+- E' una vista di anteprima; clicca PIANO ROLL.
+
+IL LOOP NON SEGUE L'INIZIO DEL BRANO
+- HOST BPM segue soltanto il tempo; il trasporto non e' ancora sincronizzato.
+
+LE NOTE LUNGHE NON SEMBRANO NATURALI
+- Riduci intervalli estremi rispetto al registro dello strumento.
+- Prova leggera variazione di CC2/CC11, meno riverbero e un'altra articolazione.)";
+
+        case limitations: return R"(COSA E' IMPLEMENTATO E COSA NO
+
+PRESENTE:
+- Plugin AU (macOS), VST3 (Mac/Windows) e Standalone.
+- Sei strumenti a fiato con campioni CC0 incorporati e motore Hybrid/Synth.
+- Tastiera grafica, tastiera PC, ingresso MIDI esterno e profili velocity.
+- Expression & Phrase Editor con 16 step, legato MIDI, fiato, volume, pitch e vibrato.
+- Vista spartito di lettura e opzione HOST BPM.
+- Loop delle registrazioni sostenute e coda degli staccati perfezionati.
+
+NON ANCORA IMPLEMENTATO:
+- Legato campionato con vere transizioni fra note.
+- Sincronizzazione automatica della frase alla testina della DAW.
+- MIDI Learn universale e assegnazione visuale dei controller ai pistoni/chiavi.
+- MPE avanzato per ogni singola nota.
+- Spartito completo modificabile, MusicXML e MIDI export.
+- Firma/notarizzazione universale dei pacchetti e collaudo completo in tutte le DAW.
+
+Questa guida descrive i comandi realmente presenti nel programma. I miglioramenti futuri vengono aggiunti solo dopo lo sviluppo e la verifica.)";
+    }
+    return {};
+}
+
+WindLabGuidePanel::WindLabGuidePanel(std::function<void()> onClose)
+    : closeAction(std::move(onClose))
+{
+    setOpaque(true);
+    const auto titles = sectionTitles();
+    for (int i = 0; i < titles.size(); ++i)
+        sections.addItem(titles[i], i + 1);
+    sections.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff203640));
+    sections.setColour(juce::ComboBox::textColourId, juce::Colours::white);
+    sections.onChange = [this] { openTopic(sections.getSelectedId() - 1); };
+    addAndMakeVisible(sections);
+
+    subtitle.setText("MANUALE INTERATTIVO  |  OFFLINE  |  AU / VST3 / STANDALONE",
+                     juce::dontSendNotification);
+    subtitle.setColour(juce::Label::textColourId, juce::Colour(0xffa3bdc5));
+    subtitle.setFont(juce::Font(13.0f));
+    addAndMakeVisible(subtitle);
+
+    article.setMultiLine(true, true);
+    article.setReadOnly(true);
+    article.setCaretVisible(false);
+    article.setScrollbarsShown(true);
+    article.setFont(juce::Font(16.0f));
+    article.setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xff172c35));
+    article.setColour(juce::TextEditor::textColourId, juce::Colour(0xffe5eff0));
+    article.setColour(juce::TextEditor::outlineColourId, juce::Colour(0xff45616c));
+    addAndMakeVisible(article);
+
+    for (auto* button : {&previousButton, &nextButton, &closeButton})
+    {
+        button->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff36525e));
+        button->setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        addAndMakeVisible(*button);
+    }
+    closeButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffa86e47));
+    previousButton.onClick = [this] { openTopic(currentTopic - 1); };
+    nextButton.onClick = [this] { openTopic(currentTopic + 1); };
+    closeButton.onClick = [this] { if (closeAction) closeAction(); };
+    openTopic(start);
+}
+
+void WindLabGuidePanel::openTopic(int topic)
+{
+    currentTopic = juce::jlimit(0, topicCount - 1, topic);
+    sections.setSelectedId(currentTopic + 1, juce::dontSendNotification);
+    article.setText(articleFor(currentTopic), false);
+    article.setCaretPosition(0);
+    previousButton.setEnabled(currentTopic != 0);
+    nextButton.setEnabled(currentTopic != topicCount - 1);
+}
+
+void WindLabGuidePanel::paint(juce::Graphics& g)
+{
+    g.fillAll(juce::Colour(0xff0e1e26));
+    g.setColour(juce::Colour(0xffeab080));
+    g.setFont(juce::Font(30.0f, juce::Font::bold));
+    g.drawText("WINDLAB   ?   GUIDA", 30, 18, getWidth() - 210, 42,
+               juce::Justification::centredLeft);
+    g.setColour(juce::Colour(0xff42616c));
+    g.drawLine(30.0f, 71.0f, static_cast<float>(getWidth() - 30), 71.0f, 1.0f);
+}
+
+void WindLabGuidePanel::resized()
+{
+    const int w = getWidth();
+    const int h = getHeight();
+    subtitle.setBounds(32, 65, w - 60, 24);
+    sections.setBounds(32, 97, w - 64, 39);
+    article.setBounds(32, 149, w - 64, h - 220);
+    previousButton.setBounds(32, h - 57, 177, 36);
+    nextButton.setBounds(217, h - 57, 172, 36);
+    closeButton.setBounds(w - 170, h - 57, 138, 36);
+}
