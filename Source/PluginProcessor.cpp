@@ -209,12 +209,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
         juce::ParameterID {"sourceMode", 1}, "Sound Engine",
         juce::StringArray {"Acoustic (recorded)", "Hybrid (sample + synth)", "Synthetic"}, 0));
     layout.add(std::make_unique<juce::AudioParameterChoice>(
-        juce::ParameterID {"velocityResponse", 1}, "Velocity Response",
-        juce::StringArray {"Natural", "Light Touch", "Weighted Piano", "Breath Controller"}, 0));
-    layout.add(std::make_unique<juce::AudioParameterChoice>(
-        juce::ParameterID {"inputMode", 1}, "Keyboard Input Mode",
-        juce::StringArray {"Piano + MIDI", "PC / Notebook"}, 0));
-    layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"articulation", 1}, "Articulation",
         juce::StringArray {"Sustain", "Staccato", "Swell"}, 0));
     layout.add(std::make_unique<Float>(juce::ParameterID {"attack", 1}, "Attack",
@@ -247,6 +241,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
         juce::NormalisableRange<float>(0.0f, 1.0f), .48f));
     layout.add(std::make_unique<Float>(juce::ParameterID {"gain", 1}, "Output",
         juce::NormalisableRange<float>(0.0f, 1.0f), .75f));
+    // Append new IDs after all original parameters: preserves older host index order.
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"velocityResponse", 1}, "Velocity Response",
+        juce::StringArray {"Natural", "Light Touch", "Weighted Piano", "Breath Controller"}, 0));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"inputMode", 1}, "Keyboard Input Mode",
+        juce::StringArray {"Piano + MIDI", "PC / Notebook"}, 0));
     return layout;
 }
 
