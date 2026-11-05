@@ -2,6 +2,7 @@
 // Real acoustic recordings: voice-safe read-only bank and phase-continuous loop.
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_audio_basics/juce_audio_basics.h>
+#include "SampleLoopPlan.h"
 #include <algorithm>
 #include <atomic>
 #include <array>
@@ -68,11 +69,12 @@ public:
             // Sustained recordings crossfade within their natural body.
             if (!entry.isOneShot)
             {
-                entry.loopStart = static_cast<double>(count) * .28;
-                entry.loopEnd = static_cast<double>(count) * .75;
-                entry.fade = std::min(0.065 * reader->sampleRate, (entry.loopEnd - entry.loopStart) * .20);
-                if (entry.loopEnd - entry.loopStart <= entry.fade * 3.0)
-                    continue;
+                const auto plan = chooseSampleLoop(entry.wav.getReadPointer(0),
+                                                   count, reader->sampleRate);
+                if (!plan.valid) continue;
+                entry.loopStart = plan.start;
+                entry.loopEnd = plan.end;
+                entry.fade = plan.fade;
             }
             bank.push_back(std::move(entry));
         }
@@ -140,6 +142,8 @@ public:
         };
         const float first = readAt(position);
         float output = first;
+        if (sample->isOneShot)
+            output *= oneShotTailGain(position, b.getNumSamples(), sample->sampleRate);
         const double fadeStart = sample->loopEnd - sample->fade;
         if (!sample->isOneShot && position >= fadeStart && position < sample->loopEnd)
         {
