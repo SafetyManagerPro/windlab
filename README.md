@@ -1,3 +1,39 @@
+# WindLab 0.9.3 — REC MIDI → Phrase Editor + popup in-plugin
+
+**REC / STOP REC / IMPORTA** nello **Expression & Phrase Editor**.
+Suona una tastiera PC, il piano grafico, un controller USB MIDI, un
+pianoforte pesato o uno strumento MIDI a fiato. WindLab acquisisce fino a
+**due battute / 16 step di crome** in un buffer separato (nessuna cancellazione
+automatica della vecchia frase), poi con **IMPORTA** copia le note e le
+curve registrate nel piano roll modificabile.
+
+- Note-on/off, velocity, durate (gate 1..8), legato in presenza di sovrapposizione.
+- Curve di fiato **CC2**, espressione **CC11**, vibrato **CC1**, pitch bend,
+  anche con i CC fisici rimappati tramite MIDI Learn.
+- Input canali **1–15**. Il playback interno del Phrase Editor sul
+  canale **16** non viene mai registrato di nuovo.
+- Sequencer limitato a **una nota per step**: un accordo sullo stesso step
+  scarta le note in più. Registrazione quantizzata, non una traccia MIDI
+  arbitraria e **non audio WAV**.
+- Solo il risultato **importato** viene salvato nel progetto host.
+  La cattura temporanea non viene ripristinata se si chiude il plugin prima
+  di importarla.
+- Parser di registrazione a dimensione fissa: nessuna allocazione,
+  lock o I/O nell'audio callback. Test C++ dedicati per registrazione e import.
+- **Phrase Editor e ?** mostrati come popup host-safe *interni* alla
+  finestra WindLab, non come finestre native separate (confermato
+  esplicitamente nella guida). Questo preserva la compatibilità AU,
+  VST3 e Standalone.
+
+La compatibilità delle build non prova da sola che tutti i comandi
+siano cliccabili nei diversi host: sono necessari test manuali
+di registrazione/guida/ritorno alla schermata principale in Windows
+Standalone, Mac Standalone e Logic Pro AU.
+
+**[Guida utente in italiano](docs/Guida-Utente-WindLab-IT.md)**
+
+## Precedente: 0.9.2 — MIDI Learn
+
 # WindLab 0.9.2 — MIDI Learn per fiato, vibrato ed espressione
 
 **MIDI LEARN**, disponibile nella schermata principale del plugin,
