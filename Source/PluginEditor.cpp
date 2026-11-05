@@ -7,7 +7,7 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
       processor(p),
       keyboard(p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
 {
-    setSize(1080, 849);
+    setSize(1080, 922);
     const juce::StringArray instruments {"Trumpet", "Tenor Sax", "Trombone", "Flute", "Clarinet", "French Horn"};
     for (int i = 0; i < instruments.size(); ++i)
         instrumentBox.addItem(instruments[i], i + 1);
@@ -77,6 +77,25 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
         processor.parameters, "noteMidiChannel", noteMidiChannelBox);
     breathMidiChannelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         processor.parameters, "breathMidiChannel", breathMidiChannelBox);
+
+    for (auto* slider : {&breathThresholdSlider, &breathCurveSlider})
+    {
+        slider->setSliderStyle(juce::Slider::LinearHorizontal);
+        slider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 58, 23);
+        addAndMakeVisible(*slider);
+    }
+    breathThresholdLabel.setText("SOFFIO: SOGLIA", juce::dontSendNotification);
+    breathCurveLabel.setText("SOFFIO: CURVA", juce::dontSendNotification);
+    for (auto* label : {&breathThresholdLabel, &breathCurveLabel})
+    {
+        label->setColour(juce::Label::textColourId, juce::Colour(0xffbfd0d3));
+        label->setFont(juce::Font(12.0f, juce::Font::bold));
+        addAndMakeVisible(*label);
+    }
+    breathThresholdAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        processor.parameters, "breathThreshold", breathThresholdSlider);
+    breathCurveAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        processor.parameters, "breathCurve", breathCurveSlider);
 
     const std::array<juce::String, 15> names {
         "ATTACK", "RELEASE", "BREATH LENGTH", "VIBRATO", "NATURAL",
@@ -334,6 +353,8 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
                29, 679, 1020, 18, juce::Justification::centredLeft);
 
     g.setColour(juce::Colour(0xff1d313b));
+    g.fillRoundedRectangle(22.0f, 852.0f, full.getWidth() - 44.0f, 50.0f, 9.0f);
+    g.setColour(juce::Colour(0xff1d313b));
     g.fillRoundedRectangle(22.0f, 702.0f, full.getWidth() - 44.0f, 143.0f, 12.0f);
     g.setColour(juce::Colour(0xff35515b));
     g.drawRoundedRectangle(22.0f, 702.0f, full.getWidth() - 44.0f, 143.0f, 12.0f, 1.0f);
@@ -388,6 +409,10 @@ void WindLabAudioProcessorEditor::resized()
     quickRecordButton.setBounds(getWidth() - 550, 20, 123, 41);
     helpButton.setBounds(getWidth() - 263, 20, 45, 41);
     midiLearnButton.setBounds(getWidth() - 418, 20, 145, 41);
+    breathThresholdLabel.setBounds(35, 858, 160, 24);
+    breathThresholdSlider.setBounds(192, 857, 320, 28);
+    breathCurveLabel.setBounds(545, 858, 160, 24);
+    breathCurveSlider.setBounds(701, 857, 310, 28);
     if (phrasePanel) phrasePanel->setBounds(getLocalBounds());
     if (guidePanel) guidePanel->setBounds(getLocalBounds());
     if (midiLearnPanel) midiLearnPanel->setBounds(getLocalBounds());
