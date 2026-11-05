@@ -60,6 +60,11 @@ for token in ("recordButton", "importButton", "recordingStatus"):
 assert "phraseRecorder.beginBlock" in processor and "phraseRecorder.endBlock" in processor
 assert processor.index("phraseRecorder.endBlock") < processor.index("phrase.process("), "Prevent channel16 playback recapture"
 assert "capture.importInto(phrase)" in phrase
+assert "quickRecordButton" in main
+assert "processor.phraseRecorder.requestStart()" in main
+assert "processor.phraseRecorder.requestStop()" in main
+assert "VEDI TAKE" in main
+assert "REC MIDI" in manual and "VEDI TAKE" in manual
 assert "std::array<std::atomic<std::uint64_t>" in recorder_header
 assert "Source/Dsp/PhraseRecorder.h" in cmake and "windlab_phrase_record_smoke" in cmake
 assert "REC" in manual and "IMPORTA" in manual
