@@ -15,7 +15,7 @@ WindLab now offers **MIDI PERFORMANCE** below the instrument selectors.
 6. For Artinoise Bluetooth LE MIDI on Windows, pair and configure the manufacturer's recommended MIDI bridge as needed. Pairing/bridging is done outside WindLab.
 
 ## Scope and limitations
-- This first version has **user-configurable hybrid channels 1–15**. Per-device profiles, calibration/smoothing, BLE pairing UI and per-device MIDI monitoring are planned but not implemented.
+- This first version has **user-configurable hybrid channels 1–15**. Controller CC mapping presets and calibration are now available. Automatic device detection, BLE pairing UI and per-device MIDI monitoring are not implemented.
 - A breath controller with **analog output** requires compatible MIDI conversion hardware; WindLab cannot receive that analog signal as native MIDI.
 - In the plugin, OS hardware port selection and BLE pairing remain the responsibility of the DAW; Standalone relies on JUCE's audio/MIDI settings.
 - The existing MIDI Learn, project persistence, sample bank and internal channel-16 phrase playback remain unchanged.
@@ -31,3 +31,12 @@ The bottom strip now includes **SOFFIO: SOGLIA** and **SOFFIO: CURVA**.
 - The settings are plugin parameters and persist in the DAW project.
 
 **Test**: a separate JUCE-free `windlab_breath_calibration_smoke` checks the default identity curve, activation threshold, normalization, exponent response and input bounds. CI/build is still required before claiming runtime compatibility.
+
+## Profili controller MIDI (MIDI LEARN)
+Open **MIDI LEARN** and choose a preset from **PROFILO MIDI**, then press **APPLICA PROFILO**. This is explicit and overwrites the current three CC assignments; it never runs automatically on device connection. The mapping is saved in the existing MIDI Learn project state.
+
+- **STANDARD CC2 / EWI / AEROPHONE**: vibrato CC1, breath CC2, expression CC11. For EWI or Aerophone, configure the hardware to transmit **CC2** for breath first; this is not a claim that every hardware model defaults to CC2.
+- **ARTINOISE RE.CORDER CC11**: vibrato CC1, breath CC11, expression CC2 (swapped to ensure there is no conflicting assignment). Artinoise's factory breath/pressure default is CC11 and inclination typically CC1. If the device has been reconfigured, use manual MIDI Learn instead.
+- **PERSONALIZZATO**: MIDI Learn remains available and can override any preset one destination at a time; saved mapping is not replaced unless APPLICA PROFILO or RESET CC is clicked.
+
+Controller presets do not pair Bluetooth devices, change fingering, detect hardware IDs or remap notes. To use Artinoise on Windows, configure its MIDI bridge outside the plug-in and route its MIDI output to WindLab through the DAW.
