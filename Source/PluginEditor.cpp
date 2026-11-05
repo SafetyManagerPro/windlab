@@ -174,12 +174,34 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     // without spawning a host-dependent secondary window.
     guidePanel = std::make_unique<WindLabGuidePanel>([this] {
         guidePanel->setVisible(false);
-        if (phrasePanel && phrasePanel->isVisible())
+        if (midiLearnPanel && midiLearnPanel->isVisible())
+            midiLearnPanel->toFront(true);
+        else if (phrasePanel && phrasePanel->isVisible())
             phrasePanel->toFront(true);
         else if (inputModeBox.getSelectedId() == 2)
             keyboard.grabKeyboardFocus();
     });
     addChildComponent(*guidePanel);
+
+    midiLearnButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff416a64));
+    midiLearnButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    midiLearnButton.setTooltip("Assegna i controller MIDI: vibrato, fiato ed espressione");
+    addAndMakeVisible(midiLearnButton);
+    midiLearnPanel = std::make_unique<WindLabMidiLearnPanel>(
+        processor.midiLearn,
+        [this] {
+            midiLearnPanel->setVisible(false);
+            if (inputModeBox.getSelectedId() == 2)
+                keyboard.grabKeyboardFocus();
+        },
+        [this] { showGuide(WindLabGuidePanel::midi); });
+    addChildComponent(*midiLearnPanel);
+    midiLearnButton.onClick = [this] {
+        const bool show = !midiLearnPanel->isVisible();
+        if (!show) processor.midiLearn.cancel();
+        midiLearnPanel->setVisible(show);
+        if (show) midiLearnPanel->toFront(true);
+    };
 }
 
 void WindLabAudioProcessorEditor::showGuide(int topic)
@@ -212,7 +234,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("WINDLAB", 27, 12, 475, 48, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffc2d2d7));
     g.setFont(juce::Font(13.0f));
-    g.drawText("RECORDED WINDS  /  0.9.1  /  PERFORMANCE + REAL WAV + GUIDA INTEGRATA", 32, 63, 910, 21,
+    g.drawText("RECORDED WINDS  /  0.9.2  /  MIDI LEARN + EXPRESSION + REAL WAV", 32, 63, 910, 21,
                juce::Justification::centredLeft);
 
     constexpr int rowTop[3] {207, 359, 511};
@@ -283,6 +305,8 @@ void WindLabAudioProcessorEditor::resized()
     keyboard.setBounds(30, 786, getWidth() - 60, 53);
     phraseButton.setBounds(getWidth() - 205, 20, 176, 41);
     helpButton.setBounds(getWidth() - 263, 20, 45, 41);
+    midiLearnButton.setBounds(getWidth() - 418, 20, 145, 41);
     if (phrasePanel) phrasePanel->setBounds(getLocalBounds());
     if (guidePanel) guidePanel->setBounds(getLocalBounds());
+    if (midiLearnPanel) midiLearnPanel->setBounds(getLocalBounds());
 }
