@@ -13,11 +13,11 @@ Studio One (VST3) and both Standalone applications.
 - **LEGATO:** select a step, press LEGATO to connect with a short overlapping
   note gate. This is a MIDI-style legato gesture and does **not** claim to
   provide authentic recorded inter-note legato transitions yet.
-- **Editable expression lanes:** choose **BREATH CC2**, **VELOCITY**, or
-  **PITCH BEND** from the selector beneath the piano roll. Click/drag points
-  to alter individual steps. Breath and pitch bend are smoothly interpolated
-  during playback. Velocity changes the recorded acoustic sample layer on
-  each note-on, in line with v0.5/v0.6.
+- **Editable expression lanes:** choose **BREATH CC2**, **VELOCITY**,
+  **VOLUME / EXPRESSION CC11**, or **PITCH BEND** beneath the piano roll.
+  Click/drag points to alter individual steps. Breath, held-note volume
+  and pitch bend interpolate continuously during playback. Velocity changes
+  the recorded acoustic sample layer only at note-on, as in v0.5/v0.6.
 - **PLAY / STOP:** audition the repeating phrase through WindLab's actual
   audio engine; supports all six wind instruments and the existing effects.
   **DEMO** loads a simple example; **CLEAR** clears all 16 note positions.
