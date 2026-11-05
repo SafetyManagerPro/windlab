@@ -117,15 +117,17 @@ performance libera o una regione MIDI completa della DAW.
 
 **Come fare:**
 
-1. Apri **PHRASE EDITOR** nella schermata principale.
-2. Imposta il BPM interno, oppure attiva HOST BPM se vuoi seguire il tempo
-   comunicato da Logic Pro o Studio One (non segue ancora la testina).
-3. Premi **REC** e suona: puoi usare piano PC, piano virtuale, MIDI esterno
-   o uno strumento a fiato MIDI collegato tramite la DAW/Standalone.
-4. La registrazione termina dopo 16 step oppure quando premi **STOP REC**.
-5. Prima di importare, il contenuto della frase precedente e' invariato.
-   Premi **IMPORTA** soltanto quando desideri sostituire la frase con
-   quella appena registrata.
+1. Per suonare con i tasti del **computer**, seleziona **PC / NOTEBOOK**
+   e premi **REC MIDI** direttamente nella schermata principale: la tastiera
+   continua a ricevere i tasti senza dover aprire il popup dell'editor.
+   Per strumenti MIDI esterni puoi anche premere **REC** nel Phrase Editor.
+2. Imposta il BPM interno dal Phrase Editor, oppure attiva HOST BPM per
+   seguire il BPM di Logic/Studio One (non la posizione della testina).
+3. Premi **REC MIDI** / **REC** e suona la frase: note, fiato e pitch bend.
+4. La registrazione termina dopo 16 step o quando premi **STOP REC**.
+   Il pulsante principale diventa **VEDI TAKE**, che apre il Phrase Editor.
+5. Prima di importare, la frase precedente rimane invariata. Premi
+   **IMPORTA** dentro il Phrase Editor per sostituirla esplicitamente.
 6. Correggi altezza, lunghezza, velocity, legato, fiato, volume, pitch e
    vibrato con il piano roll e le corsie grafiche. Poi premi **PLAY**.
 
