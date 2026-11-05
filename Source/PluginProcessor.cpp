@@ -353,6 +353,17 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     // MIDI (notes + CC curves), not a bounced WAV file. Recording and playing
     // use separate buffers so REC never destroys an existing phrase.
     keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
+    // Observe original incoming MIDI before hybrid-channel normalization.
+    // The monitor is diagnostic only; it does not modify MIDI or sound.
+    for (const auto event : midiMessages)
+    {
+        const auto message = event.getMessage();
+        if (message.isNoteOnOrOff())
+            midiInputMonitor.note(message.getChannel(), message.getNoteNumber(), message.isNoteOn());
+        else if (message.isController())
+            midiInputMonitor.controller(message.getChannel(),
+                                        message.getControllerNumber(), message.getControllerValue());
+    }
     // Hybrid combines note input and expression from separate MIDI channels.
     // Same-channel choices are intentionally treated as passthrough.
     if (static_cast<int>(parameters.getRawParameterValue("performanceMode")->load()) == 2)
