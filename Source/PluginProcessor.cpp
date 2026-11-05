@@ -320,9 +320,40 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                     phrase.setHostTempo(*bpm);
     }
 
-    // Phrase Editor uses an isolated channel 16; external MIDI and the on-screen
-    // keyboard remain available on their normal channels. MIDI generation is
-    // bounded and sample-accurate within this audio block.
+    // Capture external MIDI and virtual PC/piano notes BEFORE the internal
+    // Phrase Editor injects its channel-16 playback. The recording is strictly
+    // MIDI (notes + CC curves), not a bounced WAV file. Recording and playing
+    // use separate buffers so REC never destroys an existing phrase.
+    keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
+    phraseRecorder.beginBlock(buffer.getNumSamples(), getSampleRate(), phrase.effectiveTempo());
+    for (const auto metadata : midiMessages)
+    {
+        const auto message = metadata.getMessage();
+        const int channel = message.getChannel();
+        const int offset = metadata.samplePosition;
+        if (channel == windlab::PhraseEngine::midiChannel) continue;
+        if (message.isNoteOn())
+            phraseRecorder.noteOn(channel, message.getNoteNumber(), message.getVelocity(), offset);
+        else if (message.isNoteOff())
+            phraseRecorder.noteOff(channel, message.getNoteNumber(), offset);
+        else if (message.isController())
+        {
+            // Capture the post-mapping expressive function without consuming
+            // the pending MIDI Learn assignment in the audio synthesizer.
+            const int cc = message.getControllerNumber();
+            const int translated =
+                cc == midiLearn.binding(windlab::MidiLearnBindings::Vibrato) ? 1 :
+                cc == midiLearn.binding(windlab::MidiLearnBindings::Breath) ? 2 :
+                cc == midiLearn.binding(windlab::MidiLearnBindings::Expression) ? 11 : cc;
+            phraseRecorder.controller(channel, translated, message.getControllerValue(), offset);
+        }
+        else if (message.isPitchWheel())
+            phraseRecorder.pitchWheel(channel, message.getPitchWheelValue(), offset);
+    }
+    phraseRecorder.endBlock();
+
+    // Phrase Editor uses an isolated channel 16, excluded from MIDI capture.
+    // Playback and automation remain unchanged and independent of the recorder.
     phrase.process(buffer.getNumSamples(), getSampleRate(),
         [&midiMessages](windlab::PhraseEvent type, int noteOrController, int value, int offset)
         {
@@ -349,7 +380,6 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                     break;
             }
         });
-    keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
     synthesiser->renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
     outputGain.setTargetValue(parameters.getRawParameterValue("gain")->load());
     roomAmount.setTargetValue(parameters.getRawParameterValue("space")->load());
