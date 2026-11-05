@@ -34,4 +34,21 @@ assert "midiLearn.arm" in learn_panel and "midiLearn.reset" in learn_panel
 assert "MIDI LEARN" in panel and "MIDI LEARN" in manual
 assert "Source/WindLabMidiLearnPanel.cpp" in cmake
 assert "midiLearn.route" not in main  # audio routing belongs in processor, not editor
+
+# A plugin can be compiled successfully even when a child overlay is 0x0.
+# Editor setSize runs before overlays are constructed; require explicit bounds
+# BEFORE addChildComponent so buttons open a visible screen on first click.
+assert "setSize(1080, 849)" in main
+for child in ("phrasePanel", "guidePanel", "midiLearnPanel"):
+    add = f"addChildComponent(*{child})"
+    if add not in main:
+        continue  # MIDI Learn is introduced only in 0.9.2
+    born = f"{child} = std::make_unique<"
+    sized = f"{child}->setBounds(getLocalBounds())"
+    assert born in main and sized in main
+    assert main.index(born) < main.index(sized) < main.index(add), (
+        f"{child}: missing initial bounds before UI attachment; overlay will be invisible")
+assert "if (phrasePanel) phrasePanel->setBounds(getLocalBounds())" in main
+assert "if (guidePanel) guidePanel->setBounds(getLocalBounds())" in main
+
 print("PASS: 12 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")
