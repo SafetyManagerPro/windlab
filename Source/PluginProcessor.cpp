@@ -44,8 +44,28 @@ namespace
             // uses channel 16 and never participates in MIDI Learn.
             controllerNumber = ccAssignments.route(midiChannel, controllerNumber);
             if (controllerNumber < 0) return;
+
             if (midiChannel != windlab::PhraseEngine::midiChannel)
+            {
+                // In WIND/CC11 mode the expression controller is repurposed
+                // as breath. Reset any prior CC11 volume attenuation once,
+                // otherwise a previously muted channel stays inaudible even
+                // when the musician starts blowing. Keep CC11 volume behavior
+                // unchanged in Piano, PC, CC2 and Pressure modes.
+                if (windInput.isEnabled() &&
+                    windInput.source() == windlab::WindMidiSettings::CC11 &&
+                    controllerNumber == 11 &&
+                    juce::isPositiveAndBelow(midiChannel - 1, 16))
+                {
+                    auto& channel = channels[static_cast<std::size_t>(midiChannel - 1)];
+                    if (channel.expression < 0.999f)
+                    {
+                        channel.expression = 1.0f;
+                        juce::Synthesiser::handleController(midiChannel, 11, 127);
+                    }
+                }
                 controllerNumber = windInput.routeController(controllerNumber);
+            }
             if (controllerNumber < 0) return;
             if (juce::isPositiveAndBelow(midiChannel - 1, 16))
             {
