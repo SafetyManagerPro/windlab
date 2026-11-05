@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include <array>
+#include <cmath>
 #include <utility>
 
 WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& p)
@@ -96,13 +97,18 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     }
     inputModeBox.addItem("PIANO + MIDI", 1);
     inputModeBox.addItem("PC / NOTEBOOK", 2);
+    inputModeBox.addItem("WIND MIDI / EWI", 3);
     const juce::StringArray responses {"NATURAL", "LIGHT TOUCH",
                                        "WEIGHTED PIANO", "BREATH CONTROLLER"};
     for (int i = 0; i < responses.size(); ++i)
         velocityResponseBox.addItem(responses[i], i + 1);
 
-    inputModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-        processor.parameters, "inputMode", inputModeBox);
+    // Display three choices but keep the old 0/1 inputMode parameter stable.
+    // WIND MIDI uses a separate appended APVTS Boolean, avoiding broken
+    // automation in older Logic/Studio One projects.
+    const bool initialWind = processor.parameters.getRawParameterValue("windMidiMode")->load() >= .5f;
+    const bool initialPC = processor.parameters.getRawParameterValue("inputMode")->load() >= .5f;
+    inputModeBox.setSelectedId(initialWind ? 3 : (initialPC ? 2 : 1), juce::dontSendNotification);
     velocityResponseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         processor.parameters, "velocityResponse", velocityResponseBox);
 
@@ -118,7 +124,7 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     }
     octaveLabel.setJustificationType(juce::Justification::centred);
 
-    for (auto* button : {&octaveDown, &octaveUp, &midiHelpButton})
+    for (auto* button : {&octaveDown, &octaveUp, &midiHelpButton, &windSetupButton})
     {
         button->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff314b53));
         button->setColour(juce::TextButton::textColourOffId, juce::Colours::white);
@@ -138,14 +144,33 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     addAndMakeVisible(keyVelocity);
 
     inputModeBox.onChange = [this] {
-        const bool pcEnabled = inputModeBox.getSelectedId() == 2;
-        keyboard.setWantsKeyboardFocus(pcEnabled);
-        if (pcEnabled)
-            keyboard.grabKeyboardFocus();
+        const int mode = inputModeBox.getSelectedId();
+        const auto setHostParameter = [this](const char* id, float raw) {
+            if (auto* parameter = processor.parameters.getParameter(id))
+            {
+                const float normalized = parameter->convertTo0to1(raw);
+                if (std::abs(parameter->getValue() - normalized) > .0001f)
+                {
+                    parameter->beginChangeGesture();
+                    parameter->setValueNotifyingHost(normalized);
+                    parameter->endChangeGesture();
+                }
+            }
+        };
+        setHostParameter("windMidiMode", mode == 3 ? 1.0f : 0.0f);
+        setHostParameter("inputMode", mode == 2 ? 1.0f : 0.0f);
+        keyboard.setWantsKeyboardFocus(mode == 2);
+        if (mode == 2) keyboard.grabKeyboardFocus();
         repaint();
     };
     // The short MIDI explanation is now a chapter of the full offline guide.
     midiHelpButton.onClick = [this] { showGuide(WindLabGuidePanel::midi); };
+    windSetupButton.setTooltip("Configura EWI/fiato MIDI e monitora gli eventi realmente ricevuti");
+    windSetupButton.onClick = [this] {
+        if (!windPanel) return;
+        windPanel->setVisible(true);
+        windPanel->toFront(true);
+    };
     // A DAW may restore a saved PC input mode before the editor opens.
     keyboard.setWantsKeyboardFocus(inputModeBox.getSelectedId() == 2);
     changeKeyboardOctave(0);
@@ -199,7 +224,9 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     // without spawning a host-dependent secondary window.
     guidePanel = std::make_unique<WindLabGuidePanel>([this] {
         guidePanel->setVisible(false);
-        if (midiLearnPanel && midiLearnPanel->isVisible())
+        if (windPanel && windPanel->isVisible())
+            windPanel->toFront(true);
+        else if (midiLearnPanel && midiLearnPanel->isVisible())
             midiLearnPanel->toFront(true);
         else if (phrasePanel && phrasePanel->isVisible())
             phrasePanel->toFront(true);
@@ -223,6 +250,13 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
         [this] { showGuide(WindLabGuidePanel::midi); });
     midiLearnPanel->setBounds(getLocalBounds()); // same zero-size fix for new MIDI Learn panel
     addChildComponent(*midiLearnPanel);
+    windPanel = std::make_unique<WindMidiPanel>(
+        processor.windMidi, processor.windMonitor,
+        [this] { inputModeBox.setSelectedId(3, juce::sendNotification); },
+        [this] { windPanel->setVisible(false); },
+        [this] { showGuide(WindLabGuidePanel::midi); });
+    windPanel->setBounds(getLocalBounds());
+    addChildComponent(*windPanel);
     midiLearnButton.onClick = [this] {
         const bool show = !midiLearnPanel->isVisible();
         if (!show) processor.midiLearn.cancel();
@@ -240,6 +274,14 @@ void WindLabAudioProcessorEditor::timerCallback()
         status == windlab::PhraseRecorder::Ready ? "VEDI TAKE" : "REC MIDI";
     if (quickRecordButton.getButtonText() != label)
         quickRecordButton.setButtonText(label);
+    const bool wind = processor.parameters.getRawParameterValue("windMidiMode")->load() >= .5f;
+    const bool pc = processor.parameters.getRawParameterValue("inputMode")->load() >= .5f;
+    const int expectedMode = wind ? 3 : (pc ? 2 : 1);
+    if (inputModeBox.getSelectedId() != expectedMode)
+    {
+        inputModeBox.setSelectedId(expectedMode, juce::dontSendNotification);
+        keyboard.setWantsKeyboardFocus(expectedMode == 2);
+    }
 }
 
 void WindLabAudioProcessorEditor::showGuide(int topic)
@@ -302,9 +344,12 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawRoundedRectangle(22.0f, 702.0f, full.getWidth() - 44.0f, 143.0f, 12.0f, 1.0f);
     g.setColour(juce::Colour(0xff9dbbc2));
     g.setFont(juce::Font(12.0f));
-    const bool pc = inputModeBox.getSelectedId() == 2;
-    g.drawText(pc ? "PC ACTIVE: A W S E D F T G Y H U J K  |  Click the piano below if keyboard focus is lost."
-                  : "MIDI READY: external USB/MIDI keyboard stays enabled; choose PC / NOTEBOOK to use typing keys.",
+    const int mode = inputModeBox.getSelectedId();
+    g.drawText(mode == 3
+                   ? "WIND MIDI / EWI: apri WIND SETUP. Instrada il MIDI dalla DAW o dalla Standalone."
+                   : mode == 2
+                       ? "PC ACTIVE: A W S E D F T G Y H U J K  |  Click piano if focus is lost."
+                       : "MIDI READY: external MIDI keyboard stays enabled; choose PC / NOTEBOOK for typing keys.",
                35, 762, 1010, 20, juce::Justification::centredLeft);
 }
 
@@ -330,7 +375,8 @@ void WindLabAudioProcessorEditor::resized()
         labels[static_cast<std::size_t>(i)].setBounds(x, rowTop[row] + 27, cellWidth, 20);
         knobs[static_cast<std::size_t>(i)].setBounds(x + (cellWidth - 122) / 2, rowTop[row] + 47, 122, 91);
     }
-    inputModeLabel.setBounds(35, 705, 235, 22);
+    inputModeLabel.setBounds(35, 705, 125, 22);
+    windSetupButton.setBounds(162, 705, 108, 23);
     inputModeBox.setBounds(35, 729, 235, 32);
     octaveDown.setBounds(291, 729, 34, 32);
     octaveLabel.setBounds(332, 729, 67, 32);
@@ -348,4 +394,5 @@ void WindLabAudioProcessorEditor::resized()
     if (phrasePanel) phrasePanel->setBounds(getLocalBounds());
     if (guidePanel) guidePanel->setBounds(getLocalBounds());
     if (midiLearnPanel) midiLearnPanel->setBounds(getLocalBounds());
+    if (windPanel) windPanel->setBounds(getLocalBounds());
 }

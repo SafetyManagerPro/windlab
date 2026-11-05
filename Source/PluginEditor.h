@@ -3,6 +3,7 @@
 #include "PhraseEditor.h"
 #include "WindLabGuidePanel.h"
 #include "WindLabMidiLearnPanel.h"
+#include "WindMidiPanel.h"
 #include <array>
 #include <memory>
 
@@ -20,12 +21,13 @@ private:
     juce::ComboBox inputModeBox, velocityResponseBox;
     juce::Label instrumentLabel, articulationLabel, sourceLabel;
     juce::Label inputModeLabel, velocityLabel, octaveLabel, velocityResponseLabel;
-    juce::TextButton octaveDown {"-"}, octaveUp {"+"}, midiHelpButton {"MIDI ?"};
+    juce::TextButton octaveDown {"-"}, octaveUp {"+"}, midiHelpButton {"MIDI ?"}, windSetupButton {"WIND SETUP"};
     juce::Slider keyVelocity;
     juce::TextButton phraseButton {"PHRASE EDITOR"}, helpButton {"?"}, midiLearnButton {"MIDI LEARN"}, quickRecordButton {"REC MIDI"};
     std::unique_ptr<WindLabPhraseEditor> phrasePanel;
     std::unique_ptr<WindLabGuidePanel> guidePanel;
     std::unique_ptr<WindLabMidiLearnPanel> midiLearnPanel;
+    std::unique_ptr<WindMidiPanel> windPanel;
     int keyboardOctave = 5; // physical keyboard A = MIDI 60 (middle C)
     void changeKeyboardOctave(int delta);
     void showGuide(int topic);
@@ -33,7 +35,6 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> instrumentAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> articulationAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> sourceAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> inputModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> velocityResponseAttachment;
     std::array<juce::Slider, 15> knobs;
     std::array<juce::Label, 15> labels;
