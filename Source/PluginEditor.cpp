@@ -41,6 +41,19 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
         addAndMakeVisible(*label);
     }
 
+    performanceModeBox.addItem("TASTIERA / MIDI", 1);
+    performanceModeBox.addItem("STRUMENTO A FIATO", 2);
+    performanceModeBox.addItem("IBRIDO: NOTE CH1 + SOFFIO CH2", 3);
+    performanceModeBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff182831));
+    performanceModeBox.setColour(juce::ComboBox::textColourId, juce::Colours::white);
+    addAndMakeVisible(performanceModeBox);
+    performanceModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processor.parameters, "performanceMode", performanceModeBox);
+    performanceModeLabel.setText("MIDI PERFORMANCE", juce::dontSendNotification);
+    performanceModeLabel.setColour(juce::Label::textColourId, juce::Colour(0xffbfd0d3));
+    performanceModeLabel.setFont(juce::Font(12.0f, juce::Font::bold));
+    addAndMakeVisible(performanceModeLabel);
+
     const std::array<juce::String, 15> names {
         "ATTACK", "RELEASE", "BREATH LENGTH", "VIBRATO", "NATURAL",
         "BRIGHTNESS", "AIR", "BASS dB", "MID dB", "TREBLE dB",
@@ -319,6 +332,8 @@ void WindLabAudioProcessorEditor::resized()
     articulationBox.setBounds(inset + fieldW + 15, 130, fieldW, 41);
     sourceBox.setBounds(inset + (fieldW + 15) * 2, 130, fieldW, 41);
 
+    performanceModeLabel.setBounds(35, 177, 180, 23);
+    performanceModeBox.setBounds(215, 175, 330, 27);
     const int contentWidth = getWidth() - 62;
     const int cellWidth = contentWidth / 5;
     constexpr int rowTop[3] {207, 359, 511};
