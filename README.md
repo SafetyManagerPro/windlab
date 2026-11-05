@@ -1,3 +1,25 @@
+# WindLab 0.9.1 — Guida integrata "?" (AU / VST3 / Standalone)
+
+WindLab include ora una **guida offline completa** richiamabile dal pulsante
+**?** in alto nella schermata principale. Il **?** dentro il **PHRASE EDITOR**
+apre direttamente le istruzioni relative a note, legato e corsie espressive;
+il precedente pulsante **MIDI ?** apre il capitolo MIDI/controller.
+
+La guida include **12 capitoli navigabili**, scorrimento dei testi lunghi,
+selettore degli argomenti, pulsanti Precedente/Successivo e Chiudi.
+Funziona direttamente nella finestra del plugin, senza browser né connessione.
+
+**[Leggi la guida utente completa in italiano](docs/Guida-Utente-WindLab-IT.md)**
+— installazione AU/VST3, Logic Pro, Studio One, tastiera PC, MIDI pesato,
+campioni, controlli, spartito, Phrase Editor, risoluzione dei problemi,
+limiti attuali e differenze fra funzioni disponibili e pianificate.
+
+La versione 0.9.1 non altera i campioni, gli ID del plugin, gli ID dei
+parametri né il salvataggio delle frasi. Il manuale e i pulsanti di aiuto
+sono visibili sia in AU/VST3 sia nelle Standalone.
+
+## Precedente: 0.9 — loop e code dei campioni
+
 # WindLab 0.9 — Natural Sample Loop & Staccato Tail Refinement
 
 ## First realism-engine tranche (non-destructive)
