@@ -22,6 +22,8 @@ private:
     juce::Label inputModeLabel, velocityLabel, octaveLabel, velocityResponseLabel, performanceModeLabel, noteMidiChannelLabel, breathMidiChannelLabel;
     juce::TextButton octaveDown {"-"}, octaveUp {"+"}, midiHelpButton {"MIDI ?"};
     juce::Slider keyVelocity;
+    juce::Slider breathThresholdSlider, breathCurveSlider;
+    juce::Label breathThresholdLabel, breathCurveLabel;
     juce::TextButton phraseButton {"PHRASE EDITOR"}, helpButton {"?"}, midiLearnButton {"MIDI LEARN"}, quickRecordButton {"REC MIDI"};
     std::unique_ptr<WindLabPhraseEditor> phrasePanel;
     std::unique_ptr<WindLabGuidePanel> guidePanel;
@@ -36,6 +38,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> inputModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> velocityResponseAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> performanceModeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> breathThresholdAttachment, breathCurveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> noteMidiChannelAttachment, breathMidiChannelAttachment;
     std::array<juce::Slider, 15> knobs;
     std::array<juce::Label, 15> labels;
