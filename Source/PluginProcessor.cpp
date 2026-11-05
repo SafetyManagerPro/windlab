@@ -302,6 +302,34 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 {
     juce::ScopedNoDenormals noDenormals;
     buffer.clear();
+
+    // Phrase Editor uses an isolated channel 16; external MIDI and the on-screen
+    // keyboard remain available on their normal channels. MIDI generation is
+    // bounded and sample-accurate within this audio block.
+    phrase.process(buffer.getNumSamples(), getSampleRate(),
+        [&midiMessages](windlab::PhraseEvent type, int noteOrController, int value, int offset)
+        {
+            switch (type)
+            {
+                case windlab::PhraseEvent::NoteOn:
+                    midiMessages.addEvent(juce::MidiMessage::noteOn(
+                        windlab::PhraseEngine::midiChannel, noteOrController,
+                        static_cast<juce::uint8>(value)), offset);
+                    break;
+                case windlab::PhraseEvent::NoteOff:
+                    midiMessages.addEvent(juce::MidiMessage::noteOff(
+                        windlab::PhraseEngine::midiChannel, noteOrController), offset);
+                    break;
+                case windlab::PhraseEvent::Breath:
+                    midiMessages.addEvent(juce::MidiMessage::controllerEvent(
+                        windlab::PhraseEngine::midiChannel, noteOrController, value), offset);
+                    break;
+                case windlab::PhraseEvent::PitchWheel:
+                    midiMessages.addEvent(juce::MidiMessage::pitchWheel(
+                        windlab::PhraseEngine::midiChannel, value), offset);
+                    break;
+            }
+        });
     keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
     synthesiser->renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
     outputGain.setTargetValue(parameters.getRawParameterValue("gain")->load());
@@ -364,14 +392,40 @@ juce::AudioProcessorEditor* WindLabAudioProcessor::createEditor()
 void WindLabAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     if (auto xml = parameters.copyState().createXml())
+    {
+        // Store phrase notes inside the existing state blob; older automation IDs
+        // remain intact. UI/audio handoff consists only of atomic reads.
+        auto* phraseXml = xml->createNewChildElement("WindLabPhraseV1");
+        phraseXml->setAttribute("tempo", phrase.getTempo());
+        for (int i = 0; i < windlab::PhraseEngine::steps; ++i)
+            phraseXml->setAttribute("s" + juce::String(i),
+                juce::String(static_cast<juce::int64>(phrase.packed(i))));
         copyXmlToBinary(*xml, destData);
+    }
 }
 
 void WindLabAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary(data, sizeInBytes))
-        if (xml->hasTagName(parameters.state.getType()))
-            parameters.replaceState(juce::ValueTree::fromXml(*xml));
+    {
+        if (!xml->hasTagName(parameters.state.getType())) return;
+        phrase.setPlaying(false); // project recall must never auto-start a phrase
+        phrase.clear();
+        if (auto* phraseXml = xml->getChildByName("WindLabPhraseV1"))
+        {
+            phrase.setTempo(phraseXml->getIntAttribute("tempo", 110));
+            for (int i = 0; i < windlab::PhraseEngine::steps; ++i)
+            {
+                const auto name = "s" + juce::String(i);
+                if (phraseXml->hasAttribute(name))
+                    phrase.setPacked(i, static_cast<std::uint64_t>(
+                        phraseXml->getStringAttribute(name).getLargeIntValue()));
+            }
+            // Keep phrase metadata out of the APVTS parameter state tree.
+            xml->removeChildElement(phraseXml, true);
+        }
+        parameters.replaceState(juce::ValueTree::fromXml(*xml));
+    }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
