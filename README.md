@@ -1,3 +1,30 @@
+# WindLab 0.9.2 — MIDI Learn per fiato, vibrato ed espressione
+
+**MIDI LEARN**, disponibile nella schermata principale del plugin,
+permette di assegnare con un movimento di pedale, slider o controller
+hardware uno dei messaggi MIDI CC alle tre funzioni espressive:
+**VIBRATO (CC1)**, **FIATO / BREATH (CC2)**, **VOLUME (CC11)**.
+
+- Premi MIDI LEARN → IMPARA per la destinazione → muovi il controller.
+- Il pannello mostra il numero CC appreso. ANNULLA disarma l'ascolto;
+  RESET CC ripristina CC1, CC2 e CC11.
+- Mappature personalizzate salvate e ripristinate nel progetto AU/VST3
+  come stato del plugin; i progetti più vecchi restano sui CC originali.
+- Cambiare assegnazione di un CC già assegnato a un'altra funzione **scambia**
+  i numeri; le tre funzioni non si sovrappongono.
+- **Canale MIDI 16** del Phrase Editor escluso da learn/routing.
+- Un eventuale pedale CC64 mappato come espressione non invia anche
+  sustain tradizionale durante quella mappatura.
+- Il motore non modifica i campioni CC0, l'identità del plugin o i vecchi
+  ID di automazione. Sono previste compilazioni AU/VST3/Standalone Mac
+  e VST3/Standalone Windows in CI.
+
+Il pulsante **?** della guida apre il capitolo MIDI Learn.
+Consulta il [manuale italiano](docs/Guida-Utente-WindLab-IT.md)
+per la procedura completa e le limitazioni attuali.
+
+## Precedente: 0.9.1 — Guida integrata "?"
+
 # WindLab 0.9.1 — Guida integrata "?" (AU / VST3 / Standalone)
 
 WindLab include ora una **guida offline completa** richiamabile dal pulsante
