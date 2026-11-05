@@ -196,7 +196,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("WINDLAB", 27, 12, 475, 48, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffc2d2d7));
     g.setFont(juce::Font(13.0f));
-    g.drawText("RECORDED WINDS  /  0.7  /  EXPRESSION + PHRASE EDITOR", 32, 63, 910, 21,
+    g.drawText("RECORDED WINDS  /  0.8  /  SCORE PREVIEW + DAW TEMPO + VIBRATO", 32, 63, 910, 21,
                juce::Justification::centredLeft);
 
     constexpr int rowTop[3] {207, 359, 511};
