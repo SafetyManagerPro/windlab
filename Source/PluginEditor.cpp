@@ -153,7 +153,7 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     phraseButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffb8754d));
     phraseButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     addAndMakeVisible(phraseButton);
-    phrasePanel = std::make_unique<WindLabPhraseEditor>(processor.phrase, [this] {
+    phrasePanel = std::make_unique<WindLabPhraseEditor>(processor.phrase, processor.phraseRecorder, [this] {
         phrasePanel->setVisible(false);
         if (inputModeBox.getSelectedId() == 2) keyboard.grabKeyboardFocus();
     }, [this] { showGuide(WindLabGuidePanel::phraseEditor); });
@@ -237,7 +237,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("WINDLAB", 27, 12, 475, 48, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffc2d2d7));
     g.setFont(juce::Font(13.0f));
-    g.drawText("RECORDED WINDS  /  0.9.2  /  MIDI LEARN + EXPRESSION + REAL WAV", 32, 63, 910, 21,
+    g.drawText("RECORDED WINDS  /  0.9.3  /  MIDI RECORD + POPUP EDITOR + REAL WAV", 32, 63, 910, 21,
                juce::Justification::centredLeft);
 
     constexpr int rowTop[3] {207, 359, 511};
