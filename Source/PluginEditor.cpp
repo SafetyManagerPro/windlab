@@ -43,7 +43,7 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
 
     performanceModeBox.addItem("TASTIERA / MIDI", 1);
     performanceModeBox.addItem("STRUMENTO A FIATO", 2);
-    performanceModeBox.addItem("IBRIDO: NOTE CH1 + SOFFIO CH2", 3);
+    performanceModeBox.addItem("IBRIDO: NOTE CH + SOFFIO CH", 3);
     performanceModeBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff182831));
     performanceModeBox.setColour(juce::ComboBox::textColourId, juce::Colours::white);
     addAndMakeVisible(performanceModeBox);
