@@ -255,6 +255,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"inputMode", 1}, "Keyboard Input Mode",
         juce::StringArray {"Piano + MIDI", "PC / Notebook"}, 0));
+    // Appended to retain existing parameter indices and saved DAW automation.
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"performanceMode", 1}, "MIDI Performance Mode",
+        juce::StringArray {"Keyboard / Universal", "Wind MIDI", "Hybrid: Ch1 keys + Ch2 breath"}, 0));
     return layout;
 }
 
@@ -325,6 +329,34 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     // MIDI (notes + CC curves), not a bounced WAV file. Recording and playing
     // use separate buffers so REC never destroys an existing phrase.
     keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
+    // Hybrid: note events arrive on channel 1, expressive MIDI on channel 2.
+    // Mapped CCs are forwarded to Ch1 before recording and synthesis.
+    // Unrelated Ch2 notes are deliberately not played or recorded.
+    if (static_cast<int>(parameters.getRawParameterValue("performanceMode")->load()) == 2)
+    {
+        juce::MidiBuffer merged;
+        const int vibratoCC = midiLearn.binding(windlab::MidiLearnBindings::Vibrato);
+        const int breathCC = midiLearn.binding(windlab::MidiLearnBindings::Breath);
+        const int expressionCC = midiLearn.binding(windlab::MidiLearnBindings::Expression);
+        for (const auto event : midiMessages)
+        {
+            auto msg = event.getMessage();
+            if (msg.getChannel() == 2)
+            {
+                if (msg.isController())
+                {
+                    const int cc = msg.getControllerNumber();
+                    if (cc == vibratoCC || cc == breathCC || cc == expressionCC)
+                    {
+                        msg.setChannel(1);
+                        merged.addEvent(msg, event.samplePosition);
+                    }
+                }
+            }
+            else merged.addEvent(msg, event.samplePosition);
+        }
+        midiMessages.swapWith(merged);
+    }
     phraseRecorder.beginBlock(buffer.getNumSamples(), getSampleRate(), phrase.effectiveTempo());
     for (const auto metadata : midiMessages)
     {
