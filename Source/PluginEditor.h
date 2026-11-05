@@ -2,6 +2,7 @@
 #include "PluginProcessor.h"
 #include "PhraseEditor.h"
 #include "WindLabGuidePanel.h"
+#include "WindLabMidiLearnPanel.h"
 #include <array>
 #include <memory>
 
@@ -21,9 +22,10 @@ private:
     juce::Label inputModeLabel, velocityLabel, octaveLabel, velocityResponseLabel;
     juce::TextButton octaveDown {"-"}, octaveUp {"+"}, midiHelpButton {"MIDI ?"};
     juce::Slider keyVelocity;
-    juce::TextButton phraseButton {"PHRASE EDITOR"}, helpButton {"?"};
+    juce::TextButton phraseButton {"PHRASE EDITOR"}, helpButton {"?"}, midiLearnButton {"MIDI LEARN"};
     std::unique_ptr<WindLabPhraseEditor> phrasePanel;
     std::unique_ptr<WindLabGuidePanel> guidePanel;
+    std::unique_ptr<WindLabMidiLearnPanel> midiLearnPanel;
     int keyboardOctave = 5; // physical keyboard A = MIDI 60 (middle C)
     void changeKeyboardOctave(int delta);
     void showGuide(int topic);
