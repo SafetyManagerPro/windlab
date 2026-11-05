@@ -7,7 +7,7 @@ WindLabPhraseEditor::WindLabPhraseEditor(windlab::PhraseEngine& engine,
     : phrase(engine), onClose(std::move(close))
 {
     setOpaque(true);
-    for (auto* b : {&playButton, &demoButton, &clearButton, &legatoButton, &closeButton})
+    for (auto* b : {&playButton, &demoButton, &clearButton, &legatoButton, &closeButton, &hostButton, &scoreButton})
     {
         b->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff294651));
         b->setColour(juce::TextButton::textColourOffId, juce::Colours::white);
@@ -40,11 +40,21 @@ WindLabPhraseEditor::WindLabPhraseEditor(windlab::PhraseEngine& engine,
     closeButton.onClick = [this] {
         if (onClose) onClose();
     };
+    hostButton.onClick = [this] {
+        phrase.setFollowHostTempo(!phrase.followsHostTempo());
+        updateButtons();
+    };
+    scoreButton.onClick = [this] {
+        scoreView = !scoreView;
+        updateButtons();
+        repaint();
+    };
 
     laneBox.addItem("BREATH / FIATO (CC2)", 1);
     laneBox.addItem("VELOCITY / INTENSITY", 2);
     laneBox.addItem("VOLUME / EXPRESSION CC11", 3);
     laneBox.addItem("PITCH BEND (+/-2 SEMI)", 4);
+    laneBox.addItem("VIBRATO / MOD WHEEL (CC1)", 5);
     laneBox.setSelectedId(1, juce::dontSendNotification);
     laneBox.onChange = [this] { repaint(); };
     laneBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff213943));
@@ -101,6 +111,8 @@ void WindLabPhraseEditor::resized()
     tempoLabel.setBounds(538, 66, 130, 20);
     tempoSlider.setBounds(525, 87, 214, 30);
     closeButton.setBounds(getWidth() - 145, 28, 108, 36);
+    hostButton.setBounds(757, 80, 147, 38);
+    scoreButton.setBounds(911, 80, 140, 38);
     laneBox.setBounds(75, 543, 287, 34);
 }
 
@@ -109,6 +121,10 @@ void WindLabPhraseEditor::updateButtons()
     playButton.setButtonText(phrase.isPlaying() ? "STOP" : "PLAY");
     legatoButton.setButtonText(phrase.note(selectedStep).legato
                              ? "LEGATO: ON" : "LEGATO: OFF");
+    hostButton.setButtonText(phrase.followsHostTempo()
+        ? "HOST " + juce::String(phrase.effectiveTempo()) + " BPM" : "HOST BPM: OFF");
+    scoreButton.setButtonText(scoreView ? "PIANO ROLL" : "SCORE VIEW");
+    tempoSlider.setEnabled(!phrase.followsHostTempo());
 }
 
 void WindLabPhraseEditor::paint(juce::Graphics& g)
@@ -123,7 +139,9 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
                getWidth() - 205, 38, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffb7cbd0));
     g.setFont(juce::Font(13.0f));
-    g.drawText("16 steps = 2 bars of eighth-notes. Click to add a note; drag sideways for length, vertically for pitch.",
+    g.drawText(scoreView
+                   ? "Score preview: staff, accidentals, note lengths and slurs. Switch to Piano Roll for editing."
+                   : "16 steps = 2 bars of eighth-notes. Click to add a note; drag sideways for length, vertically for pitch.",
                34, 129, getWidth() - 65, 28, juce::Justification::centredLeft);
 
     const auto r = rollBounds(), lane = laneBounds();
@@ -200,11 +218,12 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
     g.setFont(juce::Font(12.0f, juce::Font::bold));
     g.drawText(laneType == 1 ? "BREATH CC2" :
                laneType == 2 ? "NOTE VELOCITY" :
-               laneType == 3 ? "VOLUME CC11" : "PITCH BEND", 377, 545, 210, 26,
+               laneType == 3 ? "VOLUME CC11" :
+               laneType == 4 ? "PITCH BEND" : "VIBRATO CC1", 377, 545, 210, 26,
                juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xff92aeb6));
     g.setFont(juce::Font(11.0f));
-    g.drawText("Drag curve points. Breath, volume and pitch interpolate while notes sustain.",
+    g.drawText("Drag lane points. Breath, volume, pitch and vibrato interpolate during held notes.",
                565, 549, getWidth() - 610, 22, juce::Justification::centredLeft);
 
     if (laneType == 4)
@@ -218,7 +237,8 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
             const auto n = phrase.note(s);
             return laneType == 1 ? n.breath :
                    laneType == 2 ? n.velocity :
-                   laneType == 3 ? n.expression : n.bend;
+                   laneType == 3 ? n.expression :
+                   laneType == 4 ? n.bend : n.vibrato;
         };
         const float x = lane.getX() + (step + .5f) * stepWidth;
         const float y = lane.getBottom() - (getValue(step) / 127.0f) * lane.getHeight();
@@ -243,12 +263,16 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
         + "   BREATH " + juce::String(current.breath)
         + "   VOLUME " + juce::String(current.expression)
         + "   BEND " + juce::String(current.bend - 64)
+        + "   VIBRATO " + juce::String(current.vibrato)
         + "   LENGTH " + juce::String(current.gate) + " STEPS",
         75, 781, getWidth() - 115, 23, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xff91aeb7));
     g.setFont(juce::Font(11.0f));
-    g.drawText("Right click note = delete. LEGATO joins adjacent phrases with a short overlap. "
-               "Free-running tempo; DAW timeline synchronization will follow.",
+    g.drawText(scoreView
+              ? "Notation is a preview, not editable. Use Piano Roll to edit notes and legato."
+              : (phrase.followsHostTempo()
+                 ? "Tempo follows DAW BPM; Play remains manual and does not follow host transport position."
+                 : "Right-click note = delete. LEGATO creates a short overlap. Use HOST BPM for tempo."),
                75, 806, getWidth() - 115, 27, juce::Justification::centredLeft);
 }
 
@@ -257,6 +281,7 @@ void WindLabPhraseEditor::mouseDown(const juce::MouseEvent& e)
     if (rollBounds().contains(e.position))
     {
         selectedStep = stepAt(e.position.x);
+        if (scoreView) { updateButtons(); repaint(); return; }
         firstDragStep = selectedStep;
         editingNote = true;
         auto n = phrase.note(selectedStep);
@@ -314,6 +339,7 @@ void WindLabPhraseEditor::updateLane(float x, float y)
         case 2: n.velocity = std::max(1, value); break;
         case 3: n.expression = value; break;
         case 4: n.bend = value; break;
+        case 5: n.vibrato = value; break;
         default: return;
     }
     phrase.setNote(step, n);
