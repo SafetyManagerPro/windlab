@@ -2,9 +2,10 @@
 #include <utility>
 
 WindLabMidiLearnPanel::WindLabMidiLearnPanel(windlab::MidiLearnBindings& bindings,
+                                           windlab::MidiInputMonitor& monitor,
                                            std::function<void()> close,
                                            std::function<void()> help)
-    : midiLearn(bindings), onClose(std::move(close)), onHelp(std::move(help))
+    : midiLearn(bindings), midiMonitor(monitor), onClose(std::move(close)), onHelp(std::move(help))
 {
     setOpaque(true);
     const juce::StringArray names {"VIBRATO", "FIATO / BREATH", "VOLUME / EXPRESSION"};
@@ -30,6 +31,12 @@ WindLabMidiLearnPanel::WindLabMidiLearnPanel(windlab::MidiLearnBindings& binding
         addAndMakeVisible(cc);
     }
 
+    for (auto* label : {&noteMonitorLabel, &ccMonitorLabel})
+    {
+        label->setColour(juce::Label::textColourId, juce::Colour(0xffb6dbcb));
+        label->setFont(juce::Font(14.0f, juce::Font::bold));
+        addAndMakeVisible(*label);
+    }
     status.setColour(juce::Label::textColourId, juce::Colour(0xffb6dbcb));
     status.setFont(juce::Font(15.0f, juce::Font::bold));
     addAndMakeVisible(status);
@@ -95,6 +102,21 @@ void WindLabMidiLearnPanel::updateState()
         : "PRONTO. Mappature salvate nel progetto. MIDI interno canale 16 escluso.";
     if (status.getText() != message)
         status.setText(message, juce::dontSendNotification);
+
+    const auto note = midiMonitor.noteSnapshot();
+    const auto cc = midiMonitor.ccSnapshot();
+    const juce::String noteText = note.valid
+        ? "ULTIMA NOTA: CH " + juce::String(note.channel) + "  NOTE "
+          + juce::String(note.pitch) + (note.on ? "  ON" : "  OFF")
+        : "ULTIMA NOTA: nessun dato MIDI";
+    const juce::String ccText = cc.valid
+        ? "ULTIMO CC: CH " + juce::String(cc.channel)
+          + "  CC " + juce::String(cc.number) + "  VAL " + juce::String(cc.value)
+        : "ULTIMO CC: nessun dato MIDI";
+    if (noteMonitorLabel.getText() != noteText)
+        noteMonitorLabel.setText(noteText, juce::dontSendNotification);
+    if (ccMonitorLabel.getText() != ccText)
+        ccMonitorLabel.setText(ccText, juce::dontSendNotification);
 }
 
 void WindLabMidiLearnPanel::paint(juce::Graphics& g)
@@ -145,6 +167,8 @@ void WindLabMidiLearnPanel::resized()
         learnButtons[static_cast<std::size_t>(i)].setBounds(w - 224, y + 18, 164, 46);
     }
     status.setBounds(38, 539, w - 70, 37);
+    noteMonitorLabel.setBounds(38, 759, w - 76, 26);
+    ccMonitorLabel.setBounds(38, 791, w - 76, 26);
     profileBox.setBounds(38, 611, 420, 34);
     applyProfileButton.setBounds(474, 611, 190, 34);
     resetButton.setBounds(38, h - 76, 145, 40);
