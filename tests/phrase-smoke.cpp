@@ -23,13 +23,14 @@ int main()
     n.pitch = 64;
     n.velocity = 91;
     n.breath = 35;
+    n.expression = 42;
     n.bend = 78;
     n.gate = 3;
     n.active = true;
     n.legato = true;
     auto unpacked = windlab::unpackPhraseNote(windlab::packPhraseNote(n));
     if (!check(unpacked.pitch == 64 && unpacked.velocity == 91 &&
-               unpacked.breath == 35 && unpacked.bend == 78 &&
+               unpacked.breath == 35 && unpacked.expression == 42 && unpacked.bend == 78 &&
                unpacked.gate == 3 && unpacked.active && unpacked.legato,
                "packed note must roundtrip")) return 1;
     phrase.clear();
@@ -39,11 +40,12 @@ int main()
     n.legato = false;
     phrase.setNote(0, n);
     auto b = n;
-    b.pitch = 67; b.breath = 110; b.bend = 58; b.gate = 2; b.legato = true;
+    b.pitch = 67; b.breath = 110; b.expression = 112; b.bend = 58; b.gate = 2; b.legato = true;
     phrase.setNote(2, b);
     // Independent expression point between sounding notes.
     auto point = phrase.note(1);
     point.breath = 105;
+    point.expression = 100;
     point.bend = 42;
     phrase.setNote(1, point);
 
@@ -52,8 +54,8 @@ int main()
     { events.push_back({t, p, v, offset}); };
     phrase.setPlaying(true);
     phrase.process(33000, 48000.0, emit); // into third 1/8-step note
-    int on60 = 0, on67 = 0, off60 = 0, breathEvents = 0, pitchEvents = 0;
-    bool sawInterpolatedBreath = false;
+    int on60 = 0, on67 = 0, off60 = 0, breathEvents = 0, expressionEvents = 0, pitchEvents = 0;
+    bool sawInterpolatedBreath = false, sawInterpolatedVolume = false;
     for (const auto& e : events)
     {
         if (!check(e.offset >= 0 && e.offset < 33000, "event must be inside buffer")) return 2;
@@ -68,12 +70,19 @@ int main()
             ++breathEvents;
             sawInterpolatedBreath |= (e.value > 35 && e.value < 105);
         }
+        if (e.type == windlab::PhraseEvent::Expression)
+        {
+            ++expressionEvents;
+            sawInterpolatedVolume |= (e.value > 42 && e.value < 100);
+        }
         if (e.type == windlab::PhraseEvent::PitchWheel) ++pitchEvents;
     }
     if (!check(on60 == 1 && on67 == 1, "real MIDI notes must start on their steps") ||
         !check(off60 == 1, "notes must end") ||
-        !check(breathEvents >= 30 && pitchEvents >= 30, "controller lanes must emit continuously") ||
-        !check(sawInterpolatedBreath, "CC2 breath must interpolate between points")) return 3;
+        !check(breathEvents >= 30 && expressionEvents >= 30 && pitchEvents >= 30,
+               "all controller lanes must emit continuously") ||
+        !check(sawInterpolatedBreath, "CC2 breath must interpolate between points") ||
+        !check(sawInterpolatedVolume, "CC11 volume must interpolate between points")) return 3;
 
     phrase.setPlaying(false);
     events.clear();
