@@ -26,4 +26,12 @@ assert "Logic Pro" in manual and "PC / NOTEBOOK" in manual
 assert "HOST BPM" in manual and "CC2" in manual
 assert "legato" in manual.lower() and "AU" in manual
 assert "senza Internet" in manual and "VST3" in manual
+learn_header = (root / "Source/WindLabMidiLearnPanel.h").read_text(encoding="utf8")
+learn_panel = (root / "Source/WindLabMidiLearnPanel.cpp").read_text(encoding="utf8")
+assert "midiLearnButton" in main
+assert "WindLabMidiLearnPanel" in learn_header
+assert "midiLearn.arm" in learn_panel and "midiLearn.reset" in learn_panel
+assert "MIDI LEARN" in panel and "MIDI LEARN" in manual
+assert "Source/WindLabMidiLearnPanel.cpp" in cmake
+assert "midiLearn.route" not in main  # audio routing belongs in processor, not editor
 print("PASS: 12 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")
