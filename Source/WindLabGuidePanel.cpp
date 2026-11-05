@@ -175,6 +175,10 @@ Per un fiato credibile usa un po' di air, attacchi non tutti identici, vibrato m
 
 Clicca PHRASE EDITOR nella schermata principale.
 
+- REC: acquisisce quello che suoni su una tastiera MIDI, tastiera PC o controller a fiato MIDI. La cattura dura al massimo 16 step (due battute); STOP REC termina prima.
+- IMPORTA: soltanto quando la cattura e' pronta, sostituisce le note attualmente nel Phrase Editor con la registrazione. Non cancella la frase prima della tua conferma.
+- Vengono registrate note, velocity, durata, CC2 fiato, CC11 volume, CC1 vibrato e pitch bend. Il risultato e' MIDI modificabile, NON una registrazione audio/WAV.
+- Una nota alla volta per step: accordi e note iniziate sul medesimo step possono essere ignorati. Il registratore quantizza su 16 step di crome (due battute in 4/4).
 - PLAY / STOP: avvia o interrompe il loop interno.
 - DEMO: carica una frase dimostrativa.
 - CLEAR: cancella tutte le note.
@@ -312,7 +316,16 @@ void WindLabGuidePanel::openTopic(int topic)
 
 void WindLabGuidePanel::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(0xff0e1e26));
+    const auto full = getLocalBounds().toFloat();
+    g.fillAll(juce::Colour(0xff081319));
+    // Host-safe floating dialog presentation within the plugin editor.
+    // Unlike a separate OS window this also works in restrictive DAW hosts.
+    g.setColour(juce::Colour(0xff43606b));
+    g.fillRoundedRectangle(5.0f, 5.0f, full.getWidth() - 10.0f,
+                           full.getHeight() - 10.0f, 13.0f);
+    g.setColour(juce::Colour(0xff122630));
+    g.fillRoundedRectangle(8.0f, 8.0f, full.getWidth() - 16.0f,
+                           full.getHeight() - 16.0f, 11.0f);
     g.setColour(juce::Colour(0xffeab080));
     g.setFont(juce::Font(30.0f, juce::Font::bold));
     g.drawText("WINDLAB   ?   GUIDA", 30, 18, getWidth() - 210, 42,
