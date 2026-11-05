@@ -174,6 +174,16 @@ Le frasi sono salvate **nel progetto della DAW** tramite lo stato del plugin. Qu
 
 **HOST BPM** attiva l'uso del tempo letto da Logic Pro/Studio One, se disponibile. Non segue ancora automaticamente il play/stop o la posizione temporale della testina: premere manualmente PLAY nel Phrase Editor. Disattivare HOST BPM per tornare al tempo interno.
 
+## Funzioni in collaudo — controller a fiato (PR #17)
+
+**Le seguenti funzioni sono sul branch di sviluppo, non ancora sulla versione pubblicata in main.** Nel selettore **MIDI PERFORMANCE** scegliere TASTIERA, STRUMENTO A FIATO oppure IBRIDO. In modalità IBRIDO selezionare i canali **NOTE CH** e **BREATH CH** (1–15) e instradare entrambi i controller alla stessa istanza di WindLab. Il canale 16 rimane riservato al Phrase Editor.
+
+**SOFFIO: SOGLIA** imposta la pressione minima, **SOFFIO: CURVA** regola la sensibilità. I valori iniziali 0 e 1 mantengono la risposta originale. Il motore contiene già smoothing espressivo.
+
+In **MIDI LEARN**, scegliere e applicare volontariamente il profilo STANDARD CC2 (per dispositivi configurati per CC2) oppure ARTINOISE RE.CORDER CC11. Usare MIDI Learn quando il dispositivo è configurato diversamente. **ULTIMA NOTA** e **ULTIMO CC** visualizzano il segnale MIDI ricevuto, non una registrazione completa.
+
+Il collegamento BLE e la scelta delle porte MIDI dipendono dal sistema operativo o dalla DAW, non sono gestiti dal plugin. Vedere [guida tecnica MIDI](MIDI-Performance-Modes.md).
+
 ## 7. Risoluzione dei problemi
 
 | Problema | Verifica |
