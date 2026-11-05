@@ -7,7 +7,7 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
       processor(p),
       keyboard(p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
 {
-    setSize(1080, 886);
+    setSize(1080, 849);
     const juce::StringArray instruments {"Trumpet", "Tenor Sax", "Trombone", "Flute", "Clarinet", "French Horn"};
     for (int i = 0; i < instruments.size(); ++i)
         instrumentBox.addItem(instruments[i], i + 1);
@@ -207,15 +207,15 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
                29, 679, 1020, 18, juce::Justification::centredLeft);
 
     g.setColour(juce::Colour(0xff1d313b));
-    g.fillRoundedRectangle(22.0f, 705.0f, full.getWidth() - 44.0f, 173.0f, 12.0f);
+    g.fillRoundedRectangle(22.0f, 702.0f, full.getWidth() - 44.0f, 143.0f, 12.0f);
     g.setColour(juce::Colour(0xff35515b));
-    g.drawRoundedRectangle(22.0f, 705.0f, full.getWidth() - 44.0f, 173.0f, 12.0f, 1.0f);
+    g.drawRoundedRectangle(22.0f, 702.0f, full.getWidth() - 44.0f, 143.0f, 12.0f, 1.0f);
     g.setColour(juce::Colour(0xff9dbbc2));
     g.setFont(juce::Font(12.0f));
     const bool pc = inputModeBox.getSelectedId() == 2;
     g.drawText(pc ? "PC ACTIVE: A W S E D F T G Y H U J K  |  Click the piano below if keyboard focus is lost."
                   : "MIDI READY: external USB/MIDI keyboard stays enabled; choose PC / NOTEBOOK to use typing keys.",
-               35, 784, 1010, 22, juce::Justification::centredLeft);
+               35, 762, 1010, 20, juce::Justification::centredLeft);
 }
 
 void WindLabAudioProcessorEditor::resized()
@@ -240,15 +240,15 @@ void WindLabAudioProcessorEditor::resized()
         labels[static_cast<std::size_t>(i)].setBounds(x, rowTop[row] + 27, cellWidth, 20);
         knobs[static_cast<std::size_t>(i)].setBounds(x + (cellWidth - 122) / 2, rowTop[row] + 47, 122, 91);
     }
-    inputModeLabel.setBounds(35, 716, 235, 22);
-    inputModeBox.setBounds(35, 742, 235, 36);
-    octaveDown.setBounds(291, 742, 34, 36);
-    octaveLabel.setBounds(332, 742, 67, 36);
-    octaveUp.setBounds(405, 742, 34, 36);
-    velocityLabel.setBounds(470, 716, 205, 22);
-    keyVelocity.setBounds(467, 742, 218, 36);
-    velocityResponseLabel.setBounds(710, 716, 240, 22);
-    velocityResponseBox.setBounds(710, 742, 245, 36);
-    midiHelpButton.setBounds(967, 742, 78, 36);
-    keyboard.setBounds(30, 810, getWidth() - 60, 59);
+    inputModeLabel.setBounds(35, 705, 235, 22);
+    inputModeBox.setBounds(35, 729, 235, 32);
+    octaveDown.setBounds(291, 729, 34, 32);
+    octaveLabel.setBounds(332, 729, 67, 32);
+    octaveUp.setBounds(405, 729, 34, 32);
+    velocityLabel.setBounds(470, 705, 205, 22);
+    keyVelocity.setBounds(467, 729, 218, 32);
+    velocityResponseLabel.setBounds(710, 705, 240, 22);
+    velocityResponseBox.setBounds(710, 729, 245, 32);
+    midiHelpButton.setBounds(967, 729, 78, 32);
+    keyboard.setBounds(30, 786, getWidth() - 60, 53);
 }
