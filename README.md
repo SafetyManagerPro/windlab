@@ -1,3 +1,36 @@
+# WindLab 0.9.4 — WIND MIDI / EWI + monitor degli ingressi
+
+Un terzo tipo di input **WIND MIDI / EWI** compare ora accanto a
+**PIANO + MIDI** e **PC / NOTEBOOK**. Il pulsante **WIND SETUP** apre
+un popup con scelta della sorgente del fiato (CC2, CC11 o Channel Pressure)
+e monitor in tempo reale delle note, del canale MIDI e dei CC ricevuti.
+
+L'elenco delle periferiche mostra quelle visibili al sistema operativo,
+non prova il routing verso il plugin. In Standalone abilita il dispositivo
+in **Options > Audio/MIDI Settings**; in Logic/Studio One abilita il
+controller nella DAW e il monitor della traccia strumento.
+
+- CC11 selezionato come fiato viene convertito in CC2; non controlla
+  contemporaneamente il volume. Channel Pressure viene convertito
+  in fiato solamente nella modalita' scelta.
+- Midi Learn, REC MIDI e Phrase Editor restano presenti; il canale 16
+  del Phrase Editor e' escluso dal routing EWI.
+- Il vecchio parametro `inputMode` mantiene ESATTAMENTE le opzioni
+  originali (Piano, PC). Un nuovo parametro `windMidiMode` viene
+  aggiunto in fondo per non spostare i vecchi valori di automazione.
+- La sorgente EWI e' salvata nello stato del progetto; per i progetti
+  precedenti il default rimane CC2, con WIND MIDI disattivato.
+- Non e' ancora un editor grafico di diteggiature, ne' un
+  selettore indipendente delle porte MIDI fisiche di una DAW.
+- I test statici e C++ sono stati aggiunti, ma la release resta
+  in Draft finche' GitHub Actions e il collaudo in Standalone/Logic
+  non confermeranno il funzionamento.
+
+**[Manuale utente](docs/Guida-Utente-WindLab-IT.md)** |
+**[Regole CI per risparmiare minuti](docs/CI-Minuti-Gratuiti.md)**
+
+## Versione precedente: 0.9.3
+
 # WindLab 0.9.3 — REC MIDI → Phrase Editor + popup in-plugin
 
 **CI a basso consumo:** il progetto accumula circa tre commit per PR in

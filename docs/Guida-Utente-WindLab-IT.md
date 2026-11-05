@@ -1,6 +1,6 @@
 # WindLab — Guida utente (italiano)
 
-> Aggiornata per WindLab **0.9.3**. La stessa guida è consultabile **senza Internet** aprendo il pulsante **?** nella schermata principale del plugin o della Standalone. Nel Phrase Editor, il **?** apre direttamente la sezione dedicata alla creazione e modifica delle frasi.
+> Aggiornata per WindLab **0.9.4**. La stessa guida è consultabile **senza Internet** aprendo il pulsante **?** nella schermata principale del plugin o della Standalone. Nel Phrase Editor, il **?** apre direttamente la sezione dedicata alla creazione e modifica delle frasi.
 
 ## 1. Avvio e formati
 
@@ -65,6 +65,45 @@ Per un **pianoforte a tasti pesati**, collegare la porta USB-MIDI o MIDI DIN con
 | Breath Controller | Imposta una zona iniziale udibile; il fiato modula la nota via CC2 |
 
 **Controller**: CC1 vibrato, CC2 fiato, CC11 espressione/volume, pitch bend intonazione, aftertouch pressione. Il controller deve essere configurato per emettere questi messaggi.
+
+### WIND MIDI / EWI — ingresso MIDI per strumenti a fiato (v0.9.4)
+
+Questa modalita' aggiunge un percorso dedicato ai controller a fiato,
+senza cambiare le vecchie impostazioni **PIANO + MIDI** e **PC / NOTEBOOK**.
+
+1. Collega lo strumento USB-MIDI o MIDI DIN e abilitalo nel sistema.
+2. **Standalone Windows/Mac:** apri **Options > Audio/MIDI Settings**,
+   quindi abilita l'input MIDI. **Logic Pro / Studio One:** scegli il
+   dispositivo nelle preferenze MIDI e abilita il monitor della traccia
+   che ospita WindLab. Il plugin non seleziona direttamente la porta
+   hardware della DAW.
+3. Nel menu **INPUT METHOD** seleziona **WIND MIDI / EWI**.
+4. Premi **WIND SETUP**: si apre un popup all'interno di WindLab.
+5. Scegli la sorgente continua del fiato: **CC2** (tipica di EWI/
+   breath controllers), **CC11** (pedale expression) o
+   **CHANNEL PRESSURE** (aftertouch globale del canale).
+6. Premi **ATTIVA WIND MIDI**, poi suona. Nel monitor vengono mostrati
+   numero di nota, velocity, canale MIDI e ultimo controller/valore
+   effettivamente ricevuti da WindLab.
+7. **AGGIORNA DISPOSITIVI** elenca le porte viste dal sistema:
+   non garantisce che la DAW le stia instradando al plugin.
+
+Se il monitor resta su **NESSUN MIDI RICEVUTO**, il controller potrebbe
+non essere abilitato nel pannello della Standalone, o la DAW potrebbe
+non averlo assegnato a quella traccia. Se i messaggi compaiono ma non
+senti la dinamica, confronta l'ultimo CC/valore mostrato con la sorgente
+selezionata. Per il fiato CC11, l'espressione viene reindirizzata a
+**CC2** e quindi CC11 non funge contemporaneamente da volume.
+Per il fiato **CHANNEL PRESSURE**, un messaggio CC2 esterno non
+controlla il fiato. Non confondere channel pressure con aftertouch
+polifonico/MPE per-nota, non ancora gestito come sorgente di fiato.
+
+I messaggi MIDI esterni su canali 1–15 sono monitorati senza registrare
+di nuovo gli eventi interni del Phrase Editor sul canale 16. Puoi
+registrare una frase con **REC MIDI** e importarla nel Phrase Editor.
+La sorgente del fiato viene salvata nel progetto insieme alle
+impostazioni WindLab. Non e' ancora disponibile una tastiera grafica
+con diteggiature specifiche di sax, flauto, tromba o EWI.
 
 ### MIDI LEARN — assegnazione rapida di pedali e controller (0.9.2)
 

@@ -39,7 +39,7 @@ assert "midiLearn.route" not in main  # audio routing belongs in processor, not 
 # Editor setSize runs before overlays are constructed; require explicit bounds
 # BEFORE addChildComponent so buttons open a visible screen on first click.
 assert "setSize(1080, 849)" in main
-for child in ("phrasePanel", "guidePanel", "midiLearnPanel"):
+for child in ("phrasePanel", "guidePanel", "midiLearnPanel", "windPanel"):
     add = f"addChildComponent(*{child})"
     if add not in main:
         continue  # MIDI Learn is introduced only in 0.9.2
@@ -50,6 +50,7 @@ for child in ("phrasePanel", "guidePanel", "midiLearnPanel"):
         f"{child}: missing initial bounds before UI attachment; overlay will be invisible")
 assert "if (phrasePanel) phrasePanel->setBounds(getLocalBounds())" in main
 assert "if (guidePanel) guidePanel->setBounds(getLocalBounds())" in main
+assert "if (windPanel) windPanel->setBounds(getLocalBounds())" in main
 
 # MIDI recorder popup controls must be part of the actual plugin GUI.
 phrase_header = (root / "Source/PhraseEditor.h").read_text(encoding="utf8")
@@ -70,4 +71,16 @@ assert "Source/Dsp/PhraseRecorder.h" in cmake and "windlab_phrase_record_smoke" 
 assert "REC" in manual and "IMPORTA" in manual
 assert "popup" in manual.lower()
 
-print("PASS: 12 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")
+wind_header = (root / "Source/WindMidiPanel.h").read_text(encoding="utf8")
+wind_cpp = (root / "Source/WindMidiPanel.cpp").read_text(encoding="utf8")
+wind_dsp = (root / "Source/Dsp/WindMidiInput.h").read_text(encoding="utf8")
+assert "WIND MIDI / EWI" in main and "windSetupButton" in main
+assert "WindMidiPanel" in wind_header and "getAvailableDevices()" in wind_cpp
+assert "monitor.snapshot()" in wind_cpp
+assert "WindMidiSettings" in wind_dsp and "WindMidiMonitor" in wind_dsp
+assert "windMidi.setEnabled" in processor
+assert "WindLabWindMidiV1" in processor
+assert "Source/WindMidiPanel.cpp" in cmake and "Source/Dsp/WindMidiInput.h" in cmake
+assert "windlab_wind_midi_smoke" in cmake
+assert "WIND MIDI" in panel and "WIND SETUP" in manual
+print("PASS: 12 offline chapters, popup bounds, MIDI recorder/learn and Wind MIDI mode/monitor")

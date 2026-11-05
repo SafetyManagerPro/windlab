@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WindLab VERSION 0.9.3 LANGUAGES C CXX)
+project(WindLab VERSION 0.9.4 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -46,6 +46,8 @@ target_sources(WindLab PRIVATE
     Source/WindLabGuidePanel.h
     Source/WindLabMidiLearnPanel.cpp
     Source/WindLabMidiLearnPanel.h
+    Source/WindMidiPanel.cpp
+    Source/WindMidiPanel.h
     Source/Dsp/WindEngine.h
     Source/Dsp/ToneEQ.h
     Source/Dsp/RecordedWinds.h
@@ -53,7 +55,8 @@ target_sources(WindLab PRIVATE
     Source/Dsp/VelocityResponse.h
     Source/Dsp/PhraseEngine.h
     Source/Dsp/PhraseRecorder.h
-    Source/Dsp/MidiLearnBindings.h)
+    Source/Dsp/MidiLearnBindings.h
+    Source/Dsp/WindMidiInput.h)
 
 # WindLab has never shipped as VST2: do not claim VST2 replacement compatibility.
 # JUCE 9 rejects modern VST3 parameter IDs when VST2 replacement is enabled.
@@ -104,4 +107,8 @@ if (BUILD_TESTING)
     add_executable(windlab_phrase_record_smoke tests/phrase-record-smoke.cpp)
     target_include_directories(windlab_phrase_record_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_phrase_record_smoke COMMAND windlab_phrase_record_smoke)
+
+    add_executable(windlab_wind_midi_smoke tests/wind-midi-smoke.cpp)
+    target_include_directories(windlab_wind_midi_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    add_test(NAME windlab_wind_midi_smoke COMMAND windlab_wind_midi_smoke)
 endif()
