@@ -17,9 +17,9 @@ public:
 private:
     WindLabAudioProcessor& processor;
     juce::ComboBox instrumentBox, articulationBox, sourceBox;
-    juce::ComboBox inputModeBox, velocityResponseBox, performanceModeBox;
+    juce::ComboBox inputModeBox, velocityResponseBox, performanceModeBox, noteMidiChannelBox, breathMidiChannelBox;
     juce::Label instrumentLabel, articulationLabel, sourceLabel;
-    juce::Label inputModeLabel, velocityLabel, octaveLabel, velocityResponseLabel, performanceModeLabel;
+    juce::Label inputModeLabel, velocityLabel, octaveLabel, velocityResponseLabel, performanceModeLabel, noteMidiChannelLabel, breathMidiChannelLabel;
     juce::TextButton octaveDown {"-"}, octaveUp {"+"}, midiHelpButton {"MIDI ?"};
     juce::Slider keyVelocity;
     juce::TextButton phraseButton {"PHRASE EDITOR"}, helpButton {"?"}, midiLearnButton {"MIDI LEARN"}, quickRecordButton {"REC MIDI"};
@@ -36,6 +36,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> inputModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> velocityResponseAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> performanceModeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> noteMidiChannelAttachment, breathMidiChannelAttachment;
     std::array<juce::Slider, 15> knobs;
     std::array<juce::Label, 15> labels;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, 15> knobAttachments;
