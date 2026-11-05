@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "Dsp/WindEngine.h"
+#include "Dsp/VelocityResponse.h"
 #include <array>
 #include <cmath>
 
@@ -72,6 +73,7 @@ namespace
                   const windlab::RecordedWinds& samples)
             : controllerSource(synth), sampleSource(samples),
               sourceMode(params.getRawParameterValue("sourceMode")),
+              velocityResponse(params.getRawParameterValue("velocityResponse")),
               instrument(params.getRawParameterValue("instrument")),
               articulation(params.getRawParameterValue("articulation")),
               attack(params.getRawParameterValue("attack")),
@@ -101,14 +103,16 @@ namespace
             engine.setBreathLength(breathLength->load());
             engine.setVibrato(vibrato->load());
             engine.setHumanize(humanize->load());
+            const auto curvedVelocity = windlab::applyVelocityResponse(
+                velocity, juce::jlimit(0, 3, static_cast<int>(velocityResponse->load())));
             const auto instrumentIndex = juce::jlimit(0, 5, static_cast<int>(instrument->load()));
             const auto articulationIndex = juce::jlimit(0, 2, static_cast<int>(articulation->load()));
-            engine.start(midiNoteNumber, velocity,
+            engine.start(midiNoteNumber, curvedVelocity,
                          static_cast<windlab::Instrument>(instrumentIndex),
                          attack->load(), release->load(),
                          static_cast<windlab::Articulation>(articulationIndex));
             modeAtNoteOn = juce::jlimit(0, 2, static_cast<int>(sourceMode->load()));
-            const auto* sample = modeAtNoteOn == 2 ? nullptr : sampleSource.select(instrumentIndex, midiNoteNumber, velocity, articulationIndex);
+            const auto* sample = modeAtNoteOn == 2 ? nullptr : sampleSource.select(instrumentIndex, midiNoteNumber, curvedVelocity, articulationIndex);
             cursor.start(sample, 440.0 * std::exp2((midiNoteNumber - 69.0) / 12.0), getSampleRate());
         }
 
@@ -180,6 +184,7 @@ namespace
         const windlab::RecordedWinds& sampleSource;
         windlab::RecordedCursor cursor;
         std::atomic<float>* sourceMode;
+        std::atomic<float>* velocityResponse;
         int modeAtNoteOn = 0;
         std::atomic<float>* instrument;
         std::atomic<float>* articulation;
@@ -236,6 +241,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
         juce::NormalisableRange<float>(0.0f, 1.0f), .48f));
     layout.add(std::make_unique<Float>(juce::ParameterID {"gain", 1}, "Output",
         juce::NormalisableRange<float>(0.0f, 1.0f), .75f));
+    // Append new IDs after all original parameters: preserves older host index order.
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"velocityResponse", 1}, "Velocity Response",
+        juce::StringArray {"Natural", "Light Touch", "Weighted Piano", "Breath Controller"}, 0));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"inputMode", 1}, "Keyboard Input Mode",
+        juce::StringArray {"Piano + MIDI", "PC / Notebook"}, 0));
     return layout;
 }
 

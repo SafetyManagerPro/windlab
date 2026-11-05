@@ -1,4 +1,55 @@
-# WindLab 0.5 — Recorded Dynamic Winds (AU/VST3/Standalone)
+# WindLab 0.6 — Performance Controller (AU/VST3/Standalone)
+
+## New in v0.6 — PC keyboard, MIDI expression and weighted piano
+
+WindLab now provides a clearly labelled **PERFORMANCE CONTROLLER** strip
+directly above its on-screen piano, in both plugin and standalone versions:
+
+1. **Input Method → PIANO + MIDI:** click the on-screen piano, or play
+   USB MIDI, MIDI DIN through an interface, or your DAW's routed MIDI.
+2. **Input Method → PC / NOTEBOOK:** activates computer-keyboard notes.
+   Map: `A W S E D F T G Y H U J K` = C through the following C.
+   After selecting PC mode, the on-screen piano receives key focus;
+   click it to recover focus if another control or the host steals it.
+   This feature depends on whether the DAW allows plugins keyboard focus.
+3. **Octave - / +:** selects PC keyboard C2 through C6 and scrolls the
+   on-screen piano accordingly, without transposing external MIDI notes.
+4. **PC / MOUSE VELOCITY:** sets the 0.15–1.0 note-on intensity when
+   playing with a computer keyboard or mouse. Physical MIDI velocity is
+   never replaced by this slider.
+5. **MIDI DYNAMICS:** four saved/automatable response profiles:
+   NATURAL (linear), LIGHT TOUCH (easier loud layers),
+   WEIGHTED PIANO (more control over soft attacks), and
+   BREATH CONTROLLER (base sample level combined with live CC2 breath).
+   The selected profile affects note-on velocity and recorded-layer
+   selection, not the live dynamics of an already held note.
+6. **MIDI ?** explains routing for Standalone and VST3/AU. The Standalone
+   has its own **Options → Audio/MIDI Settings** for selecting connected
+   devices; in plugin mode choose MIDI input in the host DAW.
+
+### Hardware tips
+
+- An 88-key weighted digital piano with USB-MIDI needs no audio interface
+  if it already sends MIDI via USB. Connect it, select it in Standalone
+  Audio/MIDI Settings or arm a MIDI/instrument track in your DAW.
+- MIDI CC2 = breath; CC11 = expression; CC1 = vibrato; CC64 = sustain pedal.
+  A foot expression pedal can be used if the MIDI keyboard/controller is
+  configured to transmit CC11 (or CC2 when appropriate).
+- A dedicated wind controller (e.g. EWI) may drive notes and breath CC2;
+  check the device's transmission settings. **Advanced MPE**, actual
+  fingering views and per-note continuous sample crossfading are not yet
+  implemented.
+- PC keyboard cannot detect a physical strike velocity, so use the
+  new dedicated velocity slider. Weighted controllers preserve their
+  real played MIDI velocities, modified only by the selected profile.
+
+No instrument/sample files or pre-existing automation parameter IDs were
+removed or renamed. This is not yet a replacement for an expressive
+multi-mic orchestral library.
+
+## Previous: v0.5 — Real dynamic recordings
+
+
 
 ## New in v0.5 — real dynamic and articulation layers
 

@@ -14,10 +14,18 @@ public:
 private:
     WindLabAudioProcessor& processor;
     juce::ComboBox instrumentBox, articulationBox, sourceBox;
+    juce::ComboBox inputModeBox, velocityResponseBox;
     juce::Label instrumentLabel, articulationLabel, sourceLabel;
+    juce::Label inputModeLabel, velocityLabel, octaveLabel, velocityResponseLabel;
+    juce::TextButton octaveDown {"-"}, octaveUp {"+"}, midiHelpButton {"MIDI ?"};
+    juce::Slider keyVelocity;
+    int keyboardOctave = 5; // physical keyboard A = MIDI 60 (middle C)
+    void changeKeyboardOctave(int delta);
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> instrumentAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> articulationAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> sourceAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> inputModeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> velocityResponseAttachment;
     std::array<juce::Slider, 15> knobs;
     std::array<juce::Label, 15> labels;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, 15> knobAttachments;

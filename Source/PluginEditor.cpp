@@ -1,11 +1,13 @@
 #include "PluginEditor.h"
+#include <array>
+#include <utility>
 
 WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& p)
     : juce::AudioProcessorEditor(&p),
       processor(p),
       keyboard(p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
 {
-    setSize(1080, 775);
+    setSize(1080, 849);
     const juce::StringArray instruments {"Trumpet", "Tenor Sax", "Trombone", "Flute", "Clarinet", "French Horn"};
     for (int i = 0; i < instruments.size(); ++i)
         instrumentBox.addItem(instruments[i], i + 1);
@@ -72,7 +74,100 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     keyboard.setAvailableRange(36, 96);
     keyboard.setKeyWidth(16.0f);
     keyboard.setColour(juce::MidiKeyboardComponent::keyDownOverlayColourId, juce::Colour(0xffe6a86e));
+    keyboard.setMouseClickGrabsKeyboardFocus(true);
+    keyboard.setWantsKeyboardFocus(false);
+    // Explicit Italian/English-friendly PC key map. The regular MIDI routing
+    // remains active independently of this optional computer keyboard.
+    keyboard.clearKeyMappings();
+    const std::array<std::pair<int, int>, 13> computerKeys {{{'a', 0}, {'w', 1},
+        {'s', 2}, {'e', 3}, {'d', 4}, {'f', 5}, {'t', 6}, {'g', 7},
+        {'y', 8}, {'h', 9}, {'u', 10}, {'j', 11}, {'k', 12}}};
+    for (const auto& key : computerKeys)
+        keyboard.setKeyPressForNote(juce::KeyPress(key.first), key.second);
+    keyboard.setVelocity(.82f, false);
     addAndMakeVisible(keyboard);
+
+    for (auto* option : {&inputModeBox, &velocityResponseBox})
+    {
+        option->setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff182831));
+        option->setColour(juce::ComboBox::textColourId, juce::Colour(0xfff6f2ea));
+        option->setColour(juce::ComboBox::outlineColourId, juce::Colour(0xff3c555f));
+        addAndMakeVisible(*option);
+    }
+    inputModeBox.addItem("PIANO + MIDI", 1);
+    inputModeBox.addItem("PC / NOTEBOOK", 2);
+    const juce::StringArray responses {"NATURAL", "LIGHT TOUCH",
+                                       "WEIGHTED PIANO", "BREATH CONTROLLER"};
+    for (int i = 0; i < responses.size(); ++i)
+        velocityResponseBox.addItem(responses[i], i + 1);
+
+    inputModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processor.parameters, "inputMode", inputModeBox);
+    velocityResponseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processor.parameters, "velocityResponse", velocityResponseBox);
+
+    inputModeLabel.setText("INPUT METHOD", juce::dontSendNotification);
+    velocityResponseLabel.setText("MIDI DYNAMICS", juce::dontSendNotification);
+    velocityLabel.setText("PC / MOUSE VELOCITY", juce::dontSendNotification);
+    octaveLabel.setText("C4", juce::dontSendNotification);
+    for (auto* label : {&inputModeLabel, &velocityResponseLabel, &velocityLabel, &octaveLabel})
+    {
+        label->setColour(juce::Label::textColourId, juce::Colour(0xffbfd0d3));
+        label->setFont(juce::Font(12.0f, juce::Font::bold));
+        addAndMakeVisible(*label);
+    }
+    octaveLabel.setJustificationType(juce::Justification::centred);
+
+    for (auto* button : {&octaveDown, &octaveUp, &midiHelpButton})
+    {
+        button->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff314b53));
+        button->setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        addAndMakeVisible(*button);
+    }
+    octaveDown.onClick = [this] { changeKeyboardOctave(-1); };
+    octaveUp.onClick = [this] { changeKeyboardOctave(1); };
+
+    keyVelocity.setSliderStyle(juce::Slider::LinearHorizontal);
+    keyVelocity.setTextBoxStyle(juce::Slider::TextBoxRight, false, 48, 20);
+    keyVelocity.setRange(.15, 1.0, .01);
+    keyVelocity.setValue(.82, juce::dontSendNotification);
+    keyVelocity.setColour(juce::Slider::trackColourId, juce::Colour(0xffe8ac77));
+    keyVelocity.onValueChange = [this] {
+        keyboard.setVelocity(static_cast<float>(keyVelocity.getValue()), false);
+    };
+    addAndMakeVisible(keyVelocity);
+
+    inputModeBox.onChange = [this] {
+        const bool pcEnabled = inputModeBox.getSelectedId() == 2;
+        keyboard.setWantsKeyboardFocus(pcEnabled);
+        if (pcEnabled)
+            keyboard.grabKeyboardFocus();
+        repaint();
+    };
+    midiHelpButton.onClick = [this] {
+        juce::AlertWindow::showMessageBoxAsync(
+            juce::MessageBoxIconType::InfoIcon, "WindLab MIDI input",
+            "STANDALONE: open the application's Options menu, then Audio/MIDI Settings "
+            "to enable your USB MIDI keyboard or breath controller.\n\n"
+            "VST3 / AU: enable your keyboard in the DAW, route its MIDI to WindLab "
+            "and arm the instrument track.\n\n"
+            "Piano keys and external MIDI work together. CC2 = breath, "
+            "CC11 = expression, CC1 = vibrato, CC64 = sustain pedal.",
+            "OK", this);
+    };
+    // A DAW may restore a saved PC input mode before the editor opens.
+    keyboard.setWantsKeyboardFocus(inputModeBox.getSelectedId() == 2);
+    changeKeyboardOctave(0);
+}
+
+void WindLabAudioProcessorEditor::changeKeyboardOctave(int delta)
+{
+    keyboardOctave = juce::jlimit(3, 7, keyboardOctave + delta);
+    keyboard.setKeyPressBaseOctave(keyboardOctave);
+    keyboard.setLowestVisibleKey(12 * keyboardOctave);
+    octaveLabel.setText("C" + juce::String(keyboardOctave - 1), juce::dontSendNotification);
+    if (inputModeBox.getSelectedId() == 2)
+        keyboard.grabKeyboardFocus();
 }
 
 void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
@@ -87,7 +182,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("WINDLAB", 27, 12, 475, 48, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffc2d2d7));
     g.setFont(juce::Font(13.0f));
-    g.drawText("RECORDED WINDS  /  0.5  /  VELOCITY + REAL STACCATO LAYERS", 32, 63, 910, 21,
+    g.drawText("RECORDED WINDS  /  0.6  /  PERFORMANCE CONTROLLER + MULTISAMPLES", 32, 63, 910, 21,
                juce::Justification::centredLeft);
 
     constexpr int rowTop[3] {207, 359, 511};
@@ -110,6 +205,17 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.setColour(juce::Colour(0xff8faab3));
     g.drawText("BREATH LENGTH: 30 = continuous. Recorded CC0 winds by Versilian Studios / FreePats.",
                29, 679, 1020, 18, juce::Justification::centredLeft);
+
+    g.setColour(juce::Colour(0xff1d313b));
+    g.fillRoundedRectangle(22.0f, 702.0f, full.getWidth() - 44.0f, 143.0f, 12.0f);
+    g.setColour(juce::Colour(0xff35515b));
+    g.drawRoundedRectangle(22.0f, 702.0f, full.getWidth() - 44.0f, 143.0f, 12.0f, 1.0f);
+    g.setColour(juce::Colour(0xff9dbbc2));
+    g.setFont(juce::Font(12.0f));
+    const bool pc = inputModeBox.getSelectedId() == 2;
+    g.drawText(pc ? "PC ACTIVE: A W S E D F T G Y H U J K  |  Click the piano below if keyboard focus is lost."
+                  : "MIDI READY: external USB/MIDI keyboard stays enabled; choose PC / NOTEBOOK to use typing keys.",
+               35, 762, 1010, 20, juce::Justification::centredLeft);
 }
 
 void WindLabAudioProcessorEditor::resized()
@@ -134,5 +240,15 @@ void WindLabAudioProcessorEditor::resized()
         labels[static_cast<std::size_t>(i)].setBounds(x, rowTop[row] + 27, cellWidth, 20);
         knobs[static_cast<std::size_t>(i)].setBounds(x + (cellWidth - 122) / 2, rowTop[row] + 47, 122, 91);
     }
-    keyboard.setBounds(26, 711, getWidth() - 52, 55);
+    inputModeLabel.setBounds(35, 705, 235, 22);
+    inputModeBox.setBounds(35, 729, 235, 32);
+    octaveDown.setBounds(291, 729, 34, 32);
+    octaveLabel.setBounds(332, 729, 67, 32);
+    octaveUp.setBounds(405, 729, 34, 32);
+    velocityLabel.setBounds(470, 705, 205, 22);
+    keyVelocity.setBounds(467, 729, 218, 32);
+    velocityResponseLabel.setBounds(710, 705, 240, 22);
+    velocityResponseBox.setBounds(710, 729, 245, 32);
+    midiHelpButton.setBounds(967, 729, 78, 32);
+    keyboard.setBounds(30, 786, getWidth() - 60, 53);
 }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WindLab VERSION 0.5.0 LANGUAGES C CXX)
+project(WindLab VERSION 0.6.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -42,7 +42,8 @@ target_sources(WindLab PRIVATE
     Source/PluginEditor.h
     Source/Dsp/WindEngine.h
     Source/Dsp/ToneEQ.h
-    Source/Dsp/RecordedWinds.h)
+    Source/Dsp/RecordedWinds.h
+    Source/Dsp/VelocityResponse.h)
 
 # WindLab has never shipped as VST2: do not claim VST2 replacement compatibility.
 # JUCE 9 rejects modern VST3 parameter IDs when VST2 replacement is enabled.
