@@ -291,18 +291,20 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
                                     x + stepWidth * (n.gate - 1) + 12.0f),
                            y + 12.0f, 1.8f);
             }
+            // In the MIDI engine, LEGATO belongs to the destination note:
+            // draw a slur from a previous sounding note into this attack.
             if (n.legato)
             {
-                for (int next = step + 1; next < 16; ++next)
+                for (int previous = step - 1; previous >= 0; --previous)
                 {
-                    const auto dest = phrase.note(next);
-                    if (!dest.active) continue;
-                    const float x2 = r.getX() + (next + .5f) * stepWidth;
-                    const float y2 = noteY(dest.pitch);
+                    const auto src = phrase.note(previous);
+                    if (!src.active || previous + src.gate < step) continue;
+                    const float x0 = r.getX() + (previous + .5f) * stepWidth;
+                    const float y0 = noteY(src.pitch);
                     juce::Path slur;
-                    slur.startNewSubPath(x + 9.0f, y - 9.0f);
-                    slur.quadraticTo((x + x2) * .5f, std::min(y, y2) - 29.0f,
-                                    x2 - 9.0f, y2 - 9.0f);
+                    slur.startNewSubPath(x0 + 9.0f, y0 - 9.0f);
+                    slur.quadraticTo((x0 + x) * .5f, std::min(y0, y) - 29.0f,
+                                    x - 9.0f, y - 9.0f);
                     g.setColour(juce::Colour(0xffa6ebef));
                     g.strokePath(slur, juce::PathStrokeType(1.8f));
                     break;
