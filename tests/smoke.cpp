@@ -185,5 +185,5 @@ int main()
     assert(windlab::oneShotTailGain(48000 - 2 - 336, 48000, 48000.0) > .45f);
     assert(windlab::oneShotTailGain(48000 - 2 - 336, 48000, 48000.0) < .55f);
 
-    std::cout << "WindLab 0.9 DSP: PASS (winds, breath length, natural variation, EQ, controllers, 3 rates).\\n";
+    std::cout << "WindLab 0.9 DSP: PASS (winds, breath length, natural variation, EQ, controllers, 3 rates).\n";
 }
