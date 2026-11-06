@@ -59,6 +59,7 @@ public:
             elapsedSamples = 0;
             currentSnapshot = -1;
             breath = 112; expression = 110; vibrato = 0; bend = 64;
+            sustainDown = false;
             for (auto& voice : voices) voice = {};
             stepSamples = (std::isfinite(sampleRate) && sampleRate > 0.0)
                 ? sampleRate * 30.0 / static_cast<double>(std::clamp(bpm, 30, 300))
@@ -105,7 +106,8 @@ public:
         if (!accept(channel)) return;
         for (auto& v : voices)
         {
-            if (!v.active || v.channel != channel || v.pitch != pitch) continue;
+            if (!v.active || v.sustained || v.channel != channel || v.pitch != pitch) continue;
+            if (sustainDown) { v.sustained = true; return; } // closed when the pedal goes up
             finishVoice(v, eventSample(offset));
             return;
         }
@@ -115,6 +117,15 @@ public:
     {
         if (!accept(channel)) return;
         value = std::clamp(value, 0, 127);
+        if (number == 64)
+        {
+            const double at = eventSample(offset);
+            if (value >= 64) { sustainDown = true; return; }
+            sustainDown = false;
+            for (auto& v : voices)
+                if (v.active && v.sustained) { v.sustained = false; finishVoice(v, at); }
+            return;
+        }
         const int step = std::clamp(static_cast<int>(eventSample(offset) / stepSamples),
                                     0, PhraseEngine::steps - 1);
         populateTo(step);
@@ -158,6 +169,7 @@ private:
     struct ActiveNote
     {
         bool active = false;
+        bool sustained = false; // key released while the sustain pedal is down
         int channel = 0, pitch = 0, step = 0;
         double startSample = 0.0;
     };
@@ -168,6 +180,7 @@ private:
     std::uint64_t elapsedSamples = 0;
     int blockLength = 0, currentSnapshot = -1;
     int breath = 112, expression = 110, vibrato = 0, bend = 64;
+    bool sustainDown = false;
     double stepSamples = 0.0;
 
     void clearPreview() noexcept
@@ -214,6 +227,7 @@ private:
         n.gate = std::clamp(static_cast<int>(std::lround(duration / stepSamples)), 1, 8);
         preview[static_cast<std::size_t>(v.step)].store(packPhraseNote(n), std::memory_order_release);
         v.active = false;
+        v.sustained = false;
     }
 };
 }

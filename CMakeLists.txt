@@ -109,4 +109,8 @@ if (BUILD_TESTING)
     add_executable(windlab_phrase_record_smoke tests/phrase-record-smoke.cpp)
     target_include_directories(windlab_phrase_record_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_phrase_record_smoke COMMAND windlab_phrase_record_smoke)
+
+    add_executable(windlab_phrase_midi_smoke tests/phrase-midi-smoke.cpp)
+    target_include_directories(windlab_phrase_midi_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    add_test(NAME windlab_phrase_midi_smoke COMMAND windlab_phrase_midi_smoke)
 endif()
