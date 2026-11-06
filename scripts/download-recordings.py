@@ -26,7 +26,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 # GitHub Actions caches a bank only after this success marker is written.
 # Keyed by the downloader script hash, so a new mapping always rebuilds it.
 if (OUT / ".download-complete").exists() and (OUT / "SampleManifest.h").exists():
-    files = list(OUT.glob("*.wav"))
+    files = list(OUT.glob("*.wav")) + list(OUT.glob("*.flac"))
     if len(files) >= 105 and all(p.stat().st_size > 12000 for p in files):
         print(f"USING CACHED CC0 BANK: {len(files)} validated files", flush=True)
         raise SystemExit(0)
@@ -183,16 +183,27 @@ def valid_wave(blob):
             raise ValueError("Compressed WAV not supported")
         return w.getnframes(), w.getframerate()
 
+def valid_flac(blob):
+    """Check the FLAC STREAMINFO block (rate, length) without a FLAC decoder."""
+    if blob[:4] != b"fLaC" or len(blob) < 12000:
+        raise ValueError("Not a FLAC stream or suspiciously small")
+    si = blob[8:42]
+    rate = (si[10] << 12) | (si[11] << 4) | (si[12] >> 4)
+    frames = ((si[13] & 0x0F) << 32) | (si[14] << 24) | (si[15] << 16) | (si[16] << 8) | si[17]
+    if rate < 22050 or frames < 6000:
+        raise ValueError(f"Suspicious FLAC stream: {rate} Hz, {frames} frames")
+    return frames, rate
+
 def install(name, instrument, root, velocity_layer, articulation, round_robin,
-            data, credit, provenance):
-    valid_wave(data)
+            data, credit, provenance, tune_cents=0, gain_db=0.0):
+    (valid_flac if name.lower().endswith(".flac") else valid_wave)(data)
     name = re.sub(r"[^a-z0-9_.]", "_", name.lower())
     dest = OUT / name
     sha = hashlib.sha256(data).hexdigest()
     if not dest.exists() or hashlib.sha256(dest.read_bytes()).hexdigest() != sha:
         dest.write_bytes(data)
     rows.append((instrument, root, velocity_layer, articulation, round_robin,
-                 name, credit, provenance, sha))
+                 name, credit, provenance, sha, tune_cents, gain_db))
     print(f"  {name:<43} root={root:<3} vel={velocity_layer:<2} {articulation:<9} size={len(data)//1024}KB")
 
 rows = []
@@ -283,6 +294,99 @@ for target in (43, 48, 52, 55, 60, 64, 68, 72, 76):
                 layer, "sustain", 1, data,
                 "FreePats tenor sax / VCSL (CC0)", src)
 
+
+# MTG Solo Saxophones (soprano, alto, baritone): CC BY 4.0, Music Technology Group
+# (Freesound packs), trimmed and programmed as SFZ by kinwie. Kept as FLAC and
+# embedded as-is. Per-key tuning (cents) and level (dB) come from the SFZ data
+# files of the same pinned commit, so the sampler can play every zone in tune.
+# One sample every fourth chromatic key keeps the embedded bank reasonably small.
+MTG_COMMIT = "b494d256549b3d088fdec176ce82867f8a1f58b2"
+MTG_ROOT = ("https://raw.githubusercontent.com/sfzinstruments/MTG.SoloSax/"
+            + MTG_COMMIT + "/MTG%20Solo%20Saxophones/")
+MTG_LOCAL = os.environ.get("WINDLAB_MTG_DIR")  # optional offline checkout
+MTG_SAXES = (("soprano", "sop", 6, ("p", "f")),
+             ("alto", "alt", 7, ("p", "f")),
+             ("baritone", "bar", 8, ("p", "m", "f")))
+MTG_LAYER = {"p": 1, "m": 2, "f": 3}
+MTG_KEY_STEP = 4
+MTG_CREDIT = "MTG Solo Saxophones / MTG @ freesound.org, programmed by kinwie (CC BY 4.0)"
+
+def mtg_fetch(relative):
+    if MTG_LOCAL:
+        return (Path(MTG_LOCAL) / "MTG Solo Saxophones" / relative).read_bytes()
+    return get(MTG_ROOT + urllib.parse.quote(relative, safe="/"))
+
+def mtg_regions(text):
+    found = []
+    for line in text.splitlines():
+        if not line.startswith("<region>"):
+            continue
+        fields = dict(tok.split("=", 1) for tok in line.split() if "=" in tok)
+        if "key" not in fields or "sample" not in fields:
+            continue
+        key = int(fields["key"])
+        if int(fields.get("pitch_keycenter", key)) != key:
+            continue  # neighbour-key round robin: not needed
+        found.append((key, fields["sample"].split(".")[0] + ".flac",
+                      int(fields.get("tune", 0)), float(fields.get("volume", 0.0))))
+    return sorted(found)
+
+for label, code, instrument, layers in MTG_SAXES:
+    for layer in layers:
+        regions = mtg_regions(mtg_fetch(f"Data/{code}_{layer}_rr1.txt").decode("utf-8"))
+        if len(regions) < 20:
+            raise ValueError(f"MTG {code}_{layer}: too few regions ({len(regions)})")
+        chosen = regions[::MTG_KEY_STEP]
+        if chosen[-1] != regions[-1]:
+            chosen.append(regions[-1])
+        for key, flac_name, tune, volume in chosen:
+            data = mtg_fetch(f"Samples/{flac_name}")
+            install(f"{label}_sustain_{key}_v{MTG_LAYER[layer]}_rr1.flac", instrument, key,
+                    MTG_LAYER[layer], "sustain", 1, data, MTG_CREDIT,
+                    f"MTG.SoloSax@{MTG_COMMIT[:12]}/{flac_name}", tune, volume)
+
+# Ixox Flute (flute 1 only): CC BY 4.0, Xavier Hosxe; SFZ by kinwie. Normal (sustain)
+# and staccato articulations, three velocity layers. The second flute, vibrato
+# depth and key-switched scales are not used. Samples are FLAC, one per region.
+IXOX_COMMIT = "0cc54468bb0d2d9b32921958585caad65ba8df21"
+IXOX_ROOT = ("https://raw.githubusercontent.com/sfzinstruments/ixox.flute/"
+             + IXOX_COMMIT + "/")
+IXOX_LOCAL = os.environ.get("WINDLAB_IXOX_DIR")  # optional offline checkout
+IXOX_CREDIT = "Ixox Flute / Xavier Hosxe, SFZ by kinwie (CC BY 4.0)"
+IXOX_ARTICULATIONS = (("nor", "sustain", "Data/region/nor.txt", 0.0),
+                      ("det", "staccato", "Data/region/det.txt", -2.0))
+IXOX_LAYER = {"p": 1, "m": 2, "f": 3}
+
+def ixox_fetch(relative):
+    if IXOX_LOCAL:
+        return (Path(IXOX_LOCAL) / relative).read_bytes()
+    return get(IXOX_ROOT + urllib.parse.quote(relative, safe="/"))
+
+def ixox_regions(text, prefix):
+    """Keycentre, sample name and tune of each region of one articulation file."""
+    found = []
+    for line in text.splitlines():
+        if not line.startswith("<region>"):
+            continue
+        key_centre = re.search(r"pitch_keycenter=(\d+)", line)
+        sample = re.search(r"sample=([a-z]+_([pmf])_\d+_\d+)\.\$EXT", line)
+        if not key_centre or not sample or not sample.group(1).startswith(prefix + "_"):
+            continue
+        tune = re.search(r"tune=(-?\d+)", line)
+        found.append((int(key_centre.group(1)), sample.group(1) + ".flac",
+                      sample.group(2), int(tune.group(1)) if tune else 0))
+    return sorted(found)
+
+for prefix, articulation, region_file, gain_db in IXOX_ARTICULATIONS:
+    regions = ixox_regions(ixox_fetch(region_file).decode("utf-8"), prefix)
+    if len(regions) < 10:
+        raise ValueError(f"Ixox {prefix}: too few regions ({len(regions)})")
+    for key, flac_name, layer, tune in regions:
+        install(f"flute_{articulation}_{key}_v{IXOX_LAYER[layer]}_rr3.flac", 3, key,
+                IXOX_LAYER[layer], articulation, 3, ixox_fetch("Samples/" + flac_name),
+                IXOX_CREDIT, f"ixox.flute@{IXOX_COMMIT[:12]}/Samples/{flac_name}",
+                tune, gain_db)
+
 # Deterministic C++ map, used by the embedded JUCE WAV sampler.
 # No synthetic samples are mislabeled as acoustically recorded.
 samples = {(r[0], r[1], r[2], r[3], r[4], r[5]): r for r in rows}
@@ -292,25 +396,30 @@ header = [
     "// Generated by scripts/download-recordings.py; license and hashes: CREDITS.md",
     "#include <array>",
     "namespace windlab {",
-    "struct RecordedSampleDescription { int instrument; int midiRoot; int velocityLayer; int articulation; int roundRobin; const char* resourceName; };",
+    "struct RecordedSampleDescription { int instrument; int midiRoot; int velocityLayer; int articulation; int roundRobin; const char* resourceName; int tuneCents; float gain; };",
     f"inline constexpr std::array<RecordedSampleDescription, {len(records)}> sampleDescriptions {{{{"
 ]
-for instrument, root, velocity_layer, articulation, rr, filename, *_ in records:
+for instrument, root, velocity_layer, articulation, rr, filename, _c, _p, _s, tune_cents, gain_db in records:
     resource = filename.replace(".", "_")
     art = 1 if articulation == "staccato" else 0
-    header.append(f'    {{{instrument}, {root}, {velocity_layer}, {art}, {rr}, "{resource}"}},')
+    gain = 10.0 ** (gain_db / 20.0)
+    header.append(f'    {{{instrument}, {root}, {velocity_layer}, {art}, {rr}, "{resource}", {tune_cents}, {gain:.5f}f}},')
 header += ["}};", "}"]
 (OUT / "SampleManifest.h").write_text("\n".join(header) + "\n")
-credits = ["# WindLab 0.5: recorded multi-velocity wind source licenses and provenance", "",
-           "All bundled source recordings are CC0; copies of these samples may be embedded",
-           "in WindLab AU/VST3. These samples are NOT claimed as WindLab's recordings.", "",
+credits = ["# WindLab: recorded multi-velocity wind source licenses and provenance", "",
+           "Bundled source recordings are CC0, except the MTG saxophones (CC BY 4.0, attribution below).",
+           "Copies of these samples may be embedded in WindLab AU/VST3. They are NOT claimed as WindLab's recordings.", "",
            "- VSCO 2 Community Edition: https://versilian-studios.com/vsco-community/",
            "  Recorded by Sam Gossner and Simon Dalzell; CC0 1.0.",
            "  GitHub pin: 440300901dfe9275fd84e0b7763af1f8443ae62e.",
            "- FreePats Tenor Sax: https://freepats.zenvoid.org/Reed/saxophone.html",
            "  VCSL recordings adapted/looped by FreePats; CC0 1.0; 2020-07-17.",
+           "- MTG Solo Saxophones (soprano, alto, baritone): https://github.com/sfzinstruments/MTG.SoloSax",
+           "  Samples by the Music Technology Group via freesound.org,",
+           "  trimmed and programmed by kinwie; Creative Commons Attribution 4.0 (CC BY 4.0).",
+           f"  GitHub pin: {MTG_COMMIT}. Changes: one sample every {MTG_KEY_STEP} keys is bundled; per-key tuning and level are applied.",
            "", "## Included recording files (SHA-256 for reproducibility)", ""]
-for _, root, velocity_layer, articulation, rr, name, credit, provenance, sha in records:
+for _, root, velocity_layer, articulation, rr, name, credit, provenance, sha, *_t in records:
     credits.append(f"- {name}: MIDI {root}; velocity layer {velocity_layer}, "
                    f"{articulation}, variation {rr}; {credit}; "
                    f"source {provenance}; sha256={sha}")

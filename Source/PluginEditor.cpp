@@ -8,7 +8,8 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
       keyboard(p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
 {
     setSize(1080, 849);
-    const juce::StringArray instruments {"Trumpet", "Tenor Sax", "Trombone", "Flute", "Clarinet", "French Horn"};
+    const juce::StringArray instruments {"Trumpet", "Tenor Sax", "Trombone", "Flute", "Clarinet", "French Horn",
+                                         "Soprano Sax", "Alto Sax", "Baritone Sax"};
     for (int i = 0; i < instruments.size(); ++i)
         instrumentBox.addItem(instruments[i], i + 1);
     const juce::StringArray articulations {"Sustain - held notes", "Staccato - short", "Swell - slow rise"};
@@ -293,7 +294,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("CC1 VIBRATO  /  CC2 BREATH  /  CC11 EXPRESSION  /  AFTERTOUCH  /  PITCH BEND",
                29, 658, 960, 19, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xff8faab3));
-    g.drawText("BREATH LENGTH: 30 = continuous. Recorded CC0 winds by Versilian Studios / FreePats.",
+    g.drawText("BREATH LENGTH: 30 = continuous. Winds: Versilian Studios / FreePats (CC0); Soprano, Alto, Baritone Sax: MTG / Freesound (CC BY 4.0).",
                29, 679, 1020, 18, juce::Justification::centredLeft);
 
     g.setColour(juce::Colour(0xff1d313b));
