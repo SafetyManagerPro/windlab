@@ -1,4 +1,5 @@
 #include "PhraseEditor.h"
+#include "Dsp/PhraseMidi.h"
 #include <algorithm>
 #include <cmath>
 
@@ -93,6 +94,24 @@ WindLabPhraseEditor::WindLabPhraseEditor(windlab::PhraseEngine& engine,
     laneBox.setColour(juce::ComboBox::textColourId, juce::Colours::white);
     addAndMakeVisible(laneBox);
 
+    gridBox.addItem("GRID 1/8 (16 STEPS)", 1);
+    gridBox.addItem("GRID 1/16 (32 STEPS)", 2);
+    gridBox.addItem("GRID 1/8 TRIPLET (24)", 3);
+    gridBox.addItem("GRID 1/16 TRIPLET (48)", 4);
+    gridBox.setSelectedId(static_cast<int>(phrase.getGrid()) + 1, juce::dontSendNotification);
+    gridBox.onChange = [this] {
+        phrase.setGrid(static_cast<windlab::PhraseGrid>(gridBox.getSelectedId() - 1));
+        selectedStep = std::min(selectedStep, stepCount() - 1);
+        repaint();
+    };
+    gridBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff213943));
+    gridBox.setColour(juce::ComboBox::textColourId, juce::Colours::white);
+    addAndMakeVisible(gridBox);
+    exportButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff416a64));
+    exportButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    exportButton.onClick = [this] { exportMidi(); };
+    addAndMakeVisible(exportButton);
+
     tempoLabel.setText("PHRASE BPM", juce::dontSendNotification);
     tempoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffb9ced3));
     tempoLabel.setFont(juce::Font(12.0f, juce::Font::bold));
@@ -123,8 +142,8 @@ juce::Rectangle<float> WindLabPhraseEditor::laneBounds() const
 int WindLabPhraseEditor::stepAt(float x) const
 {
     const auto r = rollBounds();
-    return juce::jlimit(0, windlab::PhraseEngine::steps - 1,
-        static_cast<int>((x - r.getX()) / (r.getWidth() / windlab::PhraseEngine::steps)));
+    return juce::jlimit(0, stepCount() - 1,
+        static_cast<int>((x - r.getX()) / (r.getWidth() / static_cast<float>(stepCount()))));
 }
 
 int WindLabPhraseEditor::pitchAt(float y) const
@@ -150,6 +169,8 @@ void WindLabPhraseEditor::resized()
     hostButton.setBounds(757, 80, 147, 38);
     scoreButton.setBounds(911, 80, 140, 38);
     laneBox.setBounds(75, 543, 287, 34);
+    gridBox.setBounds(75, 790, 240, 32);
+    exportButton.setBounds(330, 790, 200, 32);
 }
 
 void WindLabPhraseEditor::updateButtons()
@@ -198,7 +219,7 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
                       ? "REGISTRAZIONE PRONTA: premi IMPORTA per modificare le note; la frase originale non e' stata cancellata."
                       : (scoreView
                          ? "Score preview: staff, accidentals, note lengths and slurs. Switch to Piano Roll for editing."
-                         : "16 steps = 2 bars of eighth-notes. Click to add a note; drag sideways for length, vertically for pitch.")),
+                         : "Two bars. Click to add a note (several per step make a chord); drag sideways for length, vertically for pitch.")),
                34, 129, getWidth() - 65, 28, juce::Justification::centredLeft);
 
     const auto r = rollBounds(), lane = laneBounds();
@@ -206,7 +227,7 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
     g.fillRoundedRectangle(r.expanded(2.0f), 5.0f);
     g.fillRoundedRectangle(lane.expanded(2.0f), 5.0f);
 
-    const auto stepWidth = r.getWidth() / 16.0f;
+    const auto stepWidth = r.getWidth() / static_cast<float>(stepCount());
     const auto pitchHeight = r.getHeight() / 37.0f;
     if (!scoreView)
     {
@@ -248,13 +269,13 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
                    static_cast<int>(staffBottom + 33), 235, 24, juce::Justification::centredLeft);
     }
 
-    for (int step = 0; step <= 16; ++step)
+    for (int step = 0; step <= stepCount(); ++step)
     {
         const float x = r.getX() + step * stepWidth;
         g.setColour(step % 4 == 0 ? juce::Colour(0xff7a9299)
                                    : juce::Colour(0xff3b5660));
         g.drawLine(x, r.getY(), x, lane.getBottom(), step % 4 == 0 ? 1.3f : 0.7f);
-        if (step < 16)
+        if (step < stepCount())
         {
             g.setColour(juce::Colour(0xffafc3c8));
             g.setFont(juce::Font(11.0f));
@@ -273,9 +294,10 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
 
     if (!scoreView)
     {
-    for (int step = 0; step < 16; ++step)
+    for (int step = 0; step < stepCount(); ++step)
+    for (int slot = 0; slot < windlab::PhraseEngine::chordSlots; ++slot)
     {
-        const auto n = phrase.note(step);
+        const auto n = phrase.chordNote(step, slot);
         if (!n.active) continue;
         const float x = r.getX() + step * stepWidth + 2.0f;
         const float y = r.getY() + (84 - juce::jlimit(48, 84, n.pitch)) * pitchHeight + .7f;
@@ -305,7 +327,7 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
         const auto noteY = [&](int midi) {
             return staffBottom - (staffIndex(midi) - 2) * halfSpace;
         };
-        for (int step = 0; step < 16; ++step)
+        for (int step = 0; step < stepCount(); ++step)
         {
             const auto n = phrase.note(step);
             if (!n.active) continue;
@@ -389,7 +411,7 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
         g.setColour(juce::Colour(0xff4c6871));
         g.drawHorizontalLine(static_cast<int>(lane.getCentreY()), lane.getX(), lane.getRight());
     }
-    for (int step = 0; step < 16; ++step)
+    for (int step = 0; step < stepCount(); ++step)
     {
         auto getValue = [this, laneType](int s) {
             const auto n = phrase.note(s);
@@ -503,4 +525,20 @@ void WindLabPhraseEditor::updateLane(float x, float y)
     phrase.setNote(step, n);
     updateButtons();
     repaint();
+}
+
+void WindLabPhraseEditor::exportMidi()
+{
+    exportChooser = std::make_unique<juce::FileChooser>(
+        "Esporta la frase come file MIDI", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+            .getChildFile("WindLab-frase.mid"), "*.mid");
+    exportChooser->launchAsync(juce::FileBrowserComponent::saveMode
+                                   | juce::FileBrowserComponent::canSelectFiles,
+        [this](const juce::FileChooser& chooser) {
+            const auto file = chooser.getResult();
+            if (file == juce::File()) return;
+            const auto target = file.hasFileExtension(".mid") ? file : file.withFileExtension(".mid");
+            const auto bytes = windlab::buildPhraseMidiFile(phrase, phrase.effectiveTempo());
+            target.replaceWithData(bytes.data(), bytes.size());
+        });
 }

@@ -399,7 +399,7 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     // MIDI (notes + CC curves), not a bounced WAV file. Recording and playing
     // use separate buffers so REC never destroys an existing phrase.
     keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
-    phraseRecorder.beginBlock(buffer.getNumSamples(), getSampleRate(), phrase.effectiveTempo());
+    phraseRecorder.beginBlock(buffer.getNumSamples(), getSampleRate(), phrase.effectiveTempo(), phrase.getGrid());
     for (const auto metadata : midiMessages)
     {
         const auto message = metadata.getMessage();
@@ -523,9 +523,18 @@ void WindLabAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
         auto* phraseXml = xml->createNewChildElement("WindLabPhraseV1");
         phraseXml->setAttribute("tempo", phrase.getTempo());
         phraseXml->setAttribute("followHostTempo", phrase.followsHostTempo() ? 1 : 0);
-        for (int i = 0; i < windlab::PhraseEngine::steps; ++i)
+        // V2 keeps the old s0..s15 attributes (slot 0 of every step) so older builds
+        // still load the primary melody; chords and grid are added alongside.
+        phraseXml->setAttribute("grid", static_cast<int>(phrase.getGrid()));
+        for (int i = 0; i < windlab::PhraseEngine::maxSteps; ++i)
+        {
             phraseXml->setAttribute("s" + juce::String(i),
                 juce::String(static_cast<juce::int64>(phrase.packed(i))));
+            for (int slot = 1; slot < windlab::PhraseEngine::chordSlots; ++slot)
+                if (phrase.chordNote(i, slot).active)
+                    phraseXml->setAttribute("c" + juce::String(i) + "_" + juce::String(slot),
+                        juce::String(static_cast<juce::int64>(phrase.chordPacked(i, slot))));
+        }
         // Separate versioned node: old projects load their previous sound,
         // while MIDI Learn starts with standard CC1/CC2/CC11 defaults.
         auto* learnXml = xml->createNewChildElement("WindLabMidiLearnV1");
@@ -547,12 +556,22 @@ void WindLabAudioProcessor::setStateInformation(const void* data, int sizeInByte
         {
             phrase.setTempo(phraseXml->getIntAttribute("tempo", 110));
             phrase.setFollowHostTempo(phraseXml->getBoolAttribute("followHostTempo", false));
-            for (int i = 0; i < windlab::PhraseEngine::steps; ++i)
+            // Projects saved before V2 have no grid attribute: they load as eighths.
+            const int gridValue = phraseXml->getIntAttribute("grid", 0);
+            phrase.setGrid(static_cast<windlab::PhraseGrid>(std::clamp(gridValue, 0, 3)));
+            for (int i = 0; i < windlab::PhraseEngine::maxSteps; ++i)
             {
                 const auto name = "s" + juce::String(i);
                 if (phraseXml->hasAttribute(name))
                     phrase.setPacked(i, static_cast<std::uint64_t>(
                         phraseXml->getStringAttribute(name).getLargeIntValue()));
+                for (int slot = 1; slot < windlab::PhraseEngine::chordSlots; ++slot)
+                {
+                    const auto chord = "c" + juce::String(i) + "_" + juce::String(slot);
+                    if (phraseXml->hasAttribute(chord))
+                        phrase.setChordPacked(i, slot, static_cast<std::uint64_t>(
+                            phraseXml->getStringAttribute(chord).getLargeIntValue()));
+                }
             }
             // Keep phrase metadata out of the APVTS parameter state tree.
             xml->removeChildElement(phraseXml, true);
