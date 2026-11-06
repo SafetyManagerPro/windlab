@@ -97,5 +97,41 @@ int main()
     assert(recorder.notesCaptured() == 0);
     assert(!recorder.recorded(0).active);
 
+    // Sustain pedal (CC64): a key released under the pedal lasts until the pedal goes up.
+    {
+        windlab::PhraseRecorder pedal;
+        assert(pedal.requestStart());
+        pedal.beginBlock(block, 48000.0, 120);
+        pedal.noteOn(1, 64, 100, 0);
+        pedal.controller(1, 64, 127, 0);      // pedal down at the start
+        pedal.noteOff(1, 64, 1000);           // key up at ~0.5 steps, pedal still down
+        pedal.endBlock();
+        pedal.beginBlock(block, 48000.0, 120);
+        pedal.controller(1, 64, 0, 9000);     // pedal up at 1.75 steps
+        pedal.endBlock();
+        assert(pedal.recorded(0).gate == 2);  // held for ~1.75 steps -> 2 eighths
+        assert(pedal.recorded(0).pitch == 64);
+
+        // Pedal down: a note released and struck again in the next step is its own voice.
+        windlab::PhraseRecorder repeat;
+        assert(repeat.requestStart());
+        repeat.beginBlock(block, 48000.0, 120);
+        repeat.controller(1, 64, 127, 0);
+        repeat.noteOn(1, 60, 100, 0);
+        repeat.noteOff(1, 60, 500);           // sustained under the pedal
+        repeat.endBlock();
+        repeat.beginBlock(block, 48000.0, 120);
+        repeat.noteOn(1, 60, 90, 3000);       // struck again in step 1 while still sustained
+        repeat.noteOff(1, 60, 4000);          // released, sustained again
+        repeat.endBlock();
+        repeat.beginBlock(block, 48000.0, 120);
+        repeat.controller(1, 64, 0, 0);       // pedal up: both voices close
+        repeat.endBlock();
+        assert(repeat.notesCaptured() == 2);
+        assert(repeat.recorded(0).velocity == 100);
+        assert(repeat.recorded(1).velocity == 90);
+        assert(repeat.recorded(1).gate >= 1);
+    }
+
     std::cout << "WindLab 0.9.3 phrase record: PASS (2 bars, notes, gates, CCs, pitch, non-destructive import)\n";
 }
