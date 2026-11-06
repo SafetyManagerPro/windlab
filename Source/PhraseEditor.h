@@ -35,13 +35,16 @@ private:
     juce::TextButton exportButton {"EXPORT MIDI"};
     std::unique_ptr<juce::FileChooser> exportChooser;
     juce::Label tempoLabel;
-    int selectedStep = 0, firstDragStep = 0;
+    int selectedStep = 0, firstDragStep = 0, dragSlot = 0;
     bool editingNote = false, editingLane = false;
+    bool dragMoved = false, clickedExisting = false;
     bool scoreView = false;
     juce::Rectangle<float> rollBounds() const;
     juce::Rectangle<float> laneBounds() const;
     int stepAt(float x) const;
     int stepCount() const { return phrase.activeSteps(); }
+    int slotAtPitch(int step, int pitch) const;
+    int firstFreeSlot(int step) const;
     void exportMidi();
     int pitchAt(float y) const;
     void updateLane(float x, float y);

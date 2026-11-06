@@ -219,7 +219,7 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
                       ? "REGISTRAZIONE PRONTA: premi IMPORTA per modificare le note; la frase originale non e' stata cancellata."
                       : (scoreView
                          ? "Score preview: staff, accidentals, note lengths and slurs. Switch to Piano Roll for editing."
-                         : "Two bars. Click to add a note (several per step make a chord); drag sideways for length, vertically for pitch.")),
+                         : "Two bars. Click an empty row to add a chord note; click a note to remove it; drag it to move or change its length. Right click removes.")),
                34, 129, getWidth() - 65, 28, juce::Justification::centredLeft);
 
     const auto r = rollBounds(), lane = laneBounds();
@@ -456,24 +456,72 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
                75, 806, getWidth() - 115, 27, juce::Justification::centredLeft);
 }
 
+int WindLabPhraseEditor::slotAtPitch(int step, int pitch) const
+{
+    for (int slot = 0; slot < windlab::PhraseEngine::chordSlots; ++slot)
+    {
+        const auto n = phrase.chordNote(step, slot);
+        if (n.active && n.pitch == pitch) return slot;
+    }
+    return -1;
+}
+
+int WindLabPhraseEditor::firstFreeSlot(int step) const
+{
+    for (int slot = 0; slot < windlab::PhraseEngine::chordSlots; ++slot)
+        if (!phrase.chordNote(step, slot).active) return slot;
+    return -1;
+}
+
 void WindLabPhraseEditor::mouseDown(const juce::MouseEvent& e)
 {
     if (rollBounds().contains(e.position))
     {
-        selectedStep = stepAt(e.position.x);
+        const int step = stepAt(e.position.x);
+        selectedStep = step;
         if (scoreView) { updateButtons(); repaint(); return; }
-        firstDragStep = selectedStep;
-        editingNote = true;
-        auto n = phrase.note(selectedStep);
+        const int pitch = pitchAt(e.position.y);
+        const int existing = slotAtPitch(step, pitch);
         if (e.mods.isPopupMenu())
-            n.active = false;
+        {
+            // Right click removes the chord note under the pointer.
+            if (existing >= 0)
+            {
+                auto n = phrase.chordNote(step, existing);
+                n.active = false;
+                phrase.setChordNote(step, existing, n);
+            }
+        }
+        else if (existing >= 0)
+        {
+            // Grab a note of the chord: dragging moves it, a plain click removes it.
+            firstDragStep = step;
+            dragSlot = existing;
+            editingNote = true;
+            clickedExisting = true;
+            dragMoved = false;
+        }
         else
         {
-            n.active = true;
-            n.pitch = pitchAt(e.position.y);
-            n.gate = 1;
+            const int slot = firstFreeSlot(step);
+            if (slot >= 0)
+            {
+                // Controller values of the step travel with its primary slot; the new note takes its own pitch.
+                auto n = phrase.note(step);
+                n.active = true;
+                n.pitch = pitch;
+                n.velocity = 96;
+                n.gate = 1;
+                n.legato = false;
+                phrase.setChordNote(step, slot, n);
+                firstDragStep = step;
+                dragSlot = slot;
+                editingNote = true;
+                clickedExisting = false;
+                dragMoved = false;
+            }
+            // else: the step already holds the maximum of four notes.
         }
-        phrase.setNote(selectedStep, n);
         updateButtons();
         repaint();
     }
@@ -488,11 +536,17 @@ void WindLabPhraseEditor::mouseDrag(const juce::MouseEvent& e)
 {
     if (editingNote && !e.mods.isPopupMenu())
     {
-        auto n = phrase.note(firstDragStep);
-        n.pitch = pitchAt(e.position.y);
-        n.gate = juce::jlimit(1, 8, stepAt(e.position.x) - firstDragStep + 1);
+        auto n = phrase.chordNote(firstDragStep, dragSlot);
+        const int pitch = pitchAt(e.position.y);
+        const int gate = juce::jlimit(1, 8, stepAt(e.position.x) - firstDragStep + 1);
+        // Two notes of one chord cannot share a pitch: a drag onto another note keeps the old pitch.
+        const int clash = slotAtPitch(firstDragStep, pitch);
+        const bool pitchFree = clash < 0 || clash == dragSlot;
+        if ((pitchFree && pitch != n.pitch) || gate != n.gate) dragMoved = true;
+        if (pitchFree) n.pitch = pitch;
+        n.gate = gate;
         n.active = true;
-        phrase.setNote(firstDragStep, n);
+        phrase.setChordNote(firstDragStep, dragSlot, n);
         repaint();
     }
     else if (editingLane)
@@ -501,8 +555,18 @@ void WindLabPhraseEditor::mouseDrag(const juce::MouseEvent& e)
 
 void WindLabPhraseEditor::mouseUp(const juce::MouseEvent&)
 {
+    if (editingNote && clickedExisting && !dragMoved)
+    {
+        auto n = phrase.chordNote(firstDragStep, dragSlot);
+        n.active = false;
+        phrase.setChordNote(firstDragStep, dragSlot, n);
+    }
     editingNote = false;
     editingLane = false;
+    clickedExisting = false;
+    dragMoved = false;
+    updateButtons();
+    repaint();
 }
 
 void WindLabPhraseEditor::updateLane(float x, float y)
