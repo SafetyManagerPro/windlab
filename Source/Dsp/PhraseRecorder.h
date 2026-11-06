@@ -33,24 +33,30 @@ public:
     int progress() const noexcept { return stepProgress.load(std::memory_order_acquire); }
     int notesCaptured() const noexcept { return captured.load(std::memory_order_acquire); }
     int notesDropped() const noexcept { return dropped.load(std::memory_order_acquire); }
-    PhraseNote recorded(int step) const noexcept
+    PhraseGrid recordedGrid() const noexcept { return static_cast<PhraseGrid>(grid.load(std::memory_order_acquire)); }
+    // Slot 0 of a step (the primary note, and the step's controller values).
+    PhraseNote recorded(int step) const noexcept { return chordRecorded(step, 0); }
+    PhraseNote chordRecorded(int step, int slot) const noexcept
     {
-        if (step < 0 || step >= PhraseEngine::steps) return {};
-        return unpackPhraseNote(preview[static_cast<std::size_t>(step)].load(std::memory_order_acquire));
+        if (step < 0 || step >= PhraseEngine::maxSteps || slot < 0 || slot >= PhraseEngine::chordSlots)
+            return {};
+        return unpackPhraseNote(preview[index(step, slot)].load(std::memory_order_acquire));
     }
     bool importInto(PhraseEngine& destination) noexcept
     {
         if (status() != Ready) return false;
         destination.setPlaying(false);
-        for (int i = 0; i < PhraseEngine::steps; ++i)
-            destination.setNote(i, recorded(i));
+        destination.setGrid(recordedGrid());
+        for (int step = 0; step < PhraseEngine::maxSteps; ++step)
+            for (int slot = 0; slot < PhraseEngine::chordSlots; ++slot)
+                destination.setChordNote(step, slot, chordRecorded(step, slot));
         // The imported notes persist in the normal WindLabPhraseV1 project state.
         state.store(Idle, std::memory_order_release);
         return true;
     }
 
     // Called only from the audio callback at the beginning of a block.
-    void beginBlock(int length, double sampleRate, int bpm) noexcept
+    void beginBlock(int length, double sampleRate, int bpm, PhraseGrid newGrid = PhraseGrid::Eighth) noexcept
     {
         blockLength = std::max(0, length);
         if (startRequested.exchange(false, std::memory_order_acq_rel))
@@ -61,8 +67,12 @@ public:
             breath = 112; expression = 110; vibrato = 0; bend = 64;
             sustainDown = false;
             for (auto& voice : voices) voice = {};
+            grid.store(static_cast<int>(newGrid), std::memory_order_release);
+            totalSteps = 2 * stepsPerBarFor(newGrid);
+            // One step = ticksPerStep/240 eighth notes at the given tempo.
             stepSamples = (std::isfinite(sampleRate) && sampleRate > 0.0)
                 ? sampleRate * 30.0 / static_cast<double>(std::clamp(bpm, 30, 300))
+                  * static_cast<double>(ticksPerStepFor(newGrid)) / 240.0
                 : 0.0;
             stopRequested.store(false, std::memory_order_release);
             state.store(stepSamples > 0.0 ? Recording : Idle, std::memory_order_release);
@@ -75,12 +85,17 @@ public:
         const auto sample = eventSample(offset);
         if (sample >= totalSamples()) return;
         const int step = std::clamp(static_cast<int>(std::lround(sample / stepSamples)),
-                                    0, PhraseEngine::steps - 1);
+                                    0, totalSteps - 1);
         populateTo(static_cast<int>(sample / stepSamples));
-        auto n = recorded(step);
-        if (n.active) { dropped.fetch_add(1, std::memory_order_relaxed); return; }
+        // Notes already sounding in this block make this one legato.
         bool overlap = false;
         for (const auto& v : voices) if (v.active) overlap = true;
+        // Free chord slot in this step; a fifth simultaneous note cannot be stored.
+        int slot = -1;
+        for (int candidate = 0; candidate < PhraseEngine::chordSlots; ++candidate)
+            if (!chordRecorded(step, candidate).active) { slot = candidate; break; }
+        if (slot < 0) { dropped.fetch_add(1, std::memory_order_relaxed); return; }
+        auto n = chordRecorded(step, slot);
         n.active = true;
         n.pitch = pitch;
         n.velocity = std::clamp(velocity, 1, 127);
@@ -88,12 +103,12 @@ public:
         n.legato = overlap;
         n.breath = breath; n.expression = expression;
         n.vibrato = vibrato; n.bend = bend;
-        preview[static_cast<std::size_t>(step)].store(packPhraseNote(n), std::memory_order_release);
+        preview[index(step, slot)].store(packPhraseNote(n), std::memory_order_release);
         for (auto& v : voices)
         {
             if (v.active) continue;
             v.active = true; v.channel = channel; v.pitch = pitch;
-            v.startSample = sample; v.step = step;
+            v.startSample = sample; v.step = step; v.slot = slot;
             captured.fetch_add(1, std::memory_order_relaxed);
             return;
         }
@@ -127,7 +142,7 @@ public:
             return;
         }
         const int step = std::clamp(static_cast<int>(eventSample(offset) / stepSamples),
-                                    0, PhraseEngine::steps - 1);
+                                    0, totalSteps - 1);
         populateTo(step);
         if (number == 2) breath = value;
         else if (number == 11) expression = value;
@@ -140,7 +155,7 @@ public:
     {
         if (!accept(channel)) return;
         const int step = std::clamp(static_cast<int>(eventSample(offset) / stepSamples),
-                                    0, PhraseEngine::steps - 1);
+                                    0, totalSteps - 1);
         populateTo(step);
         bend = std::clamp(static_cast<int>(std::lround(
             64.0 + (std::clamp(value, 0, 16383) - 8192.0) / 128.0)), 0, 127);
@@ -152,15 +167,14 @@ public:
     {
         if (status() != Recording) return;
         elapsedSamples += static_cast<std::uint64_t>(blockLength);
-        populateTo(std::min(PhraseEngine::steps - 1,
-                            static_cast<int>(elapsedSamples / stepSamples)));
+        populateTo(std::min(totalSteps - 1, static_cast<int>(elapsedSamples / stepSamples)));
         stepProgress.store(std::clamp(static_cast<int>(elapsedSamples / stepSamples),
-                                      0, PhraseEngine::steps), std::memory_order_release);
+                                      0, totalSteps), std::memory_order_release);
         if (elapsedSamples >= totalSamples() ||
             stopRequested.exchange(false, std::memory_order_acq_rel))
         {
             for (auto& v : voices) if (v.active) finishVoice(v, elapsedSamples);
-            populateTo(PhraseEngine::steps - 1);
+            populateTo(totalSteps - 1);
             state.store(Ready, std::memory_order_release);
         }
     }
@@ -170,15 +184,19 @@ private:
     {
         bool active = false;
         bool sustained = false; // key released while the sustain pedal is down
-        int channel = 0, pitch = 0, step = 0;
+        int channel = 0, pitch = 0, step = 0, slot = 0;
         double startSample = 0.0;
     };
-    std::array<std::atomic<std::uint64_t>, PhraseEngine::steps> preview {};
+    static constexpr std::size_t index(int step, int slot) noexcept
+    {
+        return static_cast<std::size_t>(step * PhraseEngine::chordSlots + slot);
+    }
+    std::array<std::atomic<std::uint64_t>, PhraseEngine::maxSteps * PhraseEngine::chordSlots> preview {};
     std::array<ActiveNote, 16> voices {};
-    std::atomic<int> state {Idle}, stepProgress {0}, captured {0}, dropped {0};
+    std::atomic<int> state {Idle}, stepProgress {0}, captured {0}, dropped {0}, grid {0};
     std::atomic<bool> startRequested {false}, stopRequested {false};
     std::uint64_t elapsedSamples = 0;
-    int blockLength = 0, currentSnapshot = -1;
+    int blockLength = 0, currentSnapshot = -1, totalSteps = PhraseEngine::steps;
     int breath = 112, expression = 110, vibrato = 0, bend = 64;
     bool sustainDown = false;
     double stepSamples = 0.0;
@@ -202,15 +220,15 @@ private:
         return static_cast<double>(elapsedSamples) +
                std::clamp(offset, 0, std::max(0, blockLength - 1));
     }
-    double totalSamples() const noexcept { return stepSamples * PhraseEngine::steps; }
+    double totalSamples() const noexcept { return stepSamples * totalSteps; }
+    // Controller values are written to the primary slot of each step, as before.
     void populateTo(int step) noexcept
     {
-        for (int i = currentSnapshot + 1;
-             i <= std::min(step, PhraseEngine::steps - 1); ++i)
+        for (int i = currentSnapshot + 1; i <= std::min(step, totalSteps - 1); ++i)
         {
             auto n = recorded(i);
             n.breath = breath; n.expression = expression; n.vibrato = vibrato; n.bend = bend;
-            preview[static_cast<std::size_t>(i)].store(packPhraseNote(n), std::memory_order_release);
+            preview[index(i, 0)].store(packPhraseNote(n), std::memory_order_release);
         }
         currentSnapshot = std::max(currentSnapshot, step);
     }
@@ -218,14 +236,14 @@ private:
     {
         auto n = recorded(step);
         n.breath = breath; n.expression = expression; n.vibrato = vibrato; n.bend = bend;
-        preview[static_cast<std::size_t>(step)].store(packPhraseNote(n), std::memory_order_release);
+        preview[index(step, 0)].store(packPhraseNote(n), std::memory_order_release);
     }
     void finishVoice(ActiveNote& v, double endSample) noexcept
     {
         const double duration = std::max(0.0, endSample - v.startSample);
-        auto n = recorded(v.step);
+        auto n = chordRecorded(v.step, v.slot);
         n.gate = std::clamp(static_cast<int>(std::lround(duration / stepSamples)), 1, 8);
-        preview[static_cast<std::size_t>(v.step)].store(packPhraseNote(n), std::memory_order_release);
+        preview[index(v.step, v.slot)].store(packPhraseNote(n), std::memory_order_release);
         v.active = false;
         v.sustained = false;
     }

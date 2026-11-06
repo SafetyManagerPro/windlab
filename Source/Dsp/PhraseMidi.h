@@ -55,11 +55,12 @@ inline std::vector<std::uint8_t> buildPhraseMidiFile(const PhraseEngine& phrase,
 {
     using midi_detail::Event;
     constexpr std::uint32_t ticksPerQuarter = 480;
-    constexpr std::uint32_t ticksPerStep = ticksPerQuarter / 2;
     constexpr std::uint8_t channel = 0; // MIDI channel 1
 
+    const std::uint32_t ticksPerStep = static_cast<std::uint32_t>(phrase.ticksPerStep());
+    const int steps = phrase.activeSteps();
     std::vector<Event> events;
-    std::uint32_t lastTick = PhraseEngine::steps * ticksPerStep;
+    std::uint32_t lastTick = static_cast<std::uint32_t>(steps) * ticksPerStep;
 
     // Tempo: microseconds per quarter note.
     const int safeBpm = std::clamp(bpm, 30, 300);
@@ -69,31 +70,36 @@ inline std::vector<std::uint8_t> buildPhraseMidiFile(const PhraseEngine& phrase,
                         static_cast<std::uint8_t>(micros >> 8),
                         static_cast<std::uint8_t>(micros)});
 
-    for (int step = 0; step < PhraseEngine::steps; ++step)
+    for (int step = 0; step < steps; ++step)
     {
-        const auto n = phrase.note(step);
+        const auto primary = phrase.note(step);
         const std::uint32_t tick = static_cast<std::uint32_t>(step) * ticksPerStep;
         // Expressive curves are written at every step: the engine interpolates them.
-        const int wheel = phraseBendToWheel(n.bend);
+        const int wheel = phraseBendToWheel(primary.bend);
         events.push_back({tick, 1, static_cast<std::uint8_t>(0xB0 | channel), 2,
-                          static_cast<std::uint8_t>(std::clamp(n.breath, 0, 127))});
+                          static_cast<std::uint8_t>(std::clamp(primary.breath, 0, 127))});
         events.push_back({tick, 1, static_cast<std::uint8_t>(0xB0 | channel), 11,
-                          static_cast<std::uint8_t>(std::clamp(n.expression, 0, 127))});
+                          static_cast<std::uint8_t>(std::clamp(primary.expression, 0, 127))});
         events.push_back({tick, 1, static_cast<std::uint8_t>(0xB0 | channel), 1,
-                          static_cast<std::uint8_t>(std::clamp(n.vibrato, 0, 127))});
+                          static_cast<std::uint8_t>(std::clamp(primary.vibrato, 0, 127))});
         events.push_back({tick, 1, static_cast<std::uint8_t>(0xE0 | channel),
                           static_cast<std::uint8_t>(wheel & 0x7f),
                           static_cast<std::uint8_t>((wheel >> 7) & 0x7f)});
-        if (!n.active) continue;
 
-        const std::uint32_t gateTicks = static_cast<std::uint32_t>(std::clamp(n.gate, 1, 8)) * ticksPerStep;
-        const std::uint32_t off = tick + gateTicks;
-        lastTick = std::max(lastTick, off);
-        events.push_back({tick, 2, static_cast<std::uint8_t>(0x90 | channel),
-                          static_cast<std::uint8_t>(std::clamp(n.pitch, 0, 127)),
-                          static_cast<std::uint8_t>(std::clamp(n.velocity, 1, 127))});
-        events.push_back({off, 0, static_cast<std::uint8_t>(0x80 | channel),
-                          static_cast<std::uint8_t>(std::clamp(n.pitch, 0, 127)), 0});
+        // Every sounding note of the step: a chord is several note-on events at the same tick.
+        for (int slot = 0; slot < PhraseEngine::chordSlots; ++slot)
+        {
+            const auto n = phrase.chordNote(step, slot);
+            if (!n.active) continue;
+            const std::uint32_t gateTicks = static_cast<std::uint32_t>(std::clamp(n.gate, 1, 8)) * ticksPerStep;
+            const std::uint32_t off = tick + gateTicks;
+            lastTick = std::max(lastTick, off);
+            events.push_back({tick, 2, static_cast<std::uint8_t>(0x90 | channel),
+                              static_cast<std::uint8_t>(std::clamp(n.pitch, 0, 127)),
+                              static_cast<std::uint8_t>(std::clamp(n.velocity, 1, 127))});
+            events.push_back({off, 0, static_cast<std::uint8_t>(0x80 | channel),
+                              static_cast<std::uint8_t>(std::clamp(n.pitch, 0, 127)), 0});
+        }
     }
 
     std::stable_sort(events.begin(), events.end(), [](const Event& a, const Event& b) {

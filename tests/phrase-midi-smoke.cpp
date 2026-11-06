@@ -89,5 +89,21 @@ int main() {
     assert(m2 == 666667);                                 // 90 BPM
     assert(ev2.back().meta && ev2.back().d1 == 0x2F && ev2.back().tick == 3840);
 
+    // Grid and chords: 16th triplets put step 2 at tick 160; a chord is two note-ons at the same tick.
+    {
+        windlab::PhraseEngine grid;
+        grid.setGrid(windlab::PhraseGrid::SixteenthTriplet);
+        windlab::PhraseNote a; a.active = true; a.pitch = 60; a.velocity = 100; a.gate = 1;
+        windlab::PhraseNote b = a; b.pitch = 64;
+        grid.setChordNote(2, 0, a);
+        grid.setChordNote(2, 1, b);
+        std::uint32_t d = 0, m = 0;
+        const auto ev = decode(windlab::buildPhraseMidiFile(grid, 120), d, m);
+        assert(has(ev, 160, 0x90, 60, 100));
+        assert(has(ev, 160, 0x90, 64, 100));             // second chord note, same tick
+        assert(has(ev, 160 + 80, 0x80, 60, 0));          // gate 1 = one 16th triplet = 80 ticks
+        assert(ev.back().meta && ev.back().d1 == 0x2F && ev.back().tick == 48 * 80);
+    }
+
     std::cout << "WindLab 0.9.5 MIDI export: PASS (SMF header, tempo, notes, gates, curves, bend)\n";
 }

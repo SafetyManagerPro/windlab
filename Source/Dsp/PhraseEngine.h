@@ -52,36 +52,77 @@ inline PhraseNote unpackPhraseNote(std::uint64_t p) noexcept
     return n;
 }
 
+// Subdivision of the 2-bar phrase. Ticks are per 480-tick quarter note.
+enum class PhraseGrid : int { Eighth = 0, Sixteenth = 1, EighthTriplet = 2, SixteenthTriplet = 3 };
+inline int stepsPerBarFor(PhraseGrid g) noexcept
+{
+    constexpr int table[] {8, 16, 12, 24};
+    return table[static_cast<int>(g)];
+}
+inline int ticksPerStepFor(PhraseGrid g) noexcept
+{
+    constexpr int table[] {240, 120, 160, 80};
+    return table[static_cast<int>(g)];
+}
+
 enum class PhraseEvent : int { NoteOn, NoteOff, Breath, Expression, PitchWheel, ModWheel };
 
 class PhraseEngine
 {
 public:
+    // steps: the classic eighth-note phrase length (two bars). Kept for existing callers.
     static constexpr int steps = 16;
+    // Largest phrase: 2 bars of sixteenth-note triplets. Chords use up to chordSlots per step.
+    static constexpr int maxSteps = 48;
+    static constexpr int chordSlots = 4;
     static constexpr int midiChannel = 16; // internal phrase; external controllers normally use ch1
 
     PhraseEngine() { clear(); }
 
-    PhraseNote note(int step) const noexcept
+    PhraseGrid getGrid() const noexcept { return static_cast<PhraseGrid>(grid.load(std::memory_order_acquire)); }
+    void setGrid(PhraseGrid g) noexcept
     {
-        return unpackPhraseNote(notes[static_cast<std::size_t>(std::clamp(step, 0, steps - 1))]
-                                .load(std::memory_order_relaxed));
+        const int next = static_cast<int>(g);
+        if (grid.exchange(next, std::memory_order_acq_rel) != next)
+            revision.fetch_add(1, std::memory_order_release);
     }
-    void setNote(int step, PhraseNote n) noexcept
+    // Number of steps in the phrase for the current grid (16 for eighths, up to 48).
+    int activeSteps() const noexcept { return 2 * stepsPerBarFor(getGrid()); }
+    int ticksPerStep() const noexcept { return ticksPerStepFor(getGrid()); }
+
+    // Slot 0 is the primary note of a step; it also carries the step's controller values.
+    PhraseNote note(int step) const noexcept { return chordNote(step, 0); }
+    void setNote(int step, PhraseNote n) noexcept { setChordNote(step, 0, n); }
+    std::uint64_t packed(int step) const noexcept { return chordPacked(step, 0); }
+    void setPacked(int step, std::uint64_t p) noexcept { setChordPacked(step, 0, p); }
+
+    PhraseNote chordNote(int step, int slot) const noexcept
     {
-        if (step < 0 || step >= steps) return;
-        notes[static_cast<std::size_t>(step)].store(packPhraseNote(n), std::memory_order_release);
+        return unpackPhraseNote(chordPacked(step, slot));
     }
-    std::uint64_t packed(int step) const noexcept
+    void setChordNote(int step, int slot, PhraseNote n) noexcept
     {
-        return notes[static_cast<std::size_t>(std::clamp(step, 0, steps - 1))]
-                    .load(std::memory_order_acquire);
+        setChordPacked(step, slot, packPhraseNote(n));
     }
-    void setPacked(int step, std::uint64_t p) noexcept
+    std::uint64_t chordPacked(int step, int slot) const noexcept
     {
-        if (step < 0 || step >= steps) return;
-        notes[static_cast<std::size_t>(step)].store(p, std::memory_order_release);
+        if (step < 0 || step >= maxSteps || slot < 0 || slot >= chordSlots) return packPhraseNote(PhraseNote{});
+        return notes[index(step, slot)].load(std::memory_order_acquire);
     }
+    void setChordPacked(int step, int slot, std::uint64_t p) noexcept
+    {
+        if (step < 0 || step >= maxSteps || slot < 0 || slot >= chordSlots) return;
+        notes[index(step, slot)].store(p, std::memory_order_release);
+    }
+    // Number of sounding notes in a step (0..chordSlots).
+    int chordSize(int step) const noexcept
+    {
+        int count = 0;
+        for (int slot = 0; slot < chordSlots; ++slot)
+            if (chordNote(step, slot).active) ++count;
+        return count;
+    }
+
     void clear() noexcept
     {
         for (auto& item : notes)
@@ -147,10 +188,10 @@ public:
             seenRevision = requestedRev;
             if (!on) return;
         }
-
-        // 16 eighth-note steps = two 4/4 bars. Tempo intentionally independent
-        // of DAW transport in this version; Play/Stop is explicit and predictable.
-        const double stepSamples = sampleRate * 30.0 / static_cast<double>(effectiveTempo());
+        // The phrase is two 4/4 bars whatever the grid: the step length follows the grid.
+        const int count = activeSteps();
+        const double stepSamples = sampleRate * 30.0 / static_cast<double>(effectiveTempo())
+                                 * static_cast<double>(ticksPerStep()) / 240.0;
         const double controlInterval = std::max(32.0, sampleRate / 55.0);
         for (int i = 0; i < blockSamples; ++i)
         {
@@ -176,20 +217,27 @@ public:
                 emit(PhraseEvent::ModWheel, 1, n.vibrato, i);
                 emit(PhraseEvent::PitchWheel, 0,
                      std::clamp(8192 + (n.bend - 64) * 128, 0, 16383), i);
-                if (n.active)
+                // The first sounding note decides legato for the whole step (a chord is one attack).
+                PhraseNote head;
+                for (int slot = 0; slot < chordSlots && !head.active; ++slot)
+                    head = chordNote(currentStep, slot);
+                if (head.active)
                 {
                     // A detached note ends previous phrase notes before retrigger;
                     // a slurred note may overlap by about 15ms.
-                    if (!n.legato)
+                    if (!head.legato)
                         stopSounding(i, emit);
-                    auto* freeSlot = findFreeSlot();
-                    if (freeSlot != nullptr)
+                    for (int slot = 0; slot < chordSlots; ++slot)
                     {
-                        freeSlot->pitch = n.pitch;
+                        const auto c = chordNote(currentStep, slot);
+                        if (!c.active) continue;
+                        auto* freeSlot = findFreeSlot();
+                        if (freeSlot == nullptr) break;
+                        freeSlot->pitch = c.pitch;
                         freeSlot->remaining = std::max(stepSamples * .20,
-                            stepSamples * n.gate - (n.legato ? -sampleRate * .015 : sampleRate * .012));
+                            stepSamples * c.gate - (c.legato ? -sampleRate * .015 : sampleRate * .012));
                         freeSlot->active = true;
-                        emit(PhraseEvent::NoteOn, n.pitch, n.velocity, i);
+                        emit(PhraseEvent::NoteOn, c.pitch, c.velocity, i);
                     }
                 }
                 nextStepPending = false;
@@ -200,7 +248,7 @@ public:
             {
                 // Continuous curves interpolated between the two expression
                 // points of neighbouring steps, even during held notes.
-                const auto a = note(currentStep), b = note((currentStep + 1) % steps);
+                const auto a = note(currentStep), b = note((currentStep + 1) % count);
                 const float fraction = static_cast<float>(std::clamp(phase / stepSamples, 0.0, 1.0));
                 const int cc2 = std::clamp(static_cast<int>(std::lround(
                     a.breath + (b.breath - a.breath) * fraction)), 0, 127);
@@ -221,7 +269,7 @@ public:
             if (phase >= stepSamples)
             {
                 phase -= stepSamples;
-                currentStep = (currentStep + 1) % steps;
+                currentStep = (currentStep + 1) % count;
                 nextStepPending = true;
             }
         }
@@ -229,9 +277,13 @@ public:
 
 private:
     struct Voice { int pitch = 60; double remaining = 0.0; bool active = false; };
-    std::array<std::atomic<std::uint64_t>, steps> notes {};
+    static constexpr std::size_t index(int step, int slot) noexcept
+    {
+        return static_cast<std::size_t>(step * chordSlots + slot);
+    }
+    std::array<std::atomic<std::uint64_t>, maxSteps * chordSlots> notes {};
     std::atomic<bool> playing {false};
-    std::atomic<int> tempo {110}, hostTempo {110}, displayedStep {0};
+    std::atomic<int> tempo {110}, hostTempo {110}, displayedStep {0}, grid {0};
     std::atomic<bool> followHostTempo {false};
     std::atomic<unsigned> revision {0};
     // Below: audio-thread only.
