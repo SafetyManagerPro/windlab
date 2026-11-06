@@ -382,8 +382,8 @@ for prefix, articulation, region_file, gain_db in IXOX_ARTICULATIONS:
     if len(regions) < 10:
         raise ValueError(f"Ixox {prefix}: too few regions ({len(regions)})")
     for key, flac_name, layer, tune in regions:
-        install(f"flute_{articulation}_{key}_v{IXOX_LAYER[layer]}_rr2.flac", 3, key,
-                IXOX_LAYER[layer], articulation, 2, ixox_fetch("Samples/" + flac_name),
+        install(f"flute_{articulation}_{key}_v{IXOX_LAYER[layer]}_rr3.flac", 3, key,
+                IXOX_LAYER[layer], articulation, 3, ixox_fetch("Samples/" + flac_name),
                 IXOX_CREDIT, f"ixox.flute@{IXOX_COMMIT[:12]}/Samples/{flac_name}",
                 tune, gain_db)
 
