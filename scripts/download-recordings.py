@@ -345,6 +345,48 @@ for label, code, instrument, layers in MTG_SAXES:
                     MTG_LAYER[layer], "sustain", 1, data, MTG_CREDIT,
                     f"MTG.SoloSax@{MTG_COMMIT[:12]}/{flac_name}", tune, volume)
 
+# Ixox Flute (flute 1 only): CC BY 4.0, Xavier Hosxe; SFZ by kinwie. Normal (sustain)
+# and staccato articulations, three velocity layers. The second flute, vibrato
+# depth and key-switched scales are not used. Samples are FLAC, one per region.
+IXOX_COMMIT = "0cc54468bb0d2d9b32921958585caad65ba8df21"
+IXOX_ROOT = ("https://raw.githubusercontent.com/sfzinstruments/ixox.flute/"
+             + IXOX_COMMIT + "/")
+IXOX_LOCAL = os.environ.get("WINDLAB_IXOX_DIR")  # optional offline checkout
+IXOX_CREDIT = "Ixox Flute / Xavier Hosxe, SFZ by kinwie (CC BY 4.0)"
+IXOX_ARTICULATIONS = (("nor", "sustain", "Data/region/nor.txt", 0.0),
+                      ("det", "staccato", "Data/region/det.txt", -2.0))
+IXOX_LAYER = {"p": 1, "m": 2, "f": 3}
+
+def ixox_fetch(relative):
+    if IXOX_LOCAL:
+        return (Path(IXOX_LOCAL) / relative).read_bytes()
+    return get(IXOX_ROOT + urllib.parse.quote(relative, safe="/"))
+
+def ixox_regions(text, prefix):
+    """Keycentre, sample name and tune of each region of one articulation file."""
+    found = []
+    for line in text.splitlines():
+        if not line.startswith("<region>"):
+            continue
+        key_centre = re.search(r"pitch_keycenter=(\d+)", line)
+        sample = re.search(r"sample=([a-z]+_([pmf])_\d+_\d+)\.\$EXT", line)
+        if not key_centre or not sample or not sample.group(1).startswith(prefix + "_"):
+            continue
+        tune = re.search(r"tune=(-?\d+)", line)
+        found.append((int(key_centre.group(1)), sample.group(1) + ".flac",
+                      sample.group(2), int(tune.group(1)) if tune else 0))
+    return sorted(found)
+
+for prefix, articulation, region_file, gain_db in IXOX_ARTICULATIONS:
+    regions = ixox_regions(ixox_fetch(region_file).decode("utf-8"), prefix)
+    if len(regions) < 10:
+        raise ValueError(f"Ixox {prefix}: too few regions ({len(regions)})")
+    for key, flac_name, layer, tune in regions:
+        install(f"flute_{articulation}_{key}_v{IXOX_LAYER[layer]}_rr2.flac", 3, key,
+                IXOX_LAYER[layer], articulation, 2, ixox_fetch("Samples/" + flac_name),
+                IXOX_CREDIT, f"ixox.flute@{IXOX_COMMIT[:12]}/Samples/{flac_name}",
+                tune, gain_db)
+
 # Deterministic C++ map, used by the embedded JUCE WAV sampler.
 # No synthetic samples are mislabeled as acoustically recorded.
 samples = {(r[0], r[1], r[2], r[3], r[4], r[5]): r for r in rows}
