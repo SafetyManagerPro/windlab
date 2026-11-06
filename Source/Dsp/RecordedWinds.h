@@ -25,6 +25,8 @@ struct RecordedWind
     juce::AudioBuffer<float> wav; // read-only after construction
     double loopStart = 0.0, loopEnd = 0.0, fade = 0.0;
     bool isOneShot = false;
+    int tuneCents = 0;     // SFZ-style correction: positive raises the pitch when played at its key
+    float gain = 1.0f;     // per-zone level normalisation
 };
 
 class RecordedWinds
@@ -33,13 +35,18 @@ public:
     RecordedWinds()
     {
 #ifdef WINDLAB_HAS_RECORDED_SAMPLES
-        juce::WavAudioFormat format;
+        juce::WavAudioFormat wavFormat;
+        juce::FlacAudioFormat flacFormat;
         for (const auto& item : sampleDescriptions)
         {
             int len = 0;
             const char* bytes = WindLabRecordedData::getNamedResource(item.resourceName, len);
             if (bytes == nullptr || len <= 0)
                 continue;
+            // The build embeds either WAV or FLAC files; the resource name keeps the extension.
+            const bool isFlac = juce::String(item.resourceName).endsWith("_flac");
+            juce::AudioFormat& format = isFlac ? static_cast<juce::AudioFormat&>(flacFormat)
+                                               : static_cast<juce::AudioFormat&>(wavFormat);
             auto reader = std::unique_ptr<juce::AudioFormatReader>(
                 format.createReaderFor(new juce::MemoryInputStream(bytes, static_cast<std::size_t>(len), false), true));
             if (!reader || reader->lengthInSamples < 1024 || reader->sampleRate <= 0)
@@ -51,6 +58,8 @@ public:
             entry.articulation = item.articulation;
             entry.roundRobin = item.roundRobin;
             entry.isOneShot = item.articulation == 1;
+            entry.tuneCents = item.tuneCents;
+            entry.gain = item.gain;
             entry.sampleRate = reader->sampleRate;
             // Upper bound limits corrupt file / memory exhaustion.
             const auto count = static_cast<int>(std::min<int64_t>(reader->lengthInSamples, reader->sampleRate * 12.0));
@@ -75,6 +84,10 @@ public:
                 entry.loopStart = plan.start;
                 entry.loopEnd = plan.end;
                 entry.fade = plan.fade;
+                // Audio after the loop end is never read: free it (long source takes).
+                const int keep = std::min(count, plan.end + 4);
+                if (keep < count)
+                    entry.wav.setSize(1, keep, true);
             }
             bank.push_back(std::move(entry));
         }
@@ -118,12 +131,22 @@ private:
 class RecordedCursor
 {
 public:
-    void start(const RecordedWind* newSample, double noteFrequency, double hostRate)
+    // legatoEntry: a slurred note joins the sustained body of the take (as a player
+    // changing fingering would), so the recorded attack is not played again.
+    // entryFraction (0..1) varies the entry point inside the first part of the loop.
+    void start(const RecordedWind* newSample, double noteFrequency, double hostRate,
+               bool legatoEntry = false, float entryFraction = 0.0f)
     {
         sample = newSample;
         position = 0.0;
         rate = hostRate > 0 ? sampleRate() / hostRate : 1.0;
-        sourceFrequency = 440.0 * std::exp2((sample ? sample->rootNote : 69) / 12.0 - 69.0 / 12.0);
+        sourceFrequency = 440.0 * std::exp2((sample ? sample->rootNote : 69) / 12.0 - 69.0 / 12.0)
+                        * std::exp2(-(sample ? sample->tuneCents : 0) / 1200.0);
+        if (sample != nullptr && legatoEntry && !sample->isOneShot)
+        {
+            const double body = std::max(0.0, sample->loopEnd - sample->fade - sample->loopStart);
+            position = sample->loopStart + .3 * body * std::clamp(static_cast<double>(entryFraction), 0.0, 1.0);
+        }
         (void) noteFrequency; // current pitch follows WindEngine every sample.
     }
     bool valid() const noexcept { return sample != nullptr; }
@@ -151,6 +174,7 @@ public:
             const auto other = readAt(sample->loopStart + (position - fadeStart));
             output = first * (1.0f - alpha) + other * alpha;
         }
+        output *= sample->gain;
         position += speed;
         if (!sample->isOneShot && position >= sample->loopEnd)
             position = sample->loopStart + sample->fade

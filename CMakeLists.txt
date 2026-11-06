@@ -65,7 +65,8 @@ target_compile_definitions(WindLab PUBLIC
 # CI downloads licensed CC0 WAVs before configure. Without them, build retains
 # the previous synthetic engine and does not pretend to have recorded assets.
 file(GLOB WINDLAB_RECORDED_WAVS CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Samples/*.wav")
+    "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Samples/*.wav"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Samples/*.flac")
 if(WINDLAB_RECORDED_WAVS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Samples/SampleManifest.h")
     juce_add_binary_data(WindLabRecordedData
         HEADER_NAME WindLabRecordedData.h
@@ -92,6 +93,10 @@ if (BUILD_TESTING)
     add_executable(windlab_smoke tests/smoke.cpp)
     target_include_directories(windlab_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_smoke COMMAND windlab_smoke)
+
+    add_executable(windlab_expression_smoke tests/expression-smoke.cpp)
+    target_include_directories(windlab_expression_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    add_test(NAME windlab_expression_smoke COMMAND windlab_expression_smoke)
 
     add_executable(windlab_phrase_smoke tests/phrase-smoke.cpp)
     target_include_directories(windlab_phrase_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)

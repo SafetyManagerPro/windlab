@@ -2,6 +2,8 @@
 
 // WindLab 0.3: allocation-free, JUCE-independent expressive wind tone prototype.
 // Band-limited additive synthesis; NOT recordings or physical modelling.
+// 0.9.4: slurred (legato) note entry with pitch glide, naturally varying vibrato,
+// pitch scoop and key/air noises. The pitch and level also drive the recorded sampler.
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -9,7 +11,8 @@
 
 namespace windlab
 {
-    enum class Instrument : int { Trumpet = 0, TenorSax, Trombone, Flute, Clarinet, FrenchHorn };
+    enum class Instrument : int { Trumpet = 0, TenorSax, Trombone, Flute, Clarinet, FrenchHorn,
+                                  SopranoSax, AltoSax, BaritoneSax };
     enum class Articulation : int { Sustain = 0, Staccato, Swell };
 
     class WindEngine final
@@ -21,6 +24,8 @@ namespace windlab
             reset();
             controllerAlpha = static_cast<float>(1.0 - std::exp(-1.0 / (sampleRate * .014)));
             pitchAlpha = 1.0 - std::exp(-1.0 / (sampleRate * .008));
+            glideDecay = std::exp(-1.0 / (sampleRate * .022));
+            clickDecay = static_cast<float>(std::exp(-1.0 / (sampleRate * .003)));
             updateFilter();
         }
 
@@ -33,12 +38,19 @@ namespace windlab
             lowpass = noiseLowpass = 0.0f;
             noiseState = 0x9231abcdu;
             latestLevel = 0.0f;
+            latestClick = 0.0f;
+            clickEnv = 0.0f;
+            glideSemis = 0.0;
+            vibratoClock = 0.0;
             latestFrequency = frequency;
         }
 
+        // legatoFromFrequency > 0 enters the note as a slur from that pitch: no new
+        // breath attack, a short pitch glide and a softer fingering click.
         void start(int midiNote, float newVelocity, Instrument newInstrument,
                    float attackSeconds, float releaseSeconds,
-                   Articulation newArticulation = Articulation::Sustain)
+                   Articulation newArticulation = Articulation::Sustain,
+                   double legatoFromFrequency = 0.0)
         {
             instrument = newInstrument;
             articulation = newArticulation;
@@ -49,6 +61,29 @@ namespace windlab
             if (articulation == Articulation::Swell) attack = std::max(attack, 0.55f);
             releaseTime = std::clamp(releaseSeconds, 0.02f, 5.0f);
             if (articulation == Articulation::Staccato) releaseTime = std::min(releaseTime, 0.075f);
+            const auto index = static_cast<std::size_t>(instrument);
+            legato = legatoFromFrequency > 0.0 && articulation == Articulation::Sustain;
+            // Each note gets its own small "personality": vibrato speed, delay and
+            // build-up, and how much the pitch scoops in. Deterministic per voice.
+            variationState = variationState * 1664525u + 1013904223u
+                           + static_cast<std::uint32_t>(midiNote) * 2654435761u;
+            const float r1 = random01(), r2 = random01(), r3 = random01();
+            vibratoRate = vibratoRates[index] * (.92f + .16f * r1);
+            vibratoDelay = .14f + .22f * r2;
+            vibratoRamp = .55f + .50f * r3;
+            vibratoClock = legato ? 1.5 : 0.0; // a slur continues a vibrato already running
+            if (legato)
+            {
+                attack = std::min(attack, .03f);
+                glideSemis = std::clamp(12.0 * std::log2(legatoFromFrequency / frequency), -12.0, 12.0);
+            }
+            else
+                glideSemis = -.30 * humanize * (.4 + .6 * r1);
+            onsetGain = legato ? .30f : 1.0f;
+            // Recorded attacks already contain their own onset noises: add a click only
+            // to slurred notes (fingers moving) or to synthetic voices.
+            clickEnv = (recordedSource && !legato) ? 0.0f
+                     : keyClickLevels[index] * (.4f + .6f * velocity) * (.6f + .4f * r2) * (legato ? .8f : 1.0f);
             stage = Stage::Attack;
             env = 0.0f;
             phase = vibratoPhase = elapsed = 0.0;
@@ -66,8 +101,24 @@ namespace windlab
             {
                 stage = Stage::Release;
                 releaseStep = env / static_cast<float>(sampleRate * releaseTime);
+                // Lifting a finger/tongue at the end of the note: a faint click.
+                clickEnv = std::max(clickEnv, .45f * keyClickLevels[static_cast<std::size_t>(instrument)]
+                                               * (.4f + .6f * velocity) * (.6f + .4f * random01()));
             }
         }
+
+        // The previous note of a slur: fade out quickly while the new note takes over.
+        void fastRelease(float seconds)
+        {
+            if (stage == Stage::Idle) return;
+            const float step = env / static_cast<float>(sampleRate * std::max(.005f, seconds));
+            releaseStep = stage == Stage::Release ? std::max(releaseStep, step) : step;
+            stage = Stage::Release;
+        }
+
+        // Recorded takes carry their own attack noises; tell the engine so it does
+        // not add a second onset click to a non-slurred recorded note.
+        void setRecordedSource(bool recorded) { recordedSource = recorded; }
 
         void setTone(float value)
         {
@@ -91,9 +142,12 @@ namespace windlab
         bool active() const { return stage != Stage::Idle; }
         float currentLevel() const noexcept { return latestLevel; }
         double currentFrequency() const noexcept { return latestFrequency; }
+        // Key / fingering click, already scaled; add it to the final mix.
+        float currentClick() const noexcept { return latestClick; }
 
         float render()
         {
+            latestClick = 0.0f;
             if (!active()) return 0.0f;
             constexpr double twoPi = 6.283185307179586476925286766559;
             const auto invSampleRate = 1.0 / sampleRate;
@@ -122,17 +176,26 @@ namespace windlab
             const double requestedPitch = (static_cast<double>(pitchWheel) - 8192.0) / 8192.0;
             currentPitch += pitchAlpha * (requestedPitch - currentPitch);
 
-            // Gently delayed vibrato plus independent, tiny slow player drift.
-            const float vibratoFade = static_cast<float>(std::clamp((elapsed - .10) / .32, 0.0, 1.0));
+            // Vibrato like a player's: it starts after a short hold, builds up smoothly,
+            // speeds up slightly, and its depth wanders a little. Slurs keep it running.
+            vibratoClock += invSampleRate;
+            const double vibratoProgress = std::clamp((vibratoClock - vibratoDelay) / vibratoRamp, 0.0, 1.0);
+            const double vibratoFade = vibratoProgress * vibratoProgress * (3.0 - 2.0 * vibratoProgress);
+            const double rateProgress = std::clamp((vibratoClock - vibratoDelay) / 1.1, 0.0, 1.0);
             const double drift = humanize * .025 * (std::sin(twoPi * driftPhase)
                                  + .35 * std::sin(twoPi * driftPhase * 1.73));
             const double vibratoDepth = std::min(1.0f, vibratoAmount * .48f + currentMod);
-            const double vibratoSemis = .22 * vibratoDepth * vibratoFade * std::sin(twoPi * vibratoPhase);
-            const double f = frequency * std::exp2((2.0 * currentPitch + vibratoSemis + drift) / 12.0);
+            const double depthWander = 1.0 + .16 * std::sin(twoPi * driftPhase * .71);
+            const double vibratoSemis = .24 * vibratoDepthScales[static_cast<std::size_t>(instrument)]
+                                      * vibratoDepth * vibratoFade * depthWander * std::sin(twoPi * vibratoPhase);
+            glideSemis *= glideDecay;
+            if (std::abs(glideSemis) < 1.0e-4) glideSemis = 0.0;
+            const double f = frequency * std::exp2((2.0 * currentPitch + vibratoSemis + drift + glideSemis) / 12.0);
             latestFrequency = f;
             phase += f * invSampleRate;
             phase -= std::floor(phase);
-            vibratoPhase += (5.15 + .35 * humanize * std::sin(twoPi * driftPhase)) * invSampleRate;
+            vibratoPhase += vibratoRate * (.86 + .14 * rateProgress)
+                          * (1.0 + .04 * humanize * std::sin(twoPi * driftPhase)) * invSampleRate;
             vibratoPhase -= std::floor(vibratoPhase);
             driftPhase += .63 * invSampleRate;
             driftPhase -= std::floor(driftPhase);
@@ -159,10 +222,11 @@ namespace windlab
             const float rawNoise = static_cast<float>((noiseState >> 8) & 0xffffffu) / 8388607.5f - 1.0f;
             noiseLowpass += .065f * (rawNoise - noiseLowpass);
             const float hiss = rawNoise - noiseLowpass;
-            constexpr std::array<float, 6> instrumentBreath { .025f, .060f, .024f, .085f, .052f, .016f };
+            constexpr std::array<float, 9> instrumentBreath { .025f, .060f, .024f, .085f, .052f, .016f,
+                                                              .058f, .060f, .062f };
             const float noiseLevel = instrumentBreath[static_cast<std::size_t>(instrument)]
                                     * (.22f + 1.4f * air);
-            const float onset = static_cast<float>(std::exp(-elapsed / .028));
+            const float onset = static_cast<float>(std::exp(-elapsed / .028)) * onsetGain;
             const float combined = (sound * (1.0f + onset * .14f)
                                    + hiss * noiseLevel * (.38f + .85f * currentBreath + .65f * onset))
                                    * (.8f + .2f * velocity + .12f * pressure);
@@ -179,9 +243,14 @@ namespace windlab
                 breathEnvelope = static_cast<float>(1.0 - .48 *
                     std::clamp((elapsed - (breathLength - taper)) / taper, 0.0, 1.0));
             }
-            const float naturalMotion = 1.0f + .022f * humanize
+            // The pitch wobble of a vibrato comes with a smaller loudness wobble.
+            const float vibratoLevel = 1.0f + .055f * static_cast<float>(vibratoDepth * vibratoFade
+                                              * std::sin(twoPi * vibratoPhase + 1.1));
+            const float naturalMotion = vibratoLevel * (1.0f + .022f * humanize
                 * static_cast<float>(std::sin(twoPi * driftPhase * 1.31)
-                                     + .35 * std::sin(twoPi * driftPhase * 2.29));
+                                     + .35 * std::sin(twoPi * driftPhase * 2.29)));
+            clickEnv *= clickDecay;
+            latestClick = clickEnv * hiss * 2.0f;
             latestLevel = env * v * currentExpression * currentBreath
                         * pressureGain * breathEnvelope * naturalMotion * .24f;
             return lowpass * latestLevel;
@@ -204,13 +273,20 @@ namespace windlab
             }
             spectralNormalizer = std::max(.35f, sum * .8f);
         }
-        static constexpr std::array<std::array<float, 12>, 6> harmonicProfiles {{
+        // trumpet, tenor sax, trombone, flute, clarinet, horn, soprano / alto / baritone sax
+        static constexpr std::array<float, 9> vibratoRates { 5.0f, 5.4f, 4.8f, 5.6f, 5.0f, 4.9f, 5.5f, 5.4f, 5.2f };
+        static constexpr std::array<double, 9> vibratoDepthScales { .85, 1.0, .8, 1.0, .6, .75, 1.05, 1.0, .95 };
+        static constexpr std::array<float, 9> keyClickLevels { .012f, .05f, .004f, .035f, .05f, .006f, .045f, .05f, .055f };
+        static constexpr std::array<std::array<float, 12>, 9> harmonicProfiles {{
             {{ 1.f, .85f, .72f, .59f, .48f, .38f, .25f, .18f, .11f, .07f, .04f, .02f }}, // trumpet
             {{ 1.f, .45f, .83f, .28f, .56f, .18f, .34f, .14f, .18f, .06f, .08f, .04f }}, // tenor sax
             {{ 1.f, .73f, .48f, .35f, .21f, .14f, .08f, .06f, .03f, .02f, .01f, .00f }}, // trombone
             {{ 1.f, .12f, .035f,.02f, .010f,.00f, .00f, .00f, .00f, .00f, .00f, .00f }}, // flute
             {{ 1.f, .02f, .82f, .015f,.39f, .01f, .23f, .005f,.10f, .00f, .05f, .00f }}, // clarinet
-            {{ 1.f, .64f, .36f, .20f, .10f, .06f, .035f,.025f,.015f,.01f, .01f, .00f }}  // horn
+            {{ 1.f, .64f, .36f, .20f, .10f, .06f, .035f,.025f,.015f,.01f, .01f, .00f }}, // horn
+            {{ 1.f, .55f, .78f, .36f, .50f, .24f, .32f, .16f, .16f, .08f, .07f, .04f }}, // soprano sax
+            {{ 1.f, .48f, .82f, .30f, .54f, .20f, .33f, .15f, .17f, .07f, .08f, .04f }}, // alto sax
+            {{ 1.f, .40f, .80f, .24f, .55f, .15f, .30f, .12f, .18f, .05f, .08f, .03f }}  // baritone sax
         }};
         Instrument instrument { Instrument::Trumpet };
         Articulation articulation { Articulation::Sustain };
@@ -225,6 +301,17 @@ namespace windlab
         float filterWeight = .2f, lowpass = 0.0f, noiseLowpass = 0.0f;
         float controllerAlpha = .002f;
         double pitchAlpha = .002;
+        // 0.9.4 slur / vibrato / noise state
+        bool legato = false, recordedSource = false;
+        double glideSemis = 0.0, glideDecay = .999, vibratoClock = 0.0;
+        float vibratoRate = 5.2f, vibratoDelay = .2f, vibratoRamp = .7f, onsetGain = 1.0f;
+        float clickEnv = 0.0f, clickDecay = .99f, latestClick = 0.0f;
+        std::uint32_t variationState = 0x1234567u;
+        float random01()
+        {
+            variationState = variationState * 1664525u + 1013904223u;
+            return static_cast<float>((variationState >> 8) & 0xffffffu) / 16777216.0f;
+        }
         std::array<float, 12> spectralWeights{};
         float spectralNormalizer = 1.0f;
         double latestFrequency = 440.0;

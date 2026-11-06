@@ -16,13 +16,23 @@ namespace
         bool breathEnabled = false;
     };
 
+    // A voice that can be told "the next note slurs over you": fade out quickly.
+    struct LegatoYield
+    {
+        virtual ~LegatoYield() = default;
+        virtual void yieldToLegato() noexcept = 0;
+    };
+
     // Cache CC events in MIDI-event order, including CCs received before note-on.
     // JUCE's base Synthesiser dispatches controllers to currently active voices only.
     class PerformanceSynthesiser final : public juce::Synthesiser
     {
     public:
-        explicit PerformanceSynthesiser(windlab::MidiLearnBindings& learned)
-            : ccAssignments(learned) {}
+        PerformanceSynthesiser(windlab::MidiLearnBindings& learned,
+                               std::atomic<float>* articulationParameter)
+            : ccAssignments(learned), articulation(articulationParameter) {}
+        // Frequency of the note being slurred from, or 0 when the new note starts fresh.
+        double currentlyStartingLegatoFrom() const noexcept { return legatoFrom; }
         ChannelControls currentlyStartingControls() const noexcept
         {
             return channels[static_cast<std::size_t>(juce::jlimit(1, 16, startingChannel) - 1)];
@@ -31,11 +41,50 @@ namespace
         {
             channels.fill(ChannelControls{});
             startingChannel = 1;
+            heldKeys.fill(0);
         }
         void noteOn(int midiChannel, int midiNoteNumber, float velocity) override
         {
             startingChannel = midiChannel;
+            legatoFrom = 0.0;
+            const auto channelIndex = static_cast<std::size_t>(juce::jlimit(1, 16, midiChannel) - 1);
+            // Monophonic-style slur: exactly one key still held, the new key comes at
+            // least 60 ms later (so chords are not slurred), within an octave, and the
+            // articulation is Sustain.
+            const bool sustainArticulation = articulation == nullptr || articulation->load() < .5f;
+            const double elapsedSeconds = static_cast<double>(renderedSamples - lastNoteOnSample[channelIndex])
+                                        / std::max(1.0, getSampleRate());
+            if (sustainArticulation && heldKeys[channelIndex] == 1 && elapsedSeconds > .06
+                && std::abs(midiNoteNumber - lastNote[channelIndex]) <= 12
+                && midiNoteNumber != lastNote[channelIndex])
+            {
+                legatoFrom = 440.0 * std::exp2((lastNote[channelIndex] - 69.0) / 12.0);
+                for (auto* voice : voices)
+                    if (voice->isVoiceActive() && voice->isPlayingChannel(midiChannel) && voice->isKeyDown())
+                        if (auto* yielding = dynamic_cast<LegatoYield*>(voice))
+                            yielding->yieldToLegato();
+            }
+            lastNote[channelIndex] = midiNoteNumber;
+            lastNoteOnSample[channelIndex] = renderedSamples;
+            heldKeys[channelIndex] = juce::jmin(16, heldKeys[channelIndex] + 1);
             juce::Synthesiser::noteOn(midiChannel, midiNoteNumber, velocity);
+            legatoFrom = 0.0;
+        }
+        void noteOff(int midiChannel, int midiNoteNumber, float velocity, bool allowTailOff) override
+        {
+            if (juce::isPositiveAndBelow(midiChannel - 1, 16))
+            {
+                auto& held = heldKeys[static_cast<std::size_t>(midiChannel - 1)];
+                held = juce::jmax(0, held - 1);
+            }
+            juce::Synthesiser::noteOff(midiChannel, midiNoteNumber, velocity, allowTailOff);
+        }
+        void allNotesOff(int midiChannel, bool allowTailOff) override
+        {
+            if (midiChannel <= 0) heldKeys.fill(0);
+            else if (juce::isPositiveAndBelow(midiChannel - 1, 16))
+                heldKeys[static_cast<std::size_t>(midiChannel - 1)] = 0;
+            juce::Synthesiser::allNotesOff(midiChannel, allowTailOff);
         }
         void handleController(int midiChannel, int controllerNumber, int controllerValue) override
         {
@@ -60,9 +109,22 @@ namespace
                 channels[static_cast<std::size_t>(midiChannel - 1)].pressure = value / 127.0f;
             juce::Synthesiser::handleChannelPressure(midiChannel, value);
         }
+    protected:
+        // Sample clock for the slur timing (events are processed between sub-blocks).
+        void renderVoices(juce::AudioBuffer<float>& buffer, int startSample, int numSamples) override
+        {
+            juce::Synthesiser::renderVoices(buffer, startSample, numSamples);
+            renderedSamples += numSamples;
+        }
     private:
         windlab::MidiLearnBindings& ccAssignments;
+        std::atomic<float>* articulation = nullptr;
         std::array<ChannelControls, 16> channels{};
+        std::array<int, 16> heldKeys{};
+        std::array<int, 16> lastNote{};
+        std::array<std::int64_t, 16> lastNoteOnSample{};
+        std::int64_t renderedSamples = 0;
+        double legatoFrom = 0.0;
         int startingChannel = 1;
     };
 
@@ -73,7 +135,7 @@ namespace
         bool appliesToChannel(int) override { return true; }
     };
 
-    class WindVoice final : public juce::SynthesiserVoice
+    class WindVoice final : public juce::SynthesiserVoice, public LegatoYield
     {
     public:
         WindVoice(juce::AudioProcessorValueTreeState& params, PerformanceSynthesiser& synth,
@@ -110,17 +172,23 @@ namespace
             engine.setBreathLength(breathLength->load());
             engine.setVibrato(vibrato->load());
             engine.setHumanize(humanize->load());
+            const auto legatoFrom = controllerSource.currentlyStartingLegatoFrom();
             const auto curvedVelocity = windlab::applyVelocityResponse(
                 velocity, juce::jlimit(0, 3, static_cast<int>(velocityResponse->load())));
-            const auto instrumentIndex = juce::jlimit(0, 5, static_cast<int>(instrument->load()));
+            const auto instrumentIndex = juce::jlimit(0, 8, static_cast<int>(instrument->load()));
             const auto articulationIndex = juce::jlimit(0, 2, static_cast<int>(articulation->load()));
+            modeAtNoteOn = juce::jlimit(0, 2, static_cast<int>(sourceMode->load()));
+            const auto* sample = modeAtNoteOn == 2 ? nullptr : sampleSource.select(instrumentIndex, midiNoteNumber, curvedVelocity, articulationIndex);
+            engine.setRecordedSource(sample != nullptr);
             engine.start(midiNoteNumber, curvedVelocity,
                          static_cast<windlab::Instrument>(instrumentIndex),
                          attack->load(), release->load(),
-                         static_cast<windlab::Articulation>(articulationIndex));
-            modeAtNoteOn = juce::jlimit(0, 2, static_cast<int>(sourceMode->load()));
-            const auto* sample = modeAtNoteOn == 2 ? nullptr : sampleSource.select(instrumentIndex, midiNoteNumber, curvedVelocity, articulationIndex);
-            cursor.start(sample, 440.0 * std::exp2((midiNoteNumber - 69.0) / 12.0), getSampleRate());
+                         static_cast<windlab::Articulation>(articulationIndex), legatoFrom);
+            // A slurred note joins the sustained body of the recording instead of replaying its attack.
+            entryRandom = entryRandom * 1664525u + 1013904223u;
+            cursor.start(sample, 440.0 * std::exp2((midiNoteNumber - 69.0) / 12.0), getSampleRate(),
+                         legatoFrom > 0.0 && articulationIndex == 0,
+                         static_cast<float>((entryRandom >> 8) & 0xffffffu) / 16777216.0f);
         }
 
         void stopNote(float, bool allowTailOff) override
@@ -128,6 +196,8 @@ namespace
             if (allowTailOff) engine.noteOff();
             else { engine.reset(); clearCurrentNote(); }
         }
+
+        void yieldToLegato() noexcept override { engine.fastRelease(.05f); }
 
         void pitchWheelMoved(int newValue) override { engine.setPitchWheel(newValue); }
         void controllerMoved(int controllerNumber, int newValue) override
@@ -181,6 +251,7 @@ namespace
                     result = modeAtNoteOn == 1 ? (.8f * recorded + .20f * model)
                                                : (recorded + .055f * model);
                 }
+                result += engine.currentClick();
                 const auto sample = static_cast<Sample>(result);
                 for (int channel = 0; channel < output.getNumChannels(); ++channel)
                     output.addSample(channel, startSample + i, sample);
@@ -193,6 +264,7 @@ namespace
         std::atomic<float>* sourceMode;
         std::atomic<float>* velocityResponse;
         int modeAtNoteOn = 0;
+        std::uint32_t entryRandom = 0x2545f491u;
         std::atomic<float>* instrument;
         std::atomic<float>* articulation;
         std::atomic<float>* attack;
@@ -211,7 +283,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"instrument", 1}, "Instrument",
-        juce::StringArray {"Trumpet", "Tenor Sax", "Trombone", "Flute", "Clarinet", "French Horn"}, 0));
+        juce::StringArray {"Trumpet", "Tenor Sax", "Trombone", "Flute", "Clarinet", "French Horn",
+                           "Soprano Sax", "Alto Sax", "Baritone Sax"}, 0));
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"sourceMode", 1}, "Sound Engine",
         juce::StringArray {"Acoustic (recorded)", "Hybrid (sample + synth)", "Synthetic"}, 0));
@@ -261,7 +334,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
 WindLabAudioProcessor::WindLabAudioProcessor()
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, juce::Identifier("WindLabState"), createParameterLayout()),
-      synthesiser(std::make_unique<PerformanceSynthesiser>(midiLearn))
+      synthesiser(std::make_unique<PerformanceSynthesiser>(
+          midiLearn, parameters.getRawParameterValue("articulation")))
 {
     auto& synth = *static_cast<PerformanceSynthesiser*>(synthesiser.get());
     for (int i = 0; i < 12; ++i)
