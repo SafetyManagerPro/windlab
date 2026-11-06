@@ -51,7 +51,7 @@ Le versioni precedenti alla 0.9.3 sono in [CHANGELOG.md](CHANGELOG.md).
 ## What's in the ZIP
 
 - `Source/` — JUCE plugin wrapper, MIDI synth, JUCE-independent DSP and GUI.
-- `CMakeLists.txt` — JUCE 9.0.4 as a pinned CMake dependency (fetched when configuring).
+- `CMakeLists.txt` — JUCE 9.0.5 as a pinned CMake dependency (fetched when configuring).
 - `build-mac.sh` — build AU, VST3, Standalone via Xcode generator.
 - `tests/run-smoke.sh` — JUCE-free C++ functional tests.
 - `tests/render-demo.sh` — render the six synthesized timbres to a WAV file.

@@ -23,7 +23,7 @@ Con CMake, `-DBUILD_TESTING=ON` e `ctest --test-dir build` eseguono le stesse su
 
 ## Non ancora verificato
 
-- Il plugin JUCE non è compilato in questo ambiente di test: serve JUCE 9.0.4 installato o `-DJUCE_SOURCE_DIR`.
+- Il plugin JUCE non è compilato in questo ambiente di test: serve JUCE 9.0.5 installato o `-DJUCE_SOURCE_DIR`.
 - Nessuna prova su host reali (Logic Pro AU, Ableton, Reaper e altri): va fatta a mano, con registrazione, guida e ritorno alla schermata principale.
 - `auval` e `plugval` vanno lanciati su macOS dopo aver verificato i codici finali di tipo, sottotipo e produttore.
 - Profilazione CPU e verifica degli alias con diverse impostazioni del sistema armonico.

@@ -26,10 +26,10 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache recorded CC0 WAV bank
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: Resources/Samples
           key: windlab-cc0-v05-${{ runner.os }}-${{ hashFiles('scripts/download-recordings.py') }}
@@ -70,7 +70,7 @@ jobs:
           Compress-Archive -Path "dist/*" -DestinationPath "WindLab-Windows-x64.zip" -Force
 
       - name: Upload Windows VST3
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: WindLab-Windows-x64-VST3
           path: WindLab-Windows-x64.zip
@@ -94,7 +94,7 @@ jobs:
           }
 
       - name: Upload Windows Standalone
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: WindLab-Windows-x64-Standalone
           path: WindLab-Windows-x64-Standalone.zip
@@ -107,10 +107,10 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache recorded CC0 WAV bank
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: Resources/Samples
           key: windlab-cc0-v05-${{ runner.os }}-${{ hashFiles('scripts/download-recordings.py') }}
@@ -163,7 +163,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent dist WindLab-macOS-arm64.zip
 
       - name: Upload macOS AU and VST3
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: WindLab-macOS-arm64-AU-VST3
           path: WindLab-macOS-arm64.zip
