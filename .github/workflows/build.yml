@@ -137,7 +137,7 @@ jobs:
 
       - name: Configure (Xcode, arm64)
         shell: bash
-        run: cmake -S . -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES=arm64 -DBUILD_TESTING=ON
+        run: cmake -S . -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 -DBUILD_TESTING=ON
 
       - name: Build Release
         shell: bash
@@ -147,25 +147,20 @@ jobs:
         shell: bash
         run: ctest --test-dir build --build-config Release --output-on-failure
 
-      - name: Package AU, VST3, Standalone
+      - name: Check Sonoma installer scripts
         shell: bash
         run: |
-          set -euo pipefail
-          ROOT="build/WindLab_artefacts/Release"
-          test -d "$ROOT/VST3/WindLab.vst3"
-          test -d "$ROOT/AU/WindLab.component"
-          test -d "$ROOT/Standalone/WindLab.app"
-          mkdir -p dist/VST3 dist/AU dist/Standalone
-          ditto "$ROOT/VST3/WindLab.vst3" "dist/VST3/WindLab.vst3"
-          ditto "$ROOT/AU/WindLab.component" "dist/AU/WindLab.component"
-          ditto "$ROOT/Standalone/WindLab.app" "dist/Standalone/WindLab.app"
-          # Preserve macOS bundle permissions and symlinks before uploading.
-          ditto -c -k --sequesterRsrc --keepParent dist WindLab-macOS-arm64.zip
+          bash -n "installers/Installa WindLab.command"
+          bash -n scripts/package-macos.sh
 
-      - name: Upload macOS AU and VST3
+      - name: Package signed development bundles, Sonoma PKG and installer ZIP
+        shell: bash
+        run: bash scripts/package-macos.sh build/WindLab_artefacts/Release .
+
+      - name: Upload macOS Sonoma installer ZIP
         uses: actions/upload-artifact@v7
         with:
-          name: WindLab-macOS-arm64-AU-VST3
-          path: WindLab-macOS-arm64.zip
+          name: WindLab-macOS-Sonoma-14-arm64-installer
+          path: WindLab-macOS-Sonoma-14-arm64.zip
           if-no-files-found: error
           retention-days: 14
