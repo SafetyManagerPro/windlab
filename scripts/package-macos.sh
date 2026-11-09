@@ -69,8 +69,7 @@ PKG="$PAYLOAD/WindLab-$VERSION-macOS-Sonoma-arm64.pkg"
 /usr/bin/pkgbuild --root "$PKGROOT" --install-location / \
   --identifier "com.windlab.prototype.installer" --version "$VERSION" \
   --scripts "$SCRIPTS" "$PKG"
-/usr/sbin/pkgutil --expand "$PKG" "$WORK/pkg-verify"
-test -f "$WORK/pkg-verify/PackageInfo"
+/usr/bin/xar -tf "$PKG" | /usr/bin/grep -qx PackageInfo
 
 ZIP="$OUT_DIR/WindLab-macOS-Sonoma-14-arm64.zip"
 /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$PAYLOAD" "$ZIP"
