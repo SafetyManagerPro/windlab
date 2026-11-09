@@ -1,0 +1,36 @@
+WINDLAB 0.9.3 — INSTALLAZIONE MACOS SONOMA 14.4.1 (APPLE SILICON)
+
+Questo ZIP contiene:
+- WindLab-0.9.3-macOS-Sonoma-arm64.pkg: installer tradizionale per TUTTI gli utenti del Mac (richiede password amministratore).
+- Installa WindLab.command: installer SENZA password, solo per l'utente corrente (consigliato per le build di sviluppo).
+- VST3/WindLab.vst3: plugin per Studio One (e altre DAW compatibili).
+- AU/WindLab.component: plugin per Logic Pro.
+- Standalone/WindLab.app: app autonoma.
+
+PROCEDURA CONSIGLIATA
+1. Estrai COMPLETAMENTE lo ZIP (non aprire i file direttamente dall'anteprima dello ZIP).
+2. Chiudi Logic Pro e Studio One.
+3. Fai doppio clic su "Installa WindLab.command". Se Gatekeeper impedisce l'apertura dello script, apri Terminale, scrivi: bash 
+   (con uno spazio dopo bash), trascina "Installa WindLab.command" nella finestra del Terminale e premi INVIO.
+4. Riapri la DAW. In Logic Pro cerca WindLab tra gli strumenti Audio Units.
+   In Studio One forza una nuova scansione VST3 se non appare immediatamente.
+5. Se il programma trova gia copie di WindLab nelle cartelle di sistema (/Library o /Applications),
+   mostra un avviso. Evita di tenere contemporaneamente copie di sistema e utente della stessa versione.
+
+ALTERNATIVA: INSTALLER PKG
+Apri "WindLab-0.9.3-macOS-Sonoma-arm64.pkg" e segui le istruzioni. Installa AU/VST3
+nelle cartelle di sistema e WindLab.app in /Applications. Poiche il pacchetto di
+sviluppo non e notarizzato da Apple, potrebbe essere necessario usare Apri comunque
+in Impostazioni di Sistema > Privacy e sicurezza. Se il PKG viene bloccato,
+preferisci lo script con il comando bash descritto sopra. Non disabilitare Gatekeeper.
+
+SICUREZZA E COMPATIBILITA
+- Compilato arm64 con deployment target macOS 14.0, destinato a Sonoma 14.4.1 e successivi.
+- Le build di sviluppo sono firmate localmente in modo ad-hoc, NON con un certificato
+  Apple Developer ID, e NON notarizzate da Apple.
+- Lo script rimuove l'attributo di quarantena SOLTANTO dalle copie di WindLab installate.
+  Non cambia le impostazioni globali di protezione di macOS.
+- Le nuove build possono richiedere di eseguire nuovamente l'installer; per eliminare gli
+  avvisi di Apple sui download esterni serve firma Developer ID e notarizzazione.
+- La compatibilita delle librerie viene controllata in CI; la prova su Logic Pro e Studio One
+  in macOS 14.4.1 richiede comunque un test pratico sul Mac.
