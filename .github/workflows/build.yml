@@ -1,15 +1,11 @@
 name: Build WindLab plugins
 
-# CI budget: batch feature changes (normally 3 commits) then mark the draft
-# PR "Ready for review" ONCE to compile all formats. Avoid expensive builds
-# on every opened/synchronize pull_request event. Keep the final main build.
-# For corrections after a failed run: convert PR back to Draft, make grouped
-# commits, then mark Ready again. workflow_dispatch remains available in Actions.
+# Only build the code that is already on main. Feature branches and
+# pull requests never trigger expensive macOS/Windows jobs.
+# Manual workflow_dispatch is permitted only when the chosen ref is main.
 on:
   push:
     branches: [main]
-  pull_request:
-    types: [ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -21,6 +17,7 @@ concurrency:
 
 jobs:
   windows:
+    if: github.ref == 'refs/heads/main'
     name: Windows x64 VST3 + Standalone
     runs-on: windows-2022
     timeout-minutes: 90
@@ -109,6 +106,7 @@ jobs:
           retention-days: 14
 
   macos:
+    if: github.ref == 'refs/heads/main'
     name: macOS Apple Silicon AU + VST3
     runs-on: macos-15
     timeout-minutes: 90
