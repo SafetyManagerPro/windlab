@@ -87,6 +87,7 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     }
     breathSourceBox.addItem("CC (MIDI LEARN)", 1);
     breathSourceBox.addItem("AFTERTOUCH", 2);
+    breathSourceBox.addItem("MICROFONO", 3);
     breathSourceBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff182831));
     breathSourceBox.setColour(juce::ComboBox::textColourId, juce::Colours::white);
     addAndMakeVisible(breathSourceBox);
@@ -106,12 +107,12 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     breathCurveAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         processor.parameters, "breathCurve", breathCurveSlider);
 
-    const std::array<juce::String, 15> names {
+    knobNames = {
         "ATTACK", "RELEASE", "BREATH LENGTH", "VIBRATO", "NATURAL",
         "BRIGHTNESS", "AIR", "BASS dB", "MID dB", "TREBLE dB",
         "ROOM", "REVERB", "REVERB SIZE", "DAMPING", "OUTPUT"
     };
-    const std::array<juce::String, 15> ids {
+    knobIDs = {
         "attack", "release", "breathLength", "vibrato", "humanize",
         "tone", "air", "bass", "mid", "treble",
         "space", "reverb", "reverbSize", "reverbDamp", "gain"
@@ -127,15 +128,18 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
         knobs[i].setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
         addAndMakeVisible(knobs[i]);
 
-        labels[i].setText(names[i], juce::dontSendNotification);
+        labels[i].setText(knobNames[i], juce::dontSendNotification);
         labels[i].setJustificationType(juce::Justification::centred);
         labels[i].setColour(juce::Label::textColourId, juce::Colour(0xffbfd0d3));
         labels[i].setFont(juce::Font(12.0f, juce::Font::bold));
         addAndMakeVisible(labels[i]);
 
         knobAttachments[i] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-            processor.parameters, ids[i], knobs[i]);
+            processor.parameters, knobIDs[i], knobs[i]);
+        learners.push_back(std::make_unique<windlabui::LearnOnRightClick>(processor, knobs[i], knobIDs[i]));
     }
+    learners.push_back(std::make_unique<windlabui::LearnOnRightClick>(processor, breathThresholdSlider, "breathThreshold"));
+    learners.push_back(std::make_unique<windlabui::LearnOnRightClick>(processor, breathCurveSlider, "breathCurve"));
     keyboard.setAvailableRange(36, 96);
     keyboard.setKeyWidth(16.0f);
     keyboard.setColour(juce::MidiKeyboardComponent::keyDownOverlayColourId, juce::Colour(0xffe6a86e));
@@ -264,7 +268,14 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     // without spawning a host-dependent secondary window.
     guidePanel = std::make_unique<WindLabGuidePanel>([this] {
         guidePanel->setVisible(false);
-        if (midiLearnPanel && midiLearnPanel->isVisible())
+        if (expressionPanel && expressionPanel->isVisible())
+            expressionPanel->toFront(true);
+        else if (virtualInstrumentPanel && virtualInstrumentPanel->isVisible())
+        {
+            virtualInstrumentPanel->toFront(true);
+            virtualInstrumentPanel->grabKeyboardFocus();
+        }
+        else if (midiLearnPanel && midiLearnPanel->isVisible())
             midiLearnPanel->toFront(true);
         else if (phrasePanel && phrasePanel->isVisible())
             phrasePanel->toFront(true);
@@ -295,6 +306,46 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
         midiLearnPanel->setVisible(show);
         if (show) midiLearnPanel->toFront(true);
     };
+    virtualInstrumentPanel = std::make_unique<WindLabVirtualInstrumentPanel>(
+        processor,
+        [this] {
+            virtualInstrumentPanel->setVisible(false);
+            if (inputModeBox.getSelectedId() == 2)
+                keyboard.grabKeyboardFocus();
+        },
+        [this] { quickRecordButton.triggerClick(); },
+        [this] { return quickRecordButton.getButtonText(); },
+        [this] { showGuide(WindLabGuidePanel::virtualInstrument); });
+    virtualInstrumentPanel->setBounds(getLocalBounds());
+    addChildComponent(*virtualInstrumentPanel);
+    virtualInstrumentButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff8a5a2e));
+    virtualInstrumentButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    virtualInstrumentButton.setTooltip("Suona lo strumento disegnato a video con mouse e tastiera del computer");
+    addAndMakeVisible(virtualInstrumentButton);
+    virtualInstrumentButton.onClick = [this] {
+        virtualInstrumentPanel->setVisible(true);
+        virtualInstrumentPanel->toFront(true);
+        virtualInstrumentPanel->grabKeyboardFocus();
+    };
+
+    expressionPanel = std::make_unique<WindLabExpressionPanel>(
+        processor,
+        [this] {
+            expressionPanel->setVisible(false);
+            if (inputModeBox.getSelectedId() == 2)
+                keyboard.grabKeyboardFocus();
+        },
+        [this] { showGuide(WindLabGuidePanel::expression); });
+    expressionPanel->setBounds(getLocalBounds());
+    addChildComponent(*expressionPanel);
+    expressionButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff416a64));
+    expressionButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    expressionButton.setTooltip("Legato, vibrato, growl, effetti jazz, pan, preset e MIDI Learn universale");
+    addAndMakeVisible(expressionButton);
+    expressionButton.onClick = [this] {
+        expressionPanel->setVisible(true);
+        expressionPanel->toFront(true);
+    };
     startTimerHz(8);
 }
 
@@ -306,6 +357,12 @@ void WindLabAudioProcessorEditor::timerCallback()
         status == windlab::PhraseRecorder::Ready ? "VEDI TAKE" : "REC MIDI";
     if (quickRecordButton.getButtonText() != label)
         quickRecordButton.setButtonText(label);
+    // Universal MIDI Learn: show the CC under each knob ("[CC21]").
+    for (std::size_t i = 0; i < labels.size(); ++i)
+    {
+        const auto text = knobNames[i] + windlabui::learnSuffix(processor, knobIDs[i]);
+        if (labels[i].getText() != text) labels[i].setText(text, juce::dontSendNotification);
+    }
 }
 
 void WindLabAudioProcessorEditor::showGuide(int topic)
@@ -338,7 +395,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("WINDLAB", 27, 12, 475, 48, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffc2d2d7));
     g.setFont(juce::Font(13.0f));
-    g.drawText("RECORDED WINDS  /  0.9.3  /  MIDI RECORD + POPUP EDITOR + REAL WAV", 32, 63, 910, 21,
+    g.drawText("RECORDED WINDS  /  0.9.10  /  STRUMENTO A VIDEO + ESPRESSIONE + SEZIONI + FIATO DAL MICROFONO", 32, 63, 910, 21,
                juce::Justification::centredLeft);
 
     constexpr int rowTop[3] {207, 359, 511};
@@ -359,7 +416,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("CC1 VIBRATO  /  CC2 BREATH  /  CC11 EXPRESSION  /  AFTERTOUCH  /  PITCH BEND",
                29, 658, 960, 19, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xff8faab3));
-    g.drawText("BREATH LENGTH: 30 = continuous. Winds: Versilian Studios / FreePats (CC0); Soprano, Alto, Baritone Sax: MTG / Freesound (CC BY 4.0).",
+    g.drawText("BREATH LENGTH: 30 = continuous. Winds: Versilian / FreePats (CC0); Sax: MTG (CC BY 4.0); Flute: Ixox (CC BY 4.0); Rooms: OpenAIR (CC BY 4.0).",
                29, 679, 1020, 18, juce::Justification::centredLeft);
 
     g.setColour(juce::Colour(0xff1d313b));
@@ -419,6 +476,8 @@ void WindLabAudioProcessorEditor::resized()
     quickRecordButton.setBounds(getWidth() - 550, 20, 123, 41);
     helpButton.setBounds(getWidth() - 263, 20, 45, 41);
     midiLearnButton.setBounds(getWidth() - 418, 20, 145, 41);
+    virtualInstrumentButton.setBounds(getWidth() - 735, 20, 175, 41);
+    expressionButton.setBounds(905, 173, 140, 31);
     breathSourceLabel.setBounds(35, 858, 85, 24);
     breathSourceBox.setBounds(120, 857, 175, 28);
     breathThresholdLabel.setBounds(312, 858, 65, 24);
@@ -428,4 +487,6 @@ void WindLabAudioProcessorEditor::resized()
     if (phrasePanel) phrasePanel->setBounds(getLocalBounds());
     if (guidePanel) guidePanel->setBounds(getLocalBounds());
     if (midiLearnPanel) midiLearnPanel->setBounds(getLocalBounds());
+    if (virtualInstrumentPanel) virtualInstrumentPanel->setBounds(getLocalBounds());
+    if (expressionPanel) expressionPanel->setBounds(getLocalBounds());
 }

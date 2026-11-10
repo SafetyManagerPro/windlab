@@ -72,8 +72,10 @@ class PhraseEngine
 public:
     // steps: the classic eighth-note phrase length (two bars). Kept for existing callers.
     static constexpr int steps = 16;
-    // Largest phrase: 2 bars of sixteenth-note triplets. Chords use up to chordSlots per step.
-    static constexpr int maxSteps = 48;
+    // 0.9.10: phrases of 2, 4 or 8 bars. Largest phrase: 8 bars of sixteenth-note
+    // triplets (192 steps). Chords use up to chordSlots per step.
+    static constexpr int maxBars = 8;
+    static constexpr int maxSteps = maxBars * 24;
     static constexpr int chordSlots = 4;
     static constexpr int midiChannel = 16; // internal phrase; external controllers normally use ch1
 
@@ -86,8 +88,16 @@ public:
         if (grid.exchange(next, std::memory_order_acq_rel) != next)
             revision.fetch_add(1, std::memory_order_release);
     }
-    // Number of steps in the phrase for the current grid (16 for eighths, up to 48).
-    int activeSteps() const noexcept { return 2 * stepsPerBarFor(getGrid()); }
+    // Length in 4/4 bars: 2 (classic), 4 or 8.
+    int getBars() const noexcept { return bars.load(std::memory_order_acquire); }
+    void setBars(int value) noexcept
+    {
+        const int next = value >= 8 ? 8 : value >= 4 ? 4 : 2;
+        if (bars.exchange(next, std::memory_order_acq_rel) != next)
+            revision.fetch_add(1, std::memory_order_release);
+    }
+    // Number of steps in the phrase for the current grid and length (16 .. 192).
+    int activeSteps() const noexcept { return getBars() * stepsPerBarFor(getGrid()); }
     int ticksPerStep() const noexcept { return ticksPerStepFor(getGrid()); }
 
     // Slot 0 is the primary note of a step; it also carries the step's controller values.
@@ -156,6 +166,9 @@ public:
     void setTempo(int v) noexcept { tempo.store(std::clamp(v, 45, 220), std::memory_order_release); }
     int getTempo() const noexcept { return tempo.load(std::memory_order_acquire); }
     void setFollowHostTempo(bool enabled) noexcept { followHostTempo.store(enabled, std::memory_order_release); }
+    // 0.9.7: start/stop with the DAW and lock the two-bar loop to the song position.
+    void setFollowHostTransport(bool enabled) noexcept { followHostTransport.store(enabled, std::memory_order_release); }
+    bool followsHostTransport() const noexcept { return followHostTransport.load(std::memory_order_acquire); }
     bool followsHostTempo() const noexcept { return followHostTempo.load(std::memory_order_acquire); }
     // Audio callback may read host BPM without changing the editor's internal tempo.
     // This follows the DAW's tempo, not the DAW playhead/song position.
@@ -172,7 +185,7 @@ public:
     int visualStep() const noexcept { return displayedStep.load(std::memory_order_relaxed); }
 
     template <class Emit>
-    void process(int blockSamples, double sampleRate, Emit&& emit) noexcept
+    void process(int blockSamples, double sampleRate, Emit&& emit, double hostQuarterNotes = -1.0) noexcept
     {
         if (blockSamples <= 0 || sampleRate <= 1.0) return;
         const bool on = isPlaying();
@@ -193,6 +206,24 @@ public:
         const double stepSamples = sampleRate * 30.0 / static_cast<double>(effectiveTempo())
                                  * static_cast<double>(ticksPerStep()) / 240.0;
         const double controlInterval = std::max(32.0, sampleRate / 55.0);
+        if (hostQuarterNotes >= 0.0 && std::isfinite(hostQuarterNotes))
+        {
+            // The loop lasts bars x 4 quarter notes. Re-align only when the DAW jumped or
+            // drifted by more than a quarter of a step, so normal playback is untouched.
+            const double loopTicks = std::fmod(hostQuarterNotes, 4.0 * getBars()) * 480.0;
+            const int targetStep = std::clamp(static_cast<int>(loopTicks / ticksPerStep()), 0, count - 1);
+            const double targetPhase = (loopTicks - targetStep * ticksPerStep()) / ticksPerStep() * stepSamples;
+            const double expected = currentStep * stepSamples + phase;
+            const double wanted = targetStep * stepSamples + targetPhase;
+            if (std::abs(expected - wanted) > stepSamples * .25)
+            {
+                stopSounding(0, emit);
+                currentStep = targetStep;
+                phase = targetPhase;
+                nextStepPending = targetPhase < stepSamples * .08;
+                controllerCountdown = 0.0;
+            }
+        }
         for (int i = 0; i < blockSamples; ++i)
         {
             for (auto& v : voices)
@@ -283,8 +314,8 @@ private:
     }
     std::array<std::atomic<std::uint64_t>, maxSteps * chordSlots> notes {};
     std::atomic<bool> playing {false};
-    std::atomic<int> tempo {110}, hostTempo {110}, displayedStep {0}, grid {0};
-    std::atomic<bool> followHostTempo {false};
+    std::atomic<int> tempo {110}, hostTempo {110}, displayedStep {0}, grid {0}, bars {2};
+    std::atomic<bool> followHostTempo {false}, followHostTransport {false};
     std::atomic<unsigned> revision {0};
     // Below: audio-thread only.
     std::array<Voice, 16> voices {};

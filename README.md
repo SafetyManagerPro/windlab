@@ -1,4 +1,39 @@
-# WindLab 0.9.3 — REC MIDI → Phrase Editor + popup in-plugin
+# WindLab 0.9.10 — Strumento a video, espressione, sezioni, MPE e sale registrate
+
+Plugin AU / VST3 / Standalone di strumenti a fiato (9 strumenti, campioni reali + motore espressivo).
+
+## Novità 0.9.5 – 0.9.10
+
+- **Sale registrate** (OpenAIR, CC BY 4.0, scaricate in CI) e **sala personalizzata** da file WAV;
+  **MPE** (canali 2–15: bend, pressione = fiato, CC74 = timbro per nota);
+  **frasi di 2, 4 o 8 battute** nel Phrase Editor; **sovracuto del sax** nello strumento a video.
+
+- **MOSTRA DITEGGIATURA**: lo strumento a video mostra le chiavi delle note suonate (didattica);
+  **unisono** a 2 o 3 esecutori; **velocity di ogni nota dell'accordo** con la rotella del mouse;
+  diteggiatura alternativa Sib "1+1".
+
+- **Fiato dal microfono** (SOFFIO DA: MICROFONO), **modalità sezione** (sax, ottoni, legni, big band)
+  e **riverbero a convoluzione** (studio, club jazz, sala da concerto, chiesa).
+- **Firma Apple**: Developer ID e notarizzazione pronte nella build, si attivano con i secret
+  dell'account Apple — vedi [docs/Firma-Apple-Notarizzazione.md](docs/Firma-Apple-Notarizzazione.md).
+
+- **STRUMENTO A VIDEO**: sax soprano, contralto, tenore e baritono, clarinetto, flauto,
+  tromba, corno e trombone disegnati e suonabili con mouse e tastiera del computer,
+  con diteggiature vere, fiato dalla barra spaziatrice o dal mouse e coulisse con glissando.
+- **ESPRESSIONE**: modalità e tempo del legato (con calo di fiato fra le note),
+  velocità del vibrato e vibrato dal fiato, growl, flutter tongue, effetti jazz
+  (scoop, fall, doit, shake), pan.
+- **Preset** di fabbrica e personali (`.windlabpreset`).
+- **MIDI Learn universale**: clic destro su qualsiasi manopola, assegnazioni salvate nel progetto.
+- **Controller a fiato**: modalità tastiera / fiato / ibrida, soffio da CC o aftertouch,
+  calibrazione SOGLIA e CURVA, profili EWI / Aerophone / Artinoise, monitor MIDI.
+- **Phrase Editor**: griglie 1/8, 1/16 e terzine, accordi fino a 4 note, pedale di sustain,
+  esportazione MIDI, **SEGUI PLAY DAW** (agganciato al play e alle battute della DAW)
+  e **TRASCINA IN DAW** (la frase diventa una clip MIDI).
+
+Guida completa: [docs/Guida-Utente-WindLab-IT.md](docs/Guida-Utente-WindLab-IT.md) e pulsante **?** dentro il plugin.
+
+## Versione 0.9.3 — REC MIDI → Phrase Editor + popup in-plugin
 
 **CI a basso consumo:** il progetto accumula circa tre commit per PR in
 modalita' Draft e compila tutti i formati solo quando la PR passa a

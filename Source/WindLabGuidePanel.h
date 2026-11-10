@@ -10,7 +10,7 @@ public:
     enum Topic : int
     {
         start = 0, instruments, soundEngine, keyboard, midi, logic,
-        studioOne, controls, phraseEditor, notation, troubleshooting, limitations,
+        studioOne, controls, phraseEditor, notation, troubleshooting, limitations, virtualInstrument, expression,
         topicCount
     };
 

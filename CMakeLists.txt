@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WindLab VERSION 0.9.3 LANGUAGES C CXX)
+project(WindLab VERSION 0.9.10 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,6 +33,9 @@ juce_add_plugin(WindLab
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE
+    # 0.9.8 breath from the microphone: macOS asks the user once (Standalone).
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "WindLab usa il microfono solo per misurare il soffio quando SOFFIO DA e' impostato su MICROFONO. L'audio non viene registrato ne' inviato."
     FORMATS ${WINDLAB_FORMATS})
 
 target_sources(WindLab PRIVATE
@@ -46,6 +49,16 @@ target_sources(WindLab PRIVATE
     Source/WindLabGuidePanel.h
     Source/WindLabMidiLearnPanel.cpp
     Source/WindLabMidiLearnPanel.h
+    Source/WindLabVirtualInstrumentPanel.cpp
+    Source/WindLabVirtualInstrumentPanel.h
+    Source/Dsp/VirtualFingering.h
+    Source/WindLabExpressionPanel.cpp
+    Source/WindLabExpressionPanel.h
+    Source/WindLabParameterLearn.h
+    Source/Dsp/ParameterCCMap.h
+    Source/Dsp/MicBreath.h
+    Source/Dsp/SectionMode.h
+    Source/Dsp/RoomImpulse.h
     Source/Dsp/WindEngine.h
     Source/Dsp/ToneEQ.h
     Source/Dsp/RecordedWinds.h
@@ -81,6 +94,19 @@ if(WINDLAB_RECORDED_WAVS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Sampl
     target_compile_definitions(WindLab PRIVATE WINDLAB_HAS_RECORDED_SAMPLES=1)
 else()
     message(WARNING "No CC0 sample bank found. Run python scripts/download-recordings.py for acoustic builds.")
+endif()
+
+# 0.9.10 recorded rooms (OpenAIR, CC BY 4.0) for the convolution reverb, if downloaded.
+file(GLOB WINDLAB_ROOM_WAVS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Rooms/room_*.wav")
+if(WINDLAB_ROOM_WAVS)
+    juce_add_binary_data(WindLabRoomData
+        HEADER_NAME WindLabRoomData.h
+        NAMESPACE WindLabRoomData
+        SOURCES ${WINDLAB_ROOM_WAVS})
+    target_link_libraries(WindLab PRIVATE WindLabRoomData)
+    target_compile_definitions(WindLab PRIVATE WINDLAB_HAS_RECORDED_ROOMS=1)
+else()
+    message(STATUS "No recorded rooms: the convolution reverb uses generated rooms.")
 endif()
 
 target_link_libraries(WindLab PRIVATE
@@ -137,4 +163,13 @@ if (BUILD_TESTING)
     add_executable(windlab_phrase_grid_smoke tests/phrase-grid-smoke.cpp)
     target_include_directories(windlab_phrase_grid_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_phrase_grid_smoke COMMAND windlab_phrase_grid_smoke)
+    add_executable(windlab_virtual_fingering_smoke tests/virtual-fingering-smoke.cpp)
+    target_include_directories(windlab_virtual_fingering_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    add_test(NAME windlab_virtual_fingering_smoke COMMAND windlab_virtual_fingering_smoke)
+    foreach(test_name expression_097 phrase_sync parameter_cc_map rooms_section_mic)
+        string(REPLACE "_" "-" test_file "${test_name}")
+        add_executable(windlab_${test_name}_smoke tests/${test_file}-smoke.cpp)
+        target_include_directories(windlab_${test_name}_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+        add_test(NAME windlab_${test_name}_smoke COMMAND windlab_${test_name}_smoke)
+    endforeach()
 endif()

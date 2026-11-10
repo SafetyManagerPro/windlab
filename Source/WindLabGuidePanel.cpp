@@ -15,7 +15,9 @@ juce::StringArray WindLabGuidePanel::sectionTitles()
         "09  Phrase Editor e curve",
         "10  Vista spartito e BPM",
         "11  Risolvere i problemi",
-        "12  Limiti e prossimi sviluppi"
+        "12  Limiti e prossimi sviluppi",
+        "13  Strumento a video",
+        "14  Espressione, preset e MIDI Learn"
     };
 }
 
@@ -186,7 +188,12 @@ Clicca PHRASE EDITOR nella schermata principale.
 GRIGLIA (menu GRID):
 - 1/8 = crome, 16 step. 1/16 = semicrome, 32 step.
 - 1/8 TRIPLET = terzine di crome, 24 step. 1/16 TRIPLET = terzine di semicrome, 48 step.
-- La frase dura sempre due battute in 4/4: cambia solo la risoluzione. La griglia viene salvata con il progetto.
+- La griglia cambia la risoluzione; la griglia viene salvata con il progetto.
+
+LUNGHEZZA DELLA FRASE:
+- Il menu accanto alla corsia sceglie 2 BATTUTE, 4 BATTUTE o 8 BATTUTE (in 4/4). Il piano roll mostra due battute alla volta: con i pulsanti < e > passi alle battute successive; durante il PLAY la pagina segue la riproduzione.
+- REC registra per tutta la lunghezza scelta; IMPORTA porta anche la lunghezza. SEGUI PLAY DAW ripete il giro ogni 2, 4 o 8 battute della canzone; EXPORT MIDI e TRASCINA IN DAW esportano tutta la frase.
+- I progetti salvati prima di questa versione si riaprono con 2 battute.
 
 REGISTRAZIONE:
 - REC MIDI (SCHERMATA PRINCIPALE): consigliato quando suoni con la tastiera PC. Premi REC MIDI, suona le note, poi STOP REC oppure lascia terminare automaticamente due battute. Il pulsante diventa VEDI TAKE: apre la registrazione nel Phrase Editor senza togliere il focus ai tasti durante la ripresa.
@@ -202,13 +209,16 @@ PIANO ROLL CON IL MOUSE:
 - Clic su una nota esistente senza trascinare: la toglie. Clic e trascinamento sulla nota: la sposta o la allunga.
 - Clic destro su una nota: la cancella.
 - Due note dello stesso step non possono avere la stessa altezza: se trascini sopra un'altra nota dell'accordo, l'altezza resta quella precedente.
+- ROTELLA DEL MOUSE sopra una nota: cambia la velocity di quella sola nota, anche dentro un accordo. Il numero e' scritto sulla nota e le note piu' deboli sono disegnate piu' scure.
 
 ALTRI COMANDI:
 - PLAY / STOP: avvia o interrompe il loop interno.
 - DEMO: carica una frase dimostrativa.
 - CLEAR: cancella tutte le note.
 - LEGATO: seleziona uno step e attiva LEGATO per sovrapporre brevemente la transizione con il precedente.
-- PHRASE BPM: velocita' del loop interno sulle due battute.
+- PHRASE BPM: velocita' del loop interno.
+- SEGUI PLAY DAW: la frase parte e si ferma con il play della DAW e segue la sua posizione (il giro di due battute e' agganciato alle battute della canzone). Attiva anche il tempo della DAW.
+- TRASCINA IN DAW: tieni premuto il pulsante e trascinalo su una traccia della DAW: la frase viene inserita come clip MIDI, senza salvare file.
 - EXPORT MIDI: salva la frase come file .mid standard (formato 0, 480 tick per quarto) con tempo, note e accordi, CC2, CC11, CC1 e pitch bend. Trascina il file in Logic Pro, Studio One, Ableton Live, Reaper o in un'altra DAW.
 
 CORSIE GRAFICHE:
@@ -272,20 +282,105 @@ PRESENTE:
 - Tastiera grafica, tastiera PC, ingresso MIDI esterno e profili velocity.
 - Expression & Phrase Editor con griglie 1/8, 1/16 e terzine (fino a 48 step), accordi fino a 4 note, pedale di sustain, legato MIDI, fiato, volume, pitch e vibrato.
 - Esportazione della frase in file MIDI standard per le DAW.
+- STRUMENTO A VIDEO: i 9 strumenti disegnati e suonabili con mouse e tastiera del computer, con diteggiature vere.
+- ESPRESSIONE: tempo e modalita' del legato, velocita' del vibrato e vibrato dal fiato, growl, flutter tongue, effetti jazz (scoop, fall, doit, shake), pan.
+- MIDI Learn universale (clic destro su ogni manopola) e preset di fabbrica e personali.
+- Fiato dal microfono, modalita' sezione (sax, ottoni, legni, big band) e riverbero a convoluzione (studio, club jazz, sala, chiesa).
+- Firma Developer ID e notarizzazione Apple pronte nella build (si attivano con i dati dell'account Apple).
+- Phrase Editor agganciato al play della DAW e trascinamento della frase nella DAW.
 - Vista spartito di lettura e opzione HOST BPM.
 - MIDI LEARN per assegnare CC a vibrato, fiato ed espressione, salvato per progetto.
 - Loop delle registrazioni sostenute e coda degli staccati perfezionati.
 
 NON ANCORA IMPLEMENTATO:
 - Legato campionato con vere transizioni fra note.
-- Sincronizzazione automatica della frase alla testina della DAW.
-- MIDI Learn universale per tutti i parametri e assegnazione visuale dei controller ai pistoni/chiavi.
-- MPE avanzato per ogni singola nota.
+- Assegnazione visuale dei controller MIDI ai pistoni e alle chiavi dello strumento a video.
+- Diteggiature reali del sovracuto del sax (oggi uno schema semplificato) e altre diteggiature alternative.
+- Zona MPE alta e piu' di 14 canali MPE (il canale 16 resta del Phrase Editor).
 - Spartito completo modificabile ed esportazione MusicXML.
-- Velocity separata per ogni nota dell'accordo dalle corsie grafiche.
-- Firma/notarizzazione universale dei pacchetti e collaudo completo in tutte le DAW.
+- Collaudo completo in tutte le DAW.
 
 Questa guida descrive i comandi realmente presenti nel programma. I miglioramenti futuri vengono aggiunti solo dopo lo sviluppo e la verifica.)";
+
+        case virtualInstrument: return R"(STRUMENTO A VIDEO - SUONARE LO STRUMENTO DISEGNATO
+
+Premi STRUMENTO A VIDEO in alto: compare il disegno dello strumento scelto in INSTRUMENT (puoi cambiarlo anche dal menu STRUMENTO del pannello). Funziona con tutti i 9 strumenti: sax soprano, contralto, tenore e baritono, clarinetto, flauto, tromba, corno e trombone.
+
+COME SI SUONA:
+- Le chiavi, i fori e i pistoni si premono con i tasti del computer (la lettera e' scritta sulla chiave) oppure con il mouse.
+- Con il mouse un clic BLOCCA la chiave premuta e un secondo clic la rilascia: cosi' puoi preparare una diteggiatura completa. RILASCIA CHIAVI le libera tutte.
+- La nota esce solo quando soffi: tieni premuta la BARRA SPAZIATRICE (FIATO DA: SPAZIO) oppure tieni premuto il mouse sulla barra del FIATO (FIATO DA: MOUSE; piu' in alto = piu' forte).
+- FORZA DEL FIATO regola quanto soffia la barra spaziatrice.
+- Cambiando diteggiatura mentre soffi le note sono LEGATE, come sullo strumento vero.
+
+DITEGGIATURE:
+- SAX: F D S = mano sinistra (Si, La, Sol), J K L = mano destra (Fa, Mi, Re), M e N = Do e Si gravi, A = Sol#, Q W E = chiavi palmari, R e U = chiavi laterali Sib e Do, SHIFT = chiave d'ottava.
+- SAX SOVRACUTO: tieni G (chiave ALTISSIMO, vicino alle palmari) insieme a SHIFT e diteggia Fa#5-Do#6: suona un'ottava sopra (Fa#6-Do#7 scritti). E' uno schema semplificato e coerente, non la diteggiatura di un sassofonista specifico.
+- CLARINETTO: V = foro del pollice, F D S e J K L = fori, M e N = chiavi del Fa e del Mi gravi, R = chiave del La, SHIFT = portavoce (sale di una dodicesima).
+- FLAUTO: V = chiave del pollice, F D S e J K L, A = Sol#, M = Do grave; FRECCE SU/GIU' o SHIFT = ottava.
+- Per tutti i legni H (oppure il pulsante # +1) alza la nota di un semitono, utile per le alterazioni.
+- TROMBA e CORNO: J K L = pistoni o cilindri 1, 2, 3; FRECCE SU/GIU' o la colonna ARMONICO scelgono l'armonico, come la tensione delle labbra.
+- TROMBONE: trascina la coulisse con il mouse oppure usa i tasti 1-7 per le posizioni; fra una posizione e l'altra la nota scivola (glissando). FRECCE SU/GIU' = armonico.
+
+NOTA SCRITTA E NOTA REALE:
+Il riquadro NOTA mostra la nota scritta per lo strumento (sax e clarinetto e tromba sono traspositori) e la nota che suona davvero. Flauto e trombone suonano come scritto.
+
+MOSTRA DITEGGIATURA:
+Attiva MOSTRA DITEGGIATURA (in alto) e suona dalla tastiera, da un dispositivo MIDI o con il PLAY del Phrase Editor: lo strumento a video mostra in verde le chiavi (o i pistoni, la posizione della coulisse e l'armonico) per suonare quella nota. Utile per imparare le diteggiature. Appena usi tu lo strumento a video, torna a mostrare le tue chiavi.
+Diteggiature alternative: SIB "1+1" sul sax (F + J) e sul flauto (V + F + J).
+
+REGISTRARE:
+REC MIDI registra quello che suoni nel Phrase Editor, come con una tastiera MIDI; poi puoi esportarlo con EXPORT MIDI. In modalita' IBRIDO le note escono sul canale NOTE CH.
+
+LIMITI:
+- Sono presenti le diteggiature principali; quelle alternative e il registro sovracuto verranno aggiunti dopo.
+- Il mouse preme una chiave alla volta: per suonare veloce usa la tastiera del computer.
+- Il microfono come sorgente del fiato non e' ancora disponibile.)";
+
+        case expression: return R"(ESPRESSIONE, PRESET E MIDI LEARN UNIVERSALE
+
+Premi ESPRESSIONE (a destra, accanto ai canali MIDI) per aprire il pannello.
+
+LEGATO E VIBRATO:
+- MODALITA' LEGATO: AUTO = legato quando suoni una nota alla volta, accordi quando premi piu' tasti insieme; SEMPRE LEGATO = ogni nota sovrapposta e' legata, anche nei passaggi velocissimi; MAI LEGATO = ogni nota ha il suo attacco (per accordi e sezioni).
+- LEGATO TIME: quanto dura la scivolata da una nota all'altra (pochi ms = dita veloci, 100-300 ms = glissando, ideale per il trombone). Durante il legato il fiato cala un poco, come sullo strumento vero.
+- VIBRATO RATE: velocita' del vibrato (x 1 = naturale dello strumento).
+- VIBRATO DAL FIATO: a 0 il vibrato ha sempre la stessa ampiezza; alzandolo il vibrato cresce quando soffi di piu' (controller a fiato, CC2 o strumento a video).
+
+COLORI E EFFETTI JAZZ:
+- GROWL: ruvidezza di chi canta dentro lo strumento (sax rock e jazz).
+- FLUTTER TONGUE: frullato di lingua (flauto, tromba, sax).
+- EFFETTO JAZZ: SCOOP = la nota entra da sotto; FALL = alla fine la nota cade; DOIT = alla fine la nota sale; SHAKE = trillo di labbro sulle note tenute. Il fall e il doit si sentono quando lasci la nota; nel legato fra due note non intervengono.
+- PAN: posizione dello strumento da sinistra (L) a destra (R).
+
+PRESET:
+- Il menu PRESET contiene suoni pronti (sax, tromba, flauto, clarinetto, trombone, corno). SALVA PRESET registra il tuo suono; i tuoi preset compaiono in fondo al menu. APRI PRESET carica un file .windlabpreset.
+- I preset cambiano solo il suono: non toccano canali MIDI, modalita' ibrida, sorgente e calibrazione del fiato.
+
+MIDI LEARN UNIVERSALE:
+- Clic destro (oppure ctrl+clic) su qualsiasi manopola, nella finestra principale o in questo pannello, poi "Impara" e muovi un controllo MIDI: la manopola lo seguira'.
+- Sotto la manopola compare il CC assegnato, per esempio [CC21]. Dallo stesso menu puoi rimuoverlo; RIMUOVI TUTTI I CC li cancella tutti.
+- Le assegnazioni sono salvate nel progetto. Il pedale (CC64) e i messaggi di banco non sono assegnabili.
+- Il MIDI LEARN dei tre controlli espressivi (vibrato, fiato, volume) resta nel pannello MIDI LEARN.
+
+UNISONO:
+- 1 ESECUTORE, 2 IN UNISONO, 3 IN UNISONO: ogni nota e' suonata da piu' musicisti, leggermente scordati fra loro, un poco in ritardo e affiancati sul palco, come una fila di fiati. Il volume complessivo resta simile. Si combina con la MODALITA' SEZIONE.
+
+SEZIONE, SALA E FIATO DAL MICROFONO (fascia 04):
+- MODALITA' SEZIONE: ogni nota la suona lo strumento della sezione che ha quel registro, in una sua posizione sul palco. SEZIONE SAX: baritono, tenore, contralto, soprano dal grave all'acuto. SEZIONE OTTONI: trombone, corno, tromba. LEGNI: clarinetto e flauto. BIG BAND: baritono e trombone sotto, sax al centro, tromba in alto. Suona accordi (MODALITA' LEGATO: MAI LEGATO consigliata) e ogni nota avra' il suo strumento. SPENTA = lo strumento scelto in INSTRUMENT.
+- SALA DEL RIVERBERO: ALGORITMICO e' il riverbero di sempre; STUDIO, CLUB JAZZ, SALA DA CONCERTO e CHIESA sono riverberi a convoluzione. Quando la build ha potuto scaricarle, usano risposte all'impulso REGISTRATE in sale vere (libreria OpenAIR dell'Universita' di York, openairlib.net, licenza CC BY 4.0); altrimenti risposte generate da WindLab. Sotto il menu e' scritto quale delle due e' in uso.
+- REVERB regola la quantita'. REVERB SIZE e DAMPING agiscono sulle sale generate (una sala registrata e' com'e').
+- SALA PERSONALIZZATA: premi CARICA SALA WAV... e scegli un file WAV di risposta all'impulso (per esempio scaricato da openairlib.net). Il percorso viene salvato nel progetto.
+
+MPE (tastiere espressive come ROLI, LinnStrument, Osmose, Expressive E):
+- Nella fascia 03 metti MPE: ACCESO. Ogni nota arriva sul suo canale (2-15, il canale 1 e' quello generale): il pitch bend di ogni dito piega solo la sua nota, la pressione del dito diventa il fiato di quella nota e lo slide verticale (CC74) la rende piu' brillante o piu' scura.
+- BEND: escursione del pitch bend MPE (48 semitoni e' lo standard MPE).
+- Imposta il controller su 14 canali (2-15): il canale 16 resta riservato al Phrase Editor.
+- I comandi sul canale 1 (fiato, volume, vibrato, pedale) valgono per tutte le note.
+- FIATO DAL MICROFONO: in SOFFIO DA (finestra principale) o nello STRUMENTO A VIDEO scegli MICROFONO e soffia verso il microfono del computer: piu' soffi, piu' suona forte; se smetti la nota si spegne. SENSIBILITA' MICROFONO regola quanto deve essere forte il soffio; la barra SOFFIO MIC mostra cosa arriva.
+- Standalone: al primo uso macOS chiede il permesso del microfono. Se la barra resta ferma apri Options > Audio/MIDI Settings, scegli l'ingresso e togli 'Mute audio input'.
+- Nella DAW: WindLab ha un ingresso audio (Breath Mic). Collega li' il microfono, per esempio come side-chain dello strumento in Logic o con l'ingresso audio della traccia in Studio One, Ableton o Reaper.
+- Il microfono serve solo a misurare il soffio: l'audio non viene registrato ne' inviato.)";
     }
     return {};
 }

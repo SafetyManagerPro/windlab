@@ -47,6 +47,7 @@ public:
         if (status() != Ready) return false;
         destination.setPlaying(false);
         destination.setGrid(recordedGrid());
+        destination.setBars(bars.load(std::memory_order_acquire));
         for (int step = 0; step < PhraseEngine::maxSteps; ++step)
             for (int slot = 0; slot < PhraseEngine::chordSlots; ++slot)
                 destination.setChordNote(step, slot, chordRecorded(step, slot));
@@ -56,7 +57,7 @@ public:
     }
 
     // Called only from the audio callback at the beginning of a block.
-    void beginBlock(int length, double sampleRate, int bpm, PhraseGrid newGrid = PhraseGrid::Eighth) noexcept
+    void beginBlock(int length, double sampleRate, int bpm, PhraseGrid newGrid = PhraseGrid::Eighth, int newBars = 2) noexcept
     {
         blockLength = std::max(0, length);
         if (startRequested.exchange(false, std::memory_order_acq_rel))
@@ -68,7 +69,9 @@ public:
             sustainDown = false;
             for (auto& voice : voices) voice = {};
             grid.store(static_cast<int>(newGrid), std::memory_order_release);
-            totalSteps = 2 * stepsPerBarFor(newGrid);
+            const int barCount = newBars >= 8 ? 8 : newBars >= 4 ? 4 : 2;
+            bars.store(barCount, std::memory_order_release);
+            totalSteps = barCount * stepsPerBarFor(newGrid);
             // One step = ticksPerStep/240 eighth notes at the given tempo.
             stepSamples = (std::isfinite(sampleRate) && sampleRate > 0.0)
                 ? sampleRate * 30.0 / static_cast<double>(std::clamp(bpm, 30, 300))
@@ -193,7 +196,7 @@ private:
     }
     std::array<std::atomic<std::uint64_t>, PhraseEngine::maxSteps * PhraseEngine::chordSlots> preview {};
     std::array<ActiveNote, 16> voices {};
-    std::atomic<int> state {Idle}, stepProgress {0}, captured {0}, dropped {0}, grid {0};
+    std::atomic<int> state {Idle}, stepProgress {0}, captured {0}, dropped {0}, grid {0}, bars {2};
     std::atomic<bool> startRequested {false}, stopRequested {false};
     std::uint64_t elapsedSamples = 0;
     int blockLength = 0, currentSnapshot = -1, totalSteps = PhraseEngine::steps;

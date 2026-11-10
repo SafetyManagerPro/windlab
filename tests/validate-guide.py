@@ -79,5 +79,30 @@ for token in ("IBRIDO", "SOFFIO DA", "AFTERTOUCH", "ULTIMO AFTERTOUCH"):
     assert token in panel, f"In-app guide misses {token}"
     assert token in manual, f"User manual misses {token}"
 assert '"breathSource"' in processor and "breathSourceBox" in main
+# On-screen instrument (STRUMENTO A VIDEO).
+for token in ("STRUMENTO A VIDEO", "RILASCIA CHIAVI", "ARMONICO", "coulisse"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
+assert "virtualInstrumentButton" in main and "virtualInstrument" in header
+# 0.9.7 expression, presets, universal MIDI Learn, DAW sync and drag.
+for token in ("LEGATO TIME", "GROWL", "FLUTTER", "SCOOP", "FALL", "DOIT", "SHAKE", "PRESET",
+              "SEGUI PLAY DAW", "TRASCINA IN DAW", "Impara"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
+assert "expressionButton" in main and "expression" in header
+# 0.9.8 microphone breath, section mode, convolution rooms, Apple signing.
+for token in ("MICROFONO", "SEZIONE SAX", "BIG BAND", "CLUB JAZZ", "CHIESA", "Mute audio input", "Breath Mic"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
+assert (root / "docs/Firma-Apple-Notarizzazione.md").exists()
+# 0.9.9 didactic fingering, unison, chord velocity.
+assert "rotella" in panel.lower() and "rotella" in manual.lower()
+# 0.9.10 recorded rooms, custom room, MPE, longer phrases, sax altissimo.
+for token in ("OpenAIR", "CARICA SALA WAV", "MPE", "CC74", "8 BATTUTE", "ALTISSIMO"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
+for token in ("MOSTRA DITEGGIATURA", "IN UNISONO", "1+1"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
 
-print("PASS: 12 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")
+print("PASS: 14 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")

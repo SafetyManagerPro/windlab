@@ -7,3 +7,6 @@ build/
 Resources/Samples/*.wav
 Resources/Samples/SampleManifest.h
 Resources/Samples/CREDITS.md
+
+# OpenAIR room impulse responses (CC BY 4.0) are downloaded during CI.
+Resources/Rooms/

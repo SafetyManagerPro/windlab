@@ -39,6 +39,13 @@ jobs:
         shell: pwsh
         run: python scripts/download-recordings.py
 
+      # Optional: recorded rooms for the convolution reverb (OpenAIR, CC BY 4.0).
+      - name: Fetch recorded reverb rooms (optional)
+        continue-on-error: true
+        timeout-minutes: 10
+        shell: pwsh
+        run: python scripts/download-rooms.py
+
       - name: Verify acoustic recordings, velocity layers and staccatos
         shell: pwsh
         run: python tests/validate-recorded-bank.py
@@ -105,6 +112,9 @@ jobs:
     name: macOS Apple Silicon AU + VST3
     runs-on: macos-15
     timeout-minutes: 90
+    env:
+      # Empty unless the repository has the Apple signing secrets.
+      MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v7
@@ -126,6 +136,13 @@ jobs:
       - name: Fetch CC0 acoustic samples
         shell: bash
         run: python3 scripts/download-recordings.py
+
+      # Optional: recorded rooms for the convolution reverb (OpenAIR, CC BY 4.0).
+      - name: Fetch recorded reverb rooms (optional)
+        continue-on-error: true
+        timeout-minutes: 10
+        shell: bash
+        run: python3 scripts/download-rooms.py
 
       - name: Verify acoustic recordings, velocity layers and staccatos
         shell: bash
@@ -153,8 +170,34 @@ jobs:
           bash -n "installers/Installa WindLab.command"
           bash -n scripts/package-macos.sh
 
+      # Optional Developer ID signing + notarization: runs only when the Apple
+      # secrets exist (docs/Firma-Apple-Notarizzazione.md). Otherwise ad-hoc as before.
+      - name: Import Apple Developer ID certificates
+        if: ${{ env.MACOS_CERT_P12 != '' }}
+        shell: bash
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/windlab-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/windlab-cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/windlab-cert.p12" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/windlab-cert.p12"
+
       - name: Package signed development bundles, Sonoma PKG and installer ZIP
         shell: bash
+        env:
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          MACOS_INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: bash scripts/package-macos.sh build/WindLab_artefacts/Release .
 
       - name: Upload macOS Sonoma installer ZIP

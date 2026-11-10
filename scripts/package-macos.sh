@@ -24,8 +24,14 @@ for bundle in "$VST3" "$AU" "$APP"; do
   printf '%s\n' "$build_info" | /usr/bin/grep -Eq 'minos 14\.0([[:space:]]|$)' || {
     echo "Expected macOS 14.0 deployment target in $bin" >&2; exit 1;
   }
-  # Ad-hoc signatures support local development but are NOT Apple notarization.
-  /usr/bin/codesign --force --deep --sign - "$bundle"
+  if [[ -n "${MACOS_SIGN_IDENTITY:-}" ]]; then
+    # Developer ID: hardened runtime + secure timestamp, required for notarization.
+    /usr/bin/codesign --force --deep --options runtime --timestamp \
+      --entitlements installers/WindLab.entitlements --sign "$MACOS_SIGN_IDENTITY" "$bundle"
+  else
+    # Ad-hoc signatures support local development but are NOT Apple notarization.
+    /usr/bin/codesign --force --deep --sign - "$bundle"
+  fi
   /usr/bin/codesign --verify --deep --strict --verbose=2 "$bundle"
 done
 
@@ -66,10 +72,27 @@ POSTINSTALL
 /bin/chmod 755 "$SCRIPTS/postinstall"
 
 PKG="$PAYLOAD/WindLab-$VERSION-macOS-Sonoma-arm64.pkg"
+PKG_SIGN=()
+if [[ -n "${MACOS_INSTALLER_IDENTITY:-}" ]]; then
+  PKG_SIGN=(--sign "$MACOS_INSTALLER_IDENTITY" --timestamp)
+fi
 /usr/bin/pkgbuild --root "$PKGROOT" --install-location / \
   --identifier "com.windlab.prototype.installer" --version "$VERSION" \
-  --scripts "$SCRIPTS" "$PKG"
+  --scripts "$SCRIPTS" ${PKG_SIGN[@]+"${PKG_SIGN[@]}"} "$PKG"
 /usr/bin/xar -tf "$PKG" | /usr/bin/grep -qx PackageInfo
+
+# Notarization: only when the Apple account secrets are configured (see
+# docs/Firma-Apple-Notarizzazione.md). Without them the package stays ad-hoc.
+if [[ -n "${MACOS_INSTALLER_IDENTITY:-}" && -n "${APPLE_ID:-}" && -n "${APPLE_TEAM_ID:-}" && -n "${APPLE_APP_PASSWORD:-}" ]]; then
+  /usr/bin/xcrun notarytool submit "$PKG" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+    --password "$APPLE_APP_PASSWORD" --wait
+  /usr/bin/xcrun stapler staple "$PKG"
+  for bundle in "$PAYLOAD/VST3/WindLab.vst3" "$PAYLOAD/AU/WindLab.component" "$PAYLOAD/Standalone/WindLab.app"; do
+    /usr/bin/xcrun stapler staple "$bundle" || echo "Note: could not staple $bundle (the PKG is stapled)."
+  done
+  /usr/sbin/spctl --assess --type install --verbose "$PKG"
+  echo "Notarized and stapled: $PKG"
+fi
 
 ZIP="$OUT_DIR/WindLab-macOS-Sonoma-14-arm64.zip"
 /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$PAYLOAD" "$ZIP"

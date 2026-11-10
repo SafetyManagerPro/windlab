@@ -14,6 +14,8 @@ namespace windlab
     enum class Instrument : int { Trumpet = 0, TenorSax, Trombone, Flute, Clarinet, FrenchHorn,
                                   SopranoSax, AltoSax, BaritoneSax };
     enum class Articulation : int { Sustain = 0, Staccato, Swell };
+    // 0.9.7 jazz effects, chosen separately from the articulation.
+    enum class JazzEffect : int { None = 0, Scoop, Fall, Doit, Shake };
 
     class WindEngine final
     {
@@ -24,7 +26,7 @@ namespace windlab
             reset();
             controllerAlpha = static_cast<float>(1.0 - std::exp(-1.0 / (sampleRate * .014)));
             pitchAlpha = 1.0 - std::exp(-1.0 / (sampleRate * .008));
-            glideDecay = std::exp(-1.0 / (sampleRate * .022));
+            updateGlide();
             clickDecay = static_cast<float>(std::exp(-1.0 / (sampleRate * .003)));
             updateFilter();
         }
@@ -42,6 +44,9 @@ namespace windlab
             clickEnv = 0.0f;
             glideSemis = 0.0;
             vibratoClock = 0.0;
+            effectSemis = 0.0;
+            slurDip = 0.0f;
+            colourPhase = flutterPhase = 0.0;
             latestFrequency = frequency;
         }
 
@@ -76,9 +81,18 @@ namespace windlab
             {
                 attack = std::min(attack, .03f);
                 glideSemis = std::clamp(12.0 * std::log2(legatoFromFrequency / frequency), -12.0, 12.0);
+                // A real slur loses a little air while the fingers move.
+                slurDip = .22f * std::min(1.0f, static_cast<float>(std::abs(glideSemis)) / 5.0f + .45f);
             }
             else
+            {
                 glideSemis = -.30 * humanize * (.4 + .6 * r1);
+                slurDip = 0.0f;
+            }
+            // Scoop: the note is entered from below like a jazz player; a slur never scoops.
+            effectSemis = (jazzEffect == JazzEffect::Scoop && !legato && articulation != Articulation::Staccato)
+                        ? -2.6 : 0.0;
+            effectClock = 0.0;
             onsetGain = legato ? .30f : 1.0f;
             // Recorded attacks already contain their own onset noises: add a click only
             // to slurred notes (fingers moving) or to synthetic voices.
@@ -100,7 +114,12 @@ namespace windlab
             if (stage != Stage::Idle && stage != Stage::Release)
             {
                 stage = Stage::Release;
-                releaseStep = env / static_cast<float>(sampleRate * releaseTime);
+                float releaseSeconds = releaseTime;
+                if ((jazzEffect == JazzEffect::Fall || jazzEffect == JazzEffect::Doit)
+                    && articulation != Articulation::Staccato)
+                    releaseSeconds = std::max(releaseSeconds, .42f); // room for the fall / doit
+                releaseStep = env / static_cast<float>(sampleRate * releaseSeconds);
+                releaseClock = 0.0;
                 // Lifting a finger/tongue at the end of the note: a faint click.
                 clickEnv = std::max(clickEnv, .45f * keyClickLevels[static_cast<std::size_t>(instrument)]
                                                * (.4f + .6f * velocity) * (.6f + .4f * random01()));
@@ -114,6 +133,7 @@ namespace windlab
             const float step = env / static_cast<float>(sampleRate * std::max(.005f, seconds));
             releaseStep = stage == Stage::Release ? std::max(releaseStep, step) : step;
             stage = Stage::Release;
+            releaseClock = -1.0; // a slur hand-over is never a fall or a doit
         }
 
         // Recorded takes carry their own attack noises; tell the engine so it does
@@ -131,6 +151,22 @@ namespace windlab
         void setBreathLength(float seconds) { breathLength = std::clamp(seconds, 2.0f, 30.0f); }
         void setVibrato(float value) { vibratoAmount = std::clamp(value, 0.0f, 1.0f); }
         void setHumanize(float value) { humanize = std::clamp(value, 0.0f, 1.0f); }
+        // Slur glide time in seconds (time constant of the pitch glide between notes).
+        void setGlideTime(float seconds)
+        {
+            const float next = std::clamp(seconds, .004f, .30f);
+            if (next != glideTime) { glideTime = next; updateGlide(); }
+        }
+        void setVibratoRate(float multiplier) { vibratoRateScale = std::clamp(multiplier, .5f, 1.8f); }
+        // 0 = fixed vibrato depth; 1 = the vibrato follows the breath (more air, wider vibrato).
+        void setVibratoFromBreath(float amount) { vibratoBreath = std::clamp(amount, 0.0f, 1.0f); }
+        void setGrowl(float amount) { growl = std::clamp(amount, 0.0f, 1.0f); }
+        void setFlutter(float amount) { flutter = std::clamp(amount, 0.0f, 1.0f); }
+        void setJazzEffect(JazzEffect effect) { jazzEffect = effect; }
+        // 0.9.9 unison players: a fixed tuning offset in semitones (a few cents).
+        void setDetune(double semitones) { detuneSemis = std::clamp(semitones, -1.0, 1.0); }
+        // 0.9.10 MPE: pitch-bend range in semitones (2 = classic MIDI, 48 = MPE default).
+        void setBendRange(double semitones) { bendRange = std::clamp(semitones, 1.0, 96.0); }
         void setModWheel(float value) { targetMod = std::clamp(value, 0.0f, 1.0f); }
         void setExpression(float value) { targetExpression = std::clamp(value, 0.0f, 1.0f); }
         void setPressure(float value) { pressure = std::clamp(value, 0.0f, 1.0f); }
@@ -160,6 +196,7 @@ namespace windlab
             }
             else if (stage == Stage::Release)
             {
+                releaseClock += invSampleRate;
                 env -= releaseStep;
                 if (env <= 0.0f) { stage = Stage::Idle; env = 0.0f; return 0.0f; }
             }
@@ -184,17 +221,45 @@ namespace windlab
             const double rateProgress = std::clamp((vibratoClock - vibratoDelay) / 1.1, 0.0, 1.0);
             const double drift = humanize * .025 * (std::sin(twoPi * driftPhase)
                                  + .35 * std::sin(twoPi * driftPhase * 1.73));
-            const double vibratoDepth = std::min(1.0f, vibratoAmount * .48f + currentMod);
+            const float breathDepth = (1.0f - vibratoBreath) + vibratoBreath * std::min(1.4f, 1.4f * currentBreath);
+            const double vibratoDepth = std::min(1.0f, (vibratoAmount * .48f + currentMod) * breathDepth);
             const double depthWander = 1.0 + .16 * std::sin(twoPi * driftPhase * .71);
             const double vibratoSemis = .24 * vibratoDepthScales[static_cast<std::size_t>(instrument)]
                                       * vibratoDepth * vibratoFade * depthWander * std::sin(twoPi * vibratoPhase);
             glideSemis *= glideDecay;
             if (std::abs(glideSemis) < 1.0e-4) glideSemis = 0.0;
-            const double f = frequency * std::exp2((2.0 * currentPitch + vibratoSemis + drift + glideSemis) / 12.0);
+            slurDip *= static_cast<float>(glideDecay);
+            // Jazz effects move the pitch: scoop rises into the note, fall / doit bend
+            // away while the note is released, shake is a fast lip trill.
+            effectClock += invSampleRate;
+            double effectOffset = 0.0;
+            switch (jazzEffect)
+            {
+                case JazzEffect::Scoop:
+                    effectSemis *= scoopDecay;
+                    effectOffset = effectSemis;
+                    break;
+                case JazzEffect::Fall:
+                case JazzEffect::Doit:
+                    if (stage == Stage::Release && releaseClock >= 0.0 && articulation != Articulation::Staccato)
+                    {
+                        const double t = std::min(1.0, releaseClock / .42);
+                        effectOffset = (jazzEffect == JazzEffect::Fall ? -7.0 : 5.0) * t * t;
+                    }
+                    break;
+                case JazzEffect::Shake:
+                {
+                    const double shakeIn = std::clamp((effectClock - .22) / .18, 0.0, 1.0);
+                    effectOffset = 1.55 * shakeIn * (1.0 + std::sin(twoPi * 6.8 * effectClock - 1.5707963));
+                    break;
+                }
+                case JazzEffect::None: break;
+            }
+            const double f = frequency * std::exp2((bendRange * currentPitch + vibratoSemis + drift + glideSemis + effectOffset + detuneSemis) / 12.0);
             latestFrequency = f;
             phase += f * invSampleRate;
             phase -= std::floor(phase);
-            vibratoPhase += vibratoRate * (.86 + .14 * rateProgress)
+            vibratoPhase += vibratoRate * vibratoRateScale * (.86 + .14 * rateProgress)
                           * (1.0 + .04 * humanize * std::sin(twoPi * driftPhase)) * invSampleRate;
             vibratoPhase -= std::floor(vibratoPhase);
             driftPhase += .63 * invSampleRate;
@@ -251,8 +316,24 @@ namespace windlab
                                      + .35 * std::sin(twoPi * driftPhase * 2.29)));
             clickEnv *= clickDecay;
             latestClick = clickEnv * hiss * 2.0f;
+            // Growl (singing/humming into the instrument) = fast irregular roughness;
+            // flutter tongue (rolled R) = deeper, slower tremolo with air bursts.
+            float colour = 1.0f;
+            float roughNoise = 0.0f;
+            if (growl > 0.0f || flutter > 0.0f)
+            {
+                colourPhase += (34.0 + 9.0 * std::sin(twoPi * driftPhase * 3.1)) * invSampleRate;
+                colourPhase -= std::floor(colourPhase);
+                flutterPhase += 21.0 * invSampleRate;
+                flutterPhase -= std::floor(flutterPhase);
+                const float growlWave = static_cast<float>(std::sin(twoPi * colourPhase)) * (.7f + .3f * rawNoise);
+                const float flutterWave = .5f + .5f * static_cast<float>(std::sin(twoPi * flutterPhase));
+                colour = (1.0f + .42f * growl * growlWave) * (1.0f - .62f * flutter * flutterWave);
+                roughNoise = hiss * (.10f * growl * std::abs(growlWave) + .16f * flutter * flutterWave);
+            }
             latestLevel = env * v * currentExpression * currentBreath
-                        * pressureGain * breathEnvelope * naturalMotion * .24f;
+                        * pressureGain * breathEnvelope * naturalMotion * colour * (1.0f - slurDip) * .24f;
+            latestClick += roughNoise * env * v * currentBreath * .5f;
             return lowpass * latestLevel;
         }
 
@@ -312,6 +393,17 @@ namespace windlab
             variationState = variationState * 1664525u + 1013904223u;
             return static_cast<float>((variationState >> 8) & 0xffffffu) / 16777216.0f;
         }
+        void updateGlide()
+        {
+            glideDecay = std::exp(-1.0 / (sampleRate * glideTime));
+            scoopDecay = std::exp(-1.0 / (sampleRate * .075));
+        }
+        // 0.9.7 expression state
+        float glideTime = .022f, vibratoRateScale = 1.0f, vibratoBreath = 0.0f, growl = 0.0f, flutter = 0.0f;
+        float slurDip = 0.0f;
+        JazzEffect jazzEffect { JazzEffect::None };
+        double effectSemis = 0.0, effectClock = 0.0, releaseClock = 0.0, scoopDecay = .999;
+        double colourPhase = 0.0, flutterPhase = 0.0, detuneSemis = 0.0, bendRange = 2.0;
         std::array<float, 12> spectralWeights{};
         float spectralNormalizer = 1.0f;
         double latestFrequency = 440.0;
