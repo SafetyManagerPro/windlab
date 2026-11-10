@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WindLab VERSION 0.9.15 LANGUAGES C CXX)
+project(WindLab VERSION 0.9.16 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -61,6 +61,7 @@ target_sources(WindLab PRIVATE
     Source/Dsp/RoomImpulse.h
     Source/Dsp/WindEngine.h
     Source/Dsp/AcousticExpression.h
+    Source/Dsp/InstrumentExpressionProfiles.h
     Source/Dsp/DynamicLayerMorph.h
     Source/Dsp/LegatoHandoff.h
     Source/Dsp/ToneEQ.h
@@ -125,6 +126,10 @@ target_link_libraries(WindLab PRIVATE
 # The JUCE-free DSP smoke test can also be built and run on Linux.
 include(CTest)
 if (BUILD_TESTING)
+    add_executable(windlab_instrument_expression_smoke tests/instrument-expression-smoke.cpp)
+    target_include_directories(windlab_instrument_expression_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    add_test(NAME windlab_instrument_expression_smoke COMMAND windlab_instrument_expression_smoke)
+
     add_executable(windlab_recorded_articulation_smoke tests/recorded-articulation-smoke.cpp)
     target_include_directories(windlab_recorded_articulation_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_recorded_articulation_smoke COMMAND windlab_recorded_articulation_smoke)

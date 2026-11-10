@@ -309,9 +309,12 @@ namespace
                          static_cast<windlab::Instrument>(instrumentIndex),
                          attack->load(), release->load(),
                          static_cast<windlab::Articulation>(articulationIndex), legatoFrom);
-            // Recorded attacks begin with the current breath and tone; keep per-voice filter state.
+            // Instrument-specific timbre from the genuine recording. A slur
+            // enters its sustain body and must not replay a tongue transient.
+            acousticExpression.setInstrument(instrumentIndex);
             acousticExpression.reset(c.breathEnabled ? c.breath : 1.0f,
-                                     juce::jlimit(0.0f, 1.0f, tone->load() + timbreOffset));
+                                     juce::jlimit(0.0f, 1.0f, tone->load() + timbreOffset),
+                                     legatoFrom > 0.0 && articulationIndex == 0);
             // A slurred note joins the sustained body of the recording instead of replaying its attack.
             entryRandom = entryRandom * 1664525u + 1013904223u;
             const auto noteFrequency = 440.0 * std::exp2((midiNoteNumber - 69.0) / 12.0);

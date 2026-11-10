@@ -1,4 +1,17 @@
-# WindLab 0.9.15 — Attacchi staccati e ripetizioni espressive
+# WindLab 0.9.16 — Espressività specifica dei nove fiati
+
+## Novità 0.9.16 — Vibrato, timbro e attacco differenziati
+
+- Il filtro acustico dei veri campioni ha **un profilo separato per ciascuno dei nove strumenti**: tromba, sax tenore, trombone, flauto, clarinetto, corno francese, sax soprano/contralto/baritono. L'apertura armonica al fiato (CC2), la risposta della Brightness e i limiti spettrali sono calibrati in modo diverso: legni tendenzialmente piu' morbidi, flauto piu' aperto e ottoni piu' brillanti durante il forte.
+- Gli attacchi di registrazioni non legate conservano per pochi millisecondi una frazione controllata del **vero transiente WAV**. Le note legate, che entrano nel corpo del campione, non ricevono falsi accenti.
+- Il **ritardo e lo sviluppo del vibrato** sono differenziati per famiglia di strumenti, oltre ai profili di frequenza e profondita' gia' presenti. Le variazioni di fiato, velocity, MPE e mod wheel esistenti rimangono controllabili.
+- I profili sono costanti C++17 e non creano allocazioni, lock, processi di lettura o analisi supplementari nell'audio callback. Il filtro ricalcola i coefficienti a inizio nota, non ad ogni sample.
+- Nessun nuovo ID parametro, nessun cambiamento alla struttura dei preset o ai file campionati. Sono preservati i formati VST3 / AU / Standalone su Windows e macOS.
+- Test DSP: caratterizzazione timbrica tra clarinetto e flauto, risposta piano/forte, attacco non legato rispetto a legato, limiti di tutti i profili e output finito del motore dei nove strumenti alle frequenze 44.1/48/96 kHz.
+
+**Limite:** i profili sono euristiche musicali da verificare all'ascolto; non sostituiscono la registrazione di veri intervalli legato o di altri livelli dinamici. Non e' richiesta alcuna firma o notarizzazione Apple. **GitHub Actions solo su `main`**, dopo il merge.
+
+## WindLab 0.9.15 — Attacchi staccati e ripetizioni espressive
 
 ## Novità 0.9.15 — Articolazioni acustiche più affidabili
 
