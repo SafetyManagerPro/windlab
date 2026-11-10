@@ -28,6 +28,10 @@ int main()
         assert(plan.start > loopEnd);
         assert(plan.end == count - 2);
         assert(plan.end - plan.start >= sr * .18);
+        // The recorded ending is stored as a compact independent AudioBuffer,
+        // so its playback positions must be rebased to the copied segment.
+        const RecordedReleasePlan compact {0, plan.end - plan.start, true};
+        assert(compact.start == 0 && compact.end > sr * .18);
 
         RecordedReleaseTransition fade;
         fade.prepare(sr);
@@ -35,9 +39,9 @@ int main()
         assert(fade.mix(.5f, -.2f, 1.0) == .5f);
         assert(!fade.begin({}, sr));
         assert(!fade.active());
-        assert(fade.begin(plan, sr));
+        assert(fade.begin(compact, sr));
         const double originalStart = fade.sourcePosition();
-        assert(!fade.begin(plan, sr));
+        assert(!fade.begin(compact, sr));
         assert(fade.sourcePosition() == originalStart); // idempotent
 
         float last = .5f;
@@ -128,5 +132,5 @@ int main()
     assert(justBefore > 0.0f && justAfter > 0.0f);
     assert(justAfter <= justBefore * 1.025f);
 
-    std::cout << "WindLab recorded acoustic release 0.9.17: PASS\\n";
+    std::cout << "WindLab recorded acoustic release 0.9.17: PASS\n";
 }
