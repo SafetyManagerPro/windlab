@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WindLab VERSION 0.9.12 LANGUAGES C CXX)
+project(WindLab VERSION 0.9.13 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -123,6 +123,10 @@ target_link_libraries(WindLab PRIVATE
 # The JUCE-free DSP smoke test can also be built and run on Linux.
 include(CTest)
 if (BUILD_TESTING)
+    add_executable(windlab_sample_loop_quality_smoke tests/sample-loop-quality-smoke.cpp)
+    target_include_directories(windlab_sample_loop_quality_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    add_test(NAME windlab_sample_loop_quality_smoke COMMAND windlab_sample_loop_quality_smoke)
+
     add_executable(windlab_smoke tests/smoke.cpp)
     target_include_directories(windlab_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_smoke COMMAND windlab_smoke)
