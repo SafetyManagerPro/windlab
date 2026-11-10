@@ -8,6 +8,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include "InstrumentExpressionProfiles.h"
 
 namespace windlab
 {
@@ -68,6 +69,7 @@ namespace windlab
             releaseTime = std::clamp(releaseSeconds, 0.02f, 5.0f);
             if (articulation == Articulation::Staccato) releaseTime = std::min(releaseTime, 0.075f);
             const auto index = static_cast<std::size_t>(instrument);
+            const auto& expressionProfile = instrumentExpressionProfile(static_cast<int>(instrument));
             legato = legatoFromFrequency > 0.0 && articulation == Articulation::Sustain;
             // Each note gets its own small "personality": vibrato speed, delay and
             // build-up, and how much the pitch scoops in. Deterministic per voice.
@@ -75,8 +77,8 @@ namespace windlab
                            + static_cast<std::uint32_t>(midiNote) * 2654435761u;
             const float r1 = random01(), r2 = random01(), r3 = random01();
             vibratoRate = vibratoRates[index] * (.92f + .16f * r1);
-            vibratoDelay = .14f + .22f * r2;
-            vibratoRamp = .55f + .50f * r3;
+            vibratoDelay = (.14f + .22f * r2) * expressionProfile.vibratoDelayScale;
+            vibratoRamp = (.55f + .50f * r3) * expressionProfile.vibratoRampScale;
             vibratoClock = legato ? 1.5 : 0.0; // a slur continues a vibrato already running
             if (legato)
             {
