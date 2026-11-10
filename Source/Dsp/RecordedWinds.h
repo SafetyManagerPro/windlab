@@ -5,6 +5,7 @@
 #include "SampleLoopPlan.h"
 #include "SamplePhaseAlignment.h"
 #include "RecordedArticulation.h"
+#include "RecordedRelease.h"
 #include <algorithm>
 #include <atomic>
 #include <array>
@@ -30,6 +31,8 @@ struct RecordedWind
     int tuneCents = 0;     // SFZ-style correction: positive raises the pitch when played at its key
     float gain = 1.0f;     // per-zone level normalisation
     int attackStart = 0;  // precomputed one-shot leading-silence trim
+    RecordedReleasePlan releaseTail; // offsets are relative to releaseWav
+    juce::AudioBuffer<float> releaseWav; // only the last <=260ms, if usable
     SamplePhaseAlignment companionAlignment; // computed once at bank load
 };
 
@@ -93,7 +96,21 @@ public:
                 entry.loopStart = plan.start;
                 entry.loopEnd = plan.end;
                 entry.fade = plan.fade;
-                // Audio after the loop end is never read: free it (long source takes).
+                // Keep an existing decaying source ending only when a conservative
+                // off-line RMS check confirms it; otherwise reclaim unused WAV memory.
+                const auto originalTail = detectRecordedRelease(entry.wav.getReadPointer(0),
+                                                                count, reader->sampleRate, plan.end);
+                if (originalTail.valid)
+                {
+                    // Copy only the last <=260ms: avoid retaining several
+                    // seconds of unused audio between the sustain loop and
+                    // the ending, especially for long 12-second source takes.
+                    const int length = count - originalTail.start;
+                    entry.releaseWav.setSize(1, length);
+                    entry.releaseWav.copyFrom(0, 0, entry.wav, 0,
+                                              originalTail.start, length);
+                    entry.releaseTail = {0, length - 2, true};
+                }
                 const int keep = std::min(count, plan.end + 4);
                 if (keep < count)
                     entry.wav.setSize(1, keep, true);
@@ -200,6 +217,7 @@ public:
                double advanceFrames = 0.0)
     {
         sample = newSample;
+        releaseTransition.prepare(hostRate);
         position = sample && sample->isOneShot ? static_cast<double>(sample->attackStart) : 0.0;
         rate = hostRate > 0 ? sampleRate() / hostRate : 1.0;
         sourceFrequency = 440.0 * std::exp2((sample ? sample->rootNote : 69) / 12.0 - 69.0 / 12.0)
@@ -215,6 +233,11 @@ public:
         (void) noteFrequency; // current pitch follows WindEngine every sample.
     }
     bool valid() const noexcept { return sample != nullptr; }
+    void beginRelease() noexcept
+    {
+        if (sample != nullptr && !sample->isOneShot)
+            releaseTransition.begin(sample->releaseTail, sample->sampleRate);
+    }
     float read(double currentFrequency)
     {
         if (!sample) return 0.0f;
@@ -239,6 +262,22 @@ public:
             const auto other = readAt(sample->loopStart + (position - fadeStart));
             output = first * (1.0f - alpha) + other * alpha;
         }
+        // On note-off, retain the current sustain for a short seamless
+        // handover to the *recorded* ending, if its taper was verified.
+        if (releaseTransition.active())
+        {
+            float tail = 0.0f;
+            if (!releaseTransition.finished() && sample->releaseWav.getNumSamples() >= 2)
+            {
+                const auto& t = sample->releaseWav;
+                const double p = releaseTransition.sourcePosition();
+                const int i = std::clamp(static_cast<int>(p), 0, t.getNumSamples() - 2);
+                const float fraction = static_cast<float>(p - i);
+                tail = t.getSample(0, i) * (1.0f - fraction)
+                     + t.getSample(0, i + 1) * fraction;
+            }
+            output = releaseTransition.mix(output, tail, speed);
+        }
         output *= sample->gain;
         position += speed;
         if (!sample->isOneShot && position >= sample->loopEnd)
@@ -249,6 +288,7 @@ public:
 private:
     double sampleRate() const { return sample ? sample->sampleRate : 44100.0; }
     const RecordedWind* sample = nullptr;
+    RecordedReleaseTransition releaseTransition;
     double position = 0.0, rate = 1.0, sourceFrequency = 440.0;
 };
 }

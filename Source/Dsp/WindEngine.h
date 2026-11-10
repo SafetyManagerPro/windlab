@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include "InstrumentExpressionProfiles.h"
+#include "PhraseBreathEnvelope.h"
 
 namespace windlab
 {
@@ -36,6 +37,7 @@ namespace windlab
         {
             stage = Stage::Idle;
             breathControlled = false;
+            naturalNoteRelease = false;
             env = 0.0f;
             phase = vibratoPhase = elapsed = 0.0;
             driftPhase = .13;
@@ -102,6 +104,7 @@ namespace windlab
             clickEnv = (recordedSource && !legato) ? 0.0f
                      : keyClickLevels[index] * (.4f + .6f * velocity) * (.6f + .4f * r2) * (legato ? .8f : 1.0f);
             stage = Stage::Attack;
+            naturalNoteRelease = false;
             env = 0.0f;
             phase = vibratoPhase = elapsed = 0.0;
             lowpass = noiseLowpass = 0.0f;
@@ -117,6 +120,7 @@ namespace windlab
             if (stage != Stage::Idle && stage != Stage::Release)
             {
                 stage = Stage::Release;
+                naturalNoteRelease = true;
                 float releaseSeconds = releaseTime;
                 if ((jazzEffect == JazzEffect::Fall || jazzEffect == JazzEffect::Doit)
                     && articulation != Articulation::Staccato)
@@ -136,6 +140,7 @@ namespace windlab
             const float step = env / static_cast<float>(sampleRate * std::max(.005f, seconds));
             releaseStep = stage == Stage::Release ? std::max(releaseStep, step) : step;
             stage = Stage::Release;
+            naturalNoteRelease = false; // a legato transfer never plays the end of a phrase
             releaseClock = -1.0; // a slur hand-over is never a fall or a doit
         }
 
@@ -180,6 +185,10 @@ namespace windlab
         }
         void setPitchWheel(int value) { pitchWheel = std::clamp(value, 0, 16383); }
         bool active() const { return stage != Stage::Idle; }
+        bool releasingPhraseNaturally() const noexcept
+        {
+            return stage == Stage::Release && naturalNoteRelease;
+        }
         float currentLevel() const noexcept { return latestLevel; }
         // Smoothed CC2 breath for the recorded-waveform timbre, independent of note-on velocity.
         float currentBreathIntensity() const noexcept { return currentBreath; }
@@ -195,6 +204,11 @@ namespace windlab
             constexpr double twoPi = 6.283185307179586476925286766559;
             const auto invSampleRate = 1.0 / sampleRate;
             elapsed += invSampleRate;
+            // Shape a finite-length phrase before note-off, and keep that
+            // reduced air level throughout Release rather than jumping louder.
+            const auto phraseShape = phraseBreathShape(
+                elapsed, breathLength, static_cast<int>(instrument),
+                articulation == Articulation::Staccato);
 
             if (stage == Stage::Attack)
             {
@@ -229,7 +243,8 @@ namespace windlab
             const double drift = humanize * .025 * (std::sin(twoPi * driftPhase)
                                  + .35 * std::sin(twoPi * driftPhase * 1.73));
             const float breathDepth = (1.0f - vibratoBreath) + vibratoBreath * std::min(1.4f, 1.4f * currentBreath);
-            const double vibratoDepth = std::min(1.0f, (vibratoAmount * .48f + currentMod) * breathDepth);
+            const double vibratoDepth = std::min(1.0f, (vibratoAmount * .48f + currentMod)
+                                                     * breathDepth * phraseShape.vibratoScale);
             const double depthWander = 1.0 + .16 * std::sin(twoPi * driftPhase * .71);
             const double vibratoSemis = .24 * vibratoDepthScales[static_cast<std::size_t>(instrument)]
                                       * vibratoDepth * vibratoFade * depthWander * std::sin(twoPi * vibratoPhase);
@@ -305,16 +320,8 @@ namespace windlab
             lowpass += filterWeight * (combined - lowpass);
             const float pressureGain = .92f + .08f * pressure;
             const float v = (.20f + .80f * velocity) * velocity;
-            // An approaching end of breath causes a gradual taper rather than
-            // chopping a sustained phrase. 30 s means no automatic taper.
-            float breathEnvelope = 1.0f;
-            if (breathLength < 29.99f && articulation != Articulation::Staccato
-                && stage != Stage::Release)
-            {
-                const double taper = std::min(1.8, static_cast<double>(breathLength) * .20);
-                breathEnvelope = static_cast<float>(1.0 - .48 *
-                    std::clamp((elapsed - (breathLength - taper)) / taper, 0.0, 1.0));
-            }
+            // The same gradual breath taper drives volume and vibrato; it is
+            // deliberately NOT reset when Stage becomes Release.
             // The pitch wobble of a vibrato comes with a smaller loudness wobble.
             const float vibratoLevel = 1.0f + .055f * static_cast<float>(vibratoDepth * vibratoFade
                                               * std::sin(twoPi * vibratoPhase + 1.1));
@@ -339,7 +346,7 @@ namespace windlab
                 roughNoise = hiss * (.10f * growl * std::abs(growlWave) + .16f * flutter * flutterWave);
             }
             latestLevel = env * v * currentExpression * currentBreath
-                        * pressureGain * breathEnvelope * naturalMotion * colour * (1.0f - slurDip) * .24f;
+                        * pressureGain * phraseShape.level * naturalMotion * colour * (1.0f - slurDip) * .24f;
             latestClick += roughNoise * env * v * currentBreath * .5f;
             return lowpass * latestLevel;
         }
@@ -391,6 +398,7 @@ namespace windlab
         double pitchAlpha = .002;
         // 0.9.4 slur / vibrato / noise state
         bool legato = false, recordedSource = false, breathControlled = false;
+        bool naturalNoteRelease = false;
         double glideSemis = 0.0, glideDecay = .999, vibratoClock = 0.0;
         float vibratoRate = 5.2f, vibratoDelay = .2f, vibratoRamp = .7f, onsetGain = 1.0f;
         float clickEnv = 0.0f, clickDecay = .99f, latestClick = 0.0f;

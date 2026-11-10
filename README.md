@@ -1,4 +1,18 @@
-# WindLab 0.9.16 — Espressività specifica dei nove fiati
+# WindLab 0.9.17 — Realismo avanzato: chiusura acustica delle frasi
+
+## Novita' 0.9.17 — Codine originali delle registrazioni e release consapevole
+
+- I campioni **Sustain/Swell** vengono controllati al caricamento: se il tratto finale originale contiene un decadimento RMS marcato, WindLab conserva fino a 260 ms della registrazione successiva al loop, anziche' scartarla automaticamente.
+- Al **note-off** o allo scadere della durata del fiato, il cursore passa dal sustain in loop al tratto finale registrato con una dissolvenza morbida di circa 23 ms. La fine della sorgente e' sfumata sugli ultimi 12 ms per evitare click.
+- Se la registrazione non offre una coda affidabile (o e' uno staccato one-shot), resta il **rilascio precedente**, senza inventare campioni o applicare correzioni rischiose. Le code originali sono conservate solo quando l'analisi le riconosce: lieve costo RAM addizionale limitato ai take idonei.
+- Un passaggio **legato** tra note non attiva la coda di fine frase: la voce precedente usa il rilascio rapido sincronizzato con il nuovo ingresso. Nessun cambio alle automazioni, ai parametri o ai salvataggi dei preset.
+- **Respirazione di fine frase:** sugli strumenti con durata del fiato limitata, volume e vibrato si riducono insieme con una curva morbida dipendente dalla famiglia strumentale. Il livello ridotto rimane stabile durante il note-off automatico, senza il rimbalzo di volume possibile con il precedente inviluppo. Con Breath Length a 30 s il comportamento preesistente resta invariato.
+- Analisi RMS eseguita solo all'apertura della banca; nel thread audio solo due letture di campioni gia' residenti e un crossfade a costo costante. Tutte le elaborazioni sono prive di allocazione/I/O/lock.
+- I test verificano segmenti che decadono, campioni senza release, silenzio, casi limite, note-off, auto-release del fiato, reset delle voci, legato, taper delle frasi e assenza di aumento improvviso al rilascio, a 44,1/48/96 kHz.
+
+**Limite musicale:** la coda esiste solo se presente nel take originale e identificabile; non e' una libreria dedicata di release ne' un vero legato intervallare registrato. Serve collaudo all'ascolto per ogni strumento. L'interfaccia e' gia' stata verificata dall'utente e non viene modificata. macOS e Windows rimangono gli unici target. Non si introduce firma o notarizzazione Apple. **GitHub Actions solo dopo il merge su `main`.**
+
+## WindLab 0.9.16 — Espressività specifica dei nove fiati
 
 ## Novità 0.9.16 — Vibrato, timbro e attacco differenziati
 
