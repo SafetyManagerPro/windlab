@@ -3,6 +3,7 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include "SampleLoopPlan.h"
+#include "SamplePhaseAlignment.h"
 #include <algorithm>
 #include <atomic>
 #include <array>
@@ -27,6 +28,7 @@ struct RecordedWind
     bool isOneShot = false;
     int tuneCents = 0;     // SFZ-style correction: positive raises the pitch when played at its key
     float gain = 1.0f;     // per-zone level normalisation
+    SamplePhaseAlignment companionAlignment; // computed once at bank load
 };
 
 class RecordedWinds
@@ -90,6 +92,18 @@ public:
                     entry.wav.setSize(1, keep, true);
             }
             bank.push_back(std::move(entry));
+        }
+        // Correlate real dynamic siblings during bank initialization, never
+        // during noteOn/render on the audio thread.
+        for (auto& primary : bank)
+        {
+            const auto* companion = selectCompanion(&primary);
+            if (companion == nullptr) continue;
+            const double nominalHz = 440.0 * std::exp2((primary.rootNote - 69.0) / 12.0);
+            primary.companionAlignment = estimateSamplePhaseAlignment(
+                primary.wav.getReadPointer(0), primary.wav.getNumSamples(), primary.sampleRate,
+                companion->wav.getReadPointer(0), companion->wav.getNumSamples(), companion->sampleRate,
+                nominalHz);
         }
 #endif
     }
@@ -159,7 +173,8 @@ public:
     // changing fingering would), so the recorded attack is not played again.
     // entryFraction (0..1) varies the entry point inside the first part of the loop.
     void start(const RecordedWind* newSample, double noteFrequency, double hostRate,
-               bool legatoEntry = false, float entryFraction = 0.0f)
+               bool legatoEntry = false, float entryFraction = 0.0f,
+               double advanceFrames = 0.0)
     {
         sample = newSample;
         position = 0.0;
@@ -171,6 +186,9 @@ public:
             const double body = std::max(0.0, sample->loopEnd - sample->fade - sample->loopStart);
             position = sample->loopStart + .3 * body * std::clamp(static_cast<double>(entryFraction), 0.0, 1.0);
         }
+        if (sample != nullptr && !sample->isOneShot && std::isfinite(advanceFrames))
+            position += std::clamp(advanceFrames, 0.0,
+                                   std::max(0.0, sample->loopEnd - position - 4.0));
         (void) noteFrequency; // current pitch follows WindEngine every sample.
     }
     bool valid() const noexcept { return sample != nullptr; }
