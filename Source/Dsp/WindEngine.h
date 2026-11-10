@@ -177,6 +177,8 @@ namespace windlab
         void setPitchWheel(int value) { pitchWheel = std::clamp(value, 0, 16383); }
         bool active() const { return stage != Stage::Idle; }
         float currentLevel() const noexcept { return latestLevel; }
+        // Smoothed CC2 breath for the recorded-waveform timbre, independent of note-on velocity.
+        float currentBreathIntensity() const noexcept { return currentBreath; }
         double currentFrequency() const noexcept { return latestFrequency; }
         // Key / fingering click, already scaled; add it to the final mix.
         float currentClick() const noexcept { return latestClick; }
