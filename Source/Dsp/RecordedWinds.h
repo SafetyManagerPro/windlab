@@ -4,6 +4,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include "SampleLoopPlan.h"
 #include "SamplePhaseAlignment.h"
+#include "RecordedArticulation.h"
 #include <algorithm>
 #include <atomic>
 #include <array>
@@ -28,6 +29,7 @@ struct RecordedWind
     bool isOneShot = false;
     int tuneCents = 0;     // SFZ-style correction: positive raises the pitch when played at its key
     float gain = 1.0f;     // per-zone level normalisation
+    int attackStart = 0;  // precomputed one-shot leading-silence trim
     SamplePhaseAlignment companionAlignment; // computed once at bank load
 };
 
@@ -76,6 +78,11 @@ public:
                     sum += tmp.getSample(ch, n);
                 entry.wav.setSample(0, n, sum / static_cast<float>(tmp.getNumChannels()));
             }
+            // Skip only demonstrably silent staccato pre-roll. Keep the real
+            // acoustic transient and original one-shot tail unchanged.
+            if (entry.isOneShot)
+                entry.attackStart = findStaccatoOnsetFrame(entry.wav.getReadPointer(0), count,
+                                                         reader->sampleRate);
             // Staccato uses the genuine played tail (never artificially loops).
             // Sustained recordings crossfade within their natural body.
             if (!entry.isOneShot)
@@ -114,23 +121,39 @@ public:
                                int articulation) const noexcept
     {
         const int requestedArticulation = articulation == 1 ? 1 : 0;
-        const unsigned variation = (roundRobinCounter.fetch_add(1, std::memory_order_relaxed) & 1u) + 1u;
         const int wantedLayer = velocity < .42f ? 1 : (velocity < .73f ? 2 : 3);
-        const RecordedWind* chosen = nullptr;
-        int best = 99999;
-        // Prefer actual staccato takes; if absent (tenor sax) reuse sustains.
+        // First choose the true nearest recorded pitch and dynamic layer.
+        // Round-robin only among interchangeable recordings of that EXACT
+        // pitch/layer/articulation: unrelated MIDI notes cannot advance it.
         for (const int passArticulation : {requestedArticulation, 0})
         {
+            const RecordedWind* chosen = nullptr;
+            int best = 99999;
             for (const auto& sample : bank)
             {
                 if (sample.instrument != instrument || sample.articulation != passArticulation)
                     continue;
                 const int score = std::abs(sample.rootNote - midiNote) * 128
-                                + std::abs(sample.velocityLayer - wantedLayer) * 8
-                                + (sample.roundRobin == static_cast<int>(variation) ? 0 : 2);
+                                + std::abs(sample.velocityLayer - wantedLayer) * 8;
                 if (score < best) { chosen = &sample; best = score; }
             }
-            if (chosen != nullptr) return chosen;
+            if (chosen == nullptr) continue;
+
+            unsigned takes = 0;
+            for (const auto& sample : bank)
+                if (sample.instrument == instrument && sample.articulation == passArticulation
+                    && sample.rootNote == chosen->rootNote
+                    && sample.velocityLayer == chosen->velocityLayer)
+                    ++takes;
+            unsigned index = roundRobin.takeIndex(instrument, midiNote, passArticulation, takes);
+            for (const auto& sample : bank)
+                if (sample.instrument == instrument && sample.articulation == passArticulation
+                    && sample.rootNote == chosen->rootNote
+                    && sample.velocityLayer == chosen->velocityLayer)
+                {
+                    if (index-- == 0u) return &sample;
+                }
+            return chosen; // defensive fallback: the immutable bank never changes
         }
         return nullptr;
     }
@@ -162,7 +185,7 @@ public:
 
 private:
     std::vector<RecordedWind> bank;
-    mutable std::atomic<unsigned> roundRobinCounter {0};
+    mutable RepeatedNoteCycle roundRobin;
 };
 
 // A per-MIDI-voice cursor. No memory allocations and no mutable shared buffers.
@@ -177,7 +200,7 @@ public:
                double advanceFrames = 0.0)
     {
         sample = newSample;
-        position = 0.0;
+        position = sample && sample->isOneShot ? static_cast<double>(sample->attackStart) : 0.0;
         rate = hostRate > 0 ? sampleRate() / hostRate : 1.0;
         sourceFrequency = 440.0 * std::exp2((sample ? sample->rootNote : 69) / 12.0 - 69.0 / 12.0)
                         * std::exp2(-(sample ? sample->tuneCents : 0) / 1200.0);
