@@ -8,6 +8,14 @@
 - DSP per voce, nessuna allocazione o I/O nella callback audio. Nuovo test sulle frequenze acute e gravi, cambi di fiato e sample rate 44,1/48/96 kHz.
 - **Limite esplicito:** è una modellazione timbrica del campione, non un crossfade tra vere registrazioni forti/piano o un legato registrato. Questi rimangono obiettivi del successivo upgrade acustico.
 
+### Fase 2 — Campioni dinamici reali sotto controllo del fiato
+
+- Per note Sustain o Swell, quando sono disponibili **due registrazioni genuine con identico strumento, nota campionata e articolazione**, WindLab le prepara entrambe, mantenendo la prima selezionata dalla velocity MIDI.
+- Dopo i primi 45 ms di attacco, un fiato esplicito (CC2, controller ibrido, microfono o sorgente configurata) muove una dissolvenza smussata di circa 75 ms tra la registrazione morbida e quella forte, senza ricaricare i campioni o cambiare la frequenza della nota. Se il fiato non e' attivo, resta il vecchio livello scelto dalla velocity MIDI.
+- Se esiste un solo livello autentico per la nota, oppure la nota usa uno staccato one-shot, non si inventa un secondo livello: la riproduzione originale resta invariata.
+- Non sono stati introdotti nuovi parametri pubblici, cambi di salvataggio o dipendenze; test DSP separati controllano pesi, range, limiti e cambi rapidi ai sample rate 44.1/48/96 kHz.
+- **Limite da verificare con ascolto:** registrazioni separate possono avere differenze di fase e timbro nei punti intermedi. La dissolvenza riduce il rischio di click, ma non equivale a phase alignment, legato autentico o vero morphing spettrale. Il collaudo su sax, tromba e controller e' necessario prima del merge.
+
 ## WindLab 0.9.10 — Strumento a video, espressione, sezioni, MPE e sale registrate
 
 Plugin AU / VST3 / Standalone di strumenti a fiato (9 strumenti, campioni reali + motore espressivo).
