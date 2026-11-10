@@ -98,7 +98,7 @@ inline SampleLoopPlan chooseSampleLoop(const float* audio, int count, double sam
         const float distancePenalty = .018f * static_cast<float>(std::abs(candidate - approximateEnd))
                                      / static_cast<float>(radius);
         const float score = mismatch + distancePenalty;
-        if (score + .025f < bestScore)
+        if (score + .007f < bestScore)
         {
             bestScore = score;
             bestEnd = candidate;
