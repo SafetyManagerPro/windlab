@@ -84,5 +84,11 @@ for token in ("STRUMENTO A VIDEO", "RILASCIA CHIAVI", "ARMONICO", "coulisse"):
     assert token in panel, f"In-app guide misses {token}"
     assert token in manual, f"User manual misses {token}"
 assert "virtualInstrumentButton" in main and "virtualInstrument" in header
+# 0.9.7 expression, presets, universal MIDI Learn, DAW sync and drag.
+for token in ("LEGATO TIME", "GROWL", "FLUTTER", "SCOOP", "FALL", "DOIT", "SHAKE", "PRESET",
+              "SEGUI PLAY DAW", "TRASCINA IN DAW", "Impara"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
+assert "expressionButton" in main and "expression" in header
 
-print("PASS: 13 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")
+print("PASS: 14 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")

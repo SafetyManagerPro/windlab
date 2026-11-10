@@ -156,6 +156,9 @@ public:
     void setTempo(int v) noexcept { tempo.store(std::clamp(v, 45, 220), std::memory_order_release); }
     int getTempo() const noexcept { return tempo.load(std::memory_order_acquire); }
     void setFollowHostTempo(bool enabled) noexcept { followHostTempo.store(enabled, std::memory_order_release); }
+    // 0.9.7: start/stop with the DAW and lock the two-bar loop to the song position.
+    void setFollowHostTransport(bool enabled) noexcept { followHostTransport.store(enabled, std::memory_order_release); }
+    bool followsHostTransport() const noexcept { return followHostTransport.load(std::memory_order_acquire); }
     bool followsHostTempo() const noexcept { return followHostTempo.load(std::memory_order_acquire); }
     // Audio callback may read host BPM without changing the editor's internal tempo.
     // This follows the DAW's tempo, not the DAW playhead/song position.
@@ -172,7 +175,7 @@ public:
     int visualStep() const noexcept { return displayedStep.load(std::memory_order_relaxed); }
 
     template <class Emit>
-    void process(int blockSamples, double sampleRate, Emit&& emit) noexcept
+    void process(int blockSamples, double sampleRate, Emit&& emit, double hostQuarterNotes = -1.0) noexcept
     {
         if (blockSamples <= 0 || sampleRate <= 1.0) return;
         const bool on = isPlaying();
@@ -193,6 +196,24 @@ public:
         const double stepSamples = sampleRate * 30.0 / static_cast<double>(effectiveTempo())
                                  * static_cast<double>(ticksPerStep()) / 240.0;
         const double controlInterval = std::max(32.0, sampleRate / 55.0);
+        if (hostQuarterNotes >= 0.0 && std::isfinite(hostQuarterNotes))
+        {
+            // Two 4/4 bars = 8 quarter notes. Re-align only when the DAW jumped or
+            // drifted by more than a quarter of a step, so normal playback is untouched.
+            const double loopTicks = std::fmod(hostQuarterNotes, 8.0) * 480.0;
+            const int targetStep = std::clamp(static_cast<int>(loopTicks / ticksPerStep()), 0, count - 1);
+            const double targetPhase = (loopTicks - targetStep * ticksPerStep()) / ticksPerStep() * stepSamples;
+            const double expected = currentStep * stepSamples + phase;
+            const double wanted = targetStep * stepSamples + targetPhase;
+            if (std::abs(expected - wanted) > stepSamples * .25)
+            {
+                stopSounding(0, emit);
+                currentStep = targetStep;
+                phase = targetPhase;
+                nextStepPending = targetPhase < stepSamples * .08;
+                controllerCountdown = 0.0;
+            }
+        }
         for (int i = 0; i < blockSamples; ++i)
         {
             for (auto& v : voices)
@@ -284,7 +305,7 @@ private:
     std::array<std::atomic<std::uint64_t>, maxSteps * chordSlots> notes {};
     std::atomic<bool> playing {false};
     std::atomic<int> tempo {110}, hostTempo {110}, displayedStep {0}, grid {0};
-    std::atomic<bool> followHostTempo {false};
+    std::atomic<bool> followHostTempo {false}, followHostTransport {false};
     std::atomic<unsigned> revision {0};
     // Below: audio-thread only.
     std::array<Voice, 16> voices {};

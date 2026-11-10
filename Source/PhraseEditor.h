@@ -32,7 +32,31 @@ private:
     juce::Label recordingStatus;
     juce::Slider tempoSlider;
     juce::ComboBox laneBox, gridBox;
-    juce::TextButton exportButton {"EXPORT MIDI"};
+    juce::TextButton exportButton {"EXPORT MIDI"}, syncButton {"SEGUI PLAY DAW: OFF"};
+    // 0.9.7: drag this button onto a DAW track to drop the phrase as a MIDI clip.
+    class DragMidiButton final : public juce::TextButton
+    {
+    public:
+        DragMidiButton() : juce::TextButton("TRASCINA IN DAW") {}
+        std::function<juce::File()> makeFile;
+        void mouseDrag(const juce::MouseEvent& e) override
+        {
+            if (dragging || e.getDistanceFromDragStart() < 6 || !makeFile) return;
+            dragging = true;
+            const auto file = makeFile();
+            if (file.existsAsFile())
+                juce::DragAndDropContainer::performExternalDragDropOfFiles({file.getFullPathName()}, false, this);
+        }
+        void mouseUp(const juce::MouseEvent& e) override
+        {
+            dragging = false;
+            juce::TextButton::mouseUp(e);
+        }
+    private:
+        bool dragging = false;
+    };
+    DragMidiButton dragButton;
+    juce::File writePhraseToTempFile() const;
     std::unique_ptr<juce::FileChooser> exportChooser;
     juce::Label tempoLabel;
     int selectedStep = 0, firstDragStep = 0, dragSlot = 0;

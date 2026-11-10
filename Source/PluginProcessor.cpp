@@ -36,7 +36,8 @@ namespace
             : ccAssignments(learned), articulation(articulationParameter),
               breathThreshold(params.getRawParameterValue("breathThreshold")),
               breathCurve(params.getRawParameterValue("breathCurve")),
-              breathSource(params.getRawParameterValue("breathSource")) {}
+              breathSource(params.getRawParameterValue("breathSource")),
+              legatoMode(params.getRawParameterValue("legatoMode")) {}
         // Frequency of the note being slurred from, or 0 when the new note starts fresh.
         double currentlyStartingLegatoFrom() const noexcept { return legatoFrom; }
         ChannelControls currentlyStartingControls() const noexcept
@@ -60,7 +61,10 @@ namespace
             const bool sustainArticulation = articulation == nullptr || articulation->load() < .5f;
             const double elapsedSeconds = static_cast<double>(renderedSamples - lastNoteOnSample[channelIndex])
                                         / std::max(1.0, getSampleRate());
-            if (sustainArticulation && heldKeys[channelIndex] == 1 && elapsedSeconds > .06
+            // 0.9.7 legato mode: 0 auto, 1 always (also fast overlaps), 2 never (chords).
+            const int mode = legatoMode != nullptr ? static_cast<int>(legatoMode->load()) : 0;
+            const bool slurAllowed = mode == 1 ? true : (mode == 2 ? false : elapsedSeconds > .06);
+            if (sustainArticulation && slurAllowed && heldKeys[channelIndex] == 1
                 && std::abs(midiNoteNumber - lastNote[channelIndex]) <= 12
                 && midiNoteNumber != lastNote[channelIndex])
             {
@@ -149,6 +153,7 @@ namespace
         std::atomic<float>* breathThreshold;
         std::atomic<float>* breathCurve;
         std::atomic<float>* breathSource;
+        std::atomic<float>* legatoMode;
         std::array<ChannelControls, 16> channels{};
         std::array<int, 16> heldKeys{};
         std::array<int, 16> lastNote{};
@@ -181,7 +186,13 @@ namespace
               air(params.getRawParameterValue("air")),
               breathLength(params.getRawParameterValue("breathLength")),
               vibrato(params.getRawParameterValue("vibrato")),
-              humanize(params.getRawParameterValue("humanize")) {}
+              humanize(params.getRawParameterValue("humanize")),
+              legatoTime(params.getRawParameterValue("legatoTime")),
+              vibratoRate(params.getRawParameterValue("vibratoRate")),
+              vibratoBreath(params.getRawParameterValue("vibratoBreath")),
+              growl(params.getRawParameterValue("growl")),
+              flutter(params.getRawParameterValue("flutter")),
+              jazzEffect(params.getRawParameterValue("jazzEffect")) {}
 
         bool canPlaySound(juce::SynthesiserSound* sound) override
         {
@@ -202,6 +213,8 @@ namespace
             engine.setBreathLength(breathLength->load());
             engine.setVibrato(vibrato->load());
             engine.setHumanize(humanize->load());
+            applyExpression();
+            engine.setJazzEffect(static_cast<windlab::JazzEffect>(juce::jlimit(0, 4, static_cast<int>(jazzEffect->load()))));
             const auto legatoFrom = controllerSource.currentlyStartingLegatoFrom();
             const auto curvedVelocity = windlab::applyVelocityResponse(
                 velocity, juce::jlimit(0, 3, static_cast<int>(velocityResponse->load())));
@@ -269,6 +282,7 @@ namespace
             engine.setBreathLength(breathLength->load());
             engine.setVibrato(vibrato->load());
             engine.setHumanize(humanize->load());
+            applyExpression();
             for (int i = 0; i < numSamples; ++i)
             {
                 if (!engine.active()) { clearCurrentNote(); break; }
@@ -287,6 +301,14 @@ namespace
                     output.addSample(channel, startSample + i, sample);
             }
         }
+        void applyExpression()
+        {
+            engine.setGlideTime(legatoTime->load());
+            engine.setVibratoRate(vibratoRate->load());
+            engine.setVibratoFromBreath(vibratoBreath->load());
+            engine.setGrowl(growl->load());
+            engine.setFlutter(flutter->load());
+        }
         windlab::WindEngine engine;
         PerformanceSynthesiser& controllerSource;
         const windlab::RecordedWinds& sampleSource;
@@ -304,6 +326,12 @@ namespace
         std::atomic<float>* breathLength;
         std::atomic<float>* vibrato;
         std::atomic<float>* humanize;
+        std::atomic<float>* legatoTime;
+        std::atomic<float>* vibratoRate;
+        std::atomic<float>* vibratoBreath;
+        std::atomic<float>* growl;
+        std::atomic<float>* flutter;
+        std::atomic<float>* jazzEffect;
     };
 }
 
@@ -378,6 +406,25 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"breathSource", 1}, "Breath Source",
         juce::StringArray {"MIDI CC (MIDI Learn)", "Aftertouch / Channel Pressure"}, 0));
+    // 0.9.7 expression (appended: existing automation indices stay the same).
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"legatoMode", 1}, "Legato Mode",
+        juce::StringArray {"Auto (legato + chords)", "Always legato (mono)", "Never legato (poly)"}, 0));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"legatoTime", 1}, "Legato Time",
+        juce::NormalisableRange<float>(.004f, .30f, .001f, .5f), .022f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"vibratoRate", 1}, "Vibrato Rate",
+        juce::NormalisableRange<float>(.5f, 1.8f, .01f), 1.0f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"vibratoBreath", 1}, "Vibrato From Breath",
+        juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"growl", 1}, "Growl",
+        juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"flutter", 1}, "Flutter Tongue",
+        juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"jazzEffect", 1}, "Jazz Effect",
+        juce::StringArray {"None", "Scoop", "Fall", "Doit", "Shake"}, 0));
+    layout.add(std::make_unique<Float>(juce::ParameterID {"pan", 1}, "Pan",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, .01f), 0.0f));
     return layout;
 }
 
@@ -392,6 +439,129 @@ WindLabAudioProcessor::WindLabAudioProcessor()
         synthesiser->addVoice(new WindVoice(parameters, synth, sampleBank));
     synthesiser->addSound(new WindSound());
     synthesiser->setMinimumRenderingSubdivisionSize(1, false);
+    learnableCount = getParameters().size();
+    pendingCCValues = std::make_unique<std::atomic<float>[]>(static_cast<std::size_t>(learnableCount));
+    for (int i = 0; i < learnableCount; ++i) pendingCCValues[static_cast<std::size_t>(i)].store(-1.0f);
+    startTimerHz(30); // applies learned CC moves to parameters on the message thread
+}
+
+int WindLabAudioProcessor::parameterIndexFor(const juce::String& parameterID) const
+{
+    const auto& all = getParameters();
+    for (int i = 0; i < all.size(); ++i)
+        if (auto* withID = dynamic_cast<juce::AudioProcessorParameterWithID*>(all[i]))
+            if (withID->paramID == parameterID) return i;
+    return -1;
+}
+
+juce::String WindLabAudioProcessor::parameterIDAt(int index) const
+{
+    const auto& all = getParameters();
+    if (index >= 0 && index < all.size())
+        if (auto* withID = dynamic_cast<juce::AudioProcessorParameterWithID*>(all[index]))
+            return withID->paramID;
+    return {};
+}
+
+void WindLabAudioProcessor::timerCallback()
+{
+    const auto& all = getParameters();
+    for (int i = 0; i < learnableCount && i < all.size(); ++i)
+    {
+        const float value = pendingCCValues[static_cast<std::size_t>(i)].exchange(-1.0f);
+        if (value >= 0.0f) all[i]->setValueNotifyingHost(value);
+    }
+}
+
+bool WindLabAudioProcessor::presetSkips(const juce::String& id)
+{
+    static const juce::StringArray routing {"inputMode", "performanceMode", "noteMidiChannel", "breathMidiChannel",
+                                            "breathThreshold", "breathCurve", "breathSource", "velocityResponse"};
+    return routing.contains(id);
+}
+
+void WindLabAudioProcessor::setParameterPlain(const juce::String& id, float plainValue)
+{
+    if (auto* p = dynamic_cast<juce::RangedAudioParameter*>(parameters.getParameter(id)))
+        p->setValueNotifyingHost(p->convertTo0to1(plainValue));
+}
+
+namespace
+{
+    struct FactoryPreset { const char* name; std::vector<std::pair<const char*, float>> values; };
+    const std::vector<FactoryPreset>& factoryPresets()
+    {
+        // instrument: 0 trumpet, 1 tenor, 2 trombone, 3 flute, 4 clarinet, 5 horn, 6 soprano, 7 alto, 8 baritone
+        // jazzEffect: 0 none, 1 scoop, 2 fall, 3 doit, 4 shake. legatoMode: 0 auto, 1 always, 2 never.
+        static const std::vector<FactoryPreset> list {
+            {"Sax contralto - ballata", {{"instrument", 7}, {"vibrato", .42f}, {"humanize", .5f}, {"tone", .45f}, {"air", .38f},
+                                         {"reverb", .30f}, {"reverbSize", .62f}, {"legatoTime", .045f}, {"vibratoBreath", .6f}}},
+            {"Sax tenore - jazz con growl", {{"instrument", 1}, {"tone", .68f}, {"air", .32f}, {"vibrato", .25f}, {"growl", .38f},
+                                             {"jazzEffect", 1}, {"reverb", .18f}, {"legatoTime", .03f}}},
+            {"Sax soprano - lirico", {{"instrument", 6}, {"vibrato", .5f}, {"vibratoBreath", .5f}, {"reverb", .30f}, {"tone", .5f}}},
+            {"Sax baritono - funky", {{"instrument", 8}, {"tone", .7f}, {"growl", .2f}, {"attack", .01f}, {"reverb", .12f}}},
+            {"Tromba - big band", {{"instrument", 0}, {"tone", .78f}, {"air", .18f}, {"vibrato", .18f}, {"reverb", .20f}, {"attack", .02f}}},
+            {"Tromba - fall finali", {{"instrument", 0}, {"tone", .70f}, {"jazzEffect", 2}, {"reverb", .18f}}},
+            {"Tromba - shake", {{"instrument", 0}, {"tone", .74f}, {"jazzEffect", 4}, {"reverb", .18f}}},
+            {"Flauto - morbido", {{"instrument", 3}, {"air", .52f}, {"vibrato", .5f}, {"vibratoBreath", .7f}, {"tone", .4f},
+                                  {"reverb", .35f}, {"reverbSize", .70f}}},
+            {"Flauto - flutter tongue", {{"instrument", 3}, {"flutter", .55f}, {"air", .45f}, {"reverb", .28f}}},
+            {"Clarinetto - classico", {{"instrument", 4}, {"vibrato", .04f}, {"humanize", .30f}, {"tone", .50f}, {"reverb", .32f},
+                                       {"legatoTime", .02f}}},
+            {"Trombone - glissato", {{"instrument", 2}, {"legatoTime", .16f}, {"legatoMode", 1}, {"tone", .55f}, {"reverb", .22f}}},
+            {"Corno - orchestrale", {{"instrument", 5}, {"tone", .38f}, {"reverb", .45f}, {"reverbSize", .78f}, {"attack", .07f},
+                                     {"vibrato", .05f}}},
+        };
+        return list;
+    }
+}
+
+juce::StringArray WindLabAudioProcessor::factoryPresetNames()
+{
+    juce::StringArray names;
+    for (const auto& preset : factoryPresets()) names.add(preset.name);
+    return names;
+}
+
+void WindLabAudioProcessor::applyFactoryPreset(int index)
+{
+    const auto& list = factoryPresets();
+    if (index < 0 || index >= static_cast<int>(list.size())) return;
+    // Start from the default sound, then apply the preset's own values.
+    for (auto* parameter : getParameters())
+        if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(parameter))
+            if (!presetSkips(ranged->paramID))
+                ranged->setValueNotifyingHost(ranged->getDefaultValue());
+    for (const auto& [id, value] : list[static_cast<std::size_t>(index)].values)
+        setParameterPlain(id, value);
+}
+
+juce::File WindLabAudioProcessor::userPresetFolder()
+{
+    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+        .getChildFile("WindLab").getChildFile("Presets");
+}
+
+bool WindLabAudioProcessor::saveUserPreset(const juce::File& file) const
+{
+    juce::XmlElement xml("WindLabPresetV1");
+    for (auto* parameter : getParameters())
+        if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(parameter))
+            if (!presetSkips(ranged->paramID))
+                xml.setAttribute(ranged->paramID, ranged->convertFrom0to1(ranged->getValue()));
+    file.getParentDirectory().createDirectory();
+    return xml.writeTo(file);
+}
+
+bool WindLabAudioProcessor::loadUserPreset(const juce::File& file)
+{
+    const auto xml = juce::XmlDocument::parse(file);
+    if (xml == nullptr || !xml->hasTagName("WindLabPresetV1")) return false;
+    for (auto* parameter : getParameters())
+        if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(parameter))
+            if (!presetSkips(ranged->paramID) && xml->hasAttribute(ranged->paramID))
+                setParameterPlain(ranged->paramID, static_cast<float>(xml->getDoubleAttribute(ranged->paramID)));
+    return true;
 }
 
 void WindLabAudioProcessor::prepareToPlay(double sampleRate, int)
@@ -413,6 +583,7 @@ void WindLabAudioProcessor::prepareToPlay(double sampleRate, int)
     reverbDamping.setCurrentAndTargetValue(parameters.getRawParameterValue("reverbDamp")->load());
     outputGain.reset(sampleRate, .02);
     roomAmount.reset(sampleRate, .03);
+    panPosition.reset(sampleRate, .03);
     outputGain.setCurrentAndTargetValue(parameters.getRawParameterValue("gain")->load());
     roomAmount.setCurrentAndTargetValue(parameters.getRawParameterValue("space")->load());
     earlyReflectionL.assign(static_cast<std::size_t>(std::max(1.0, sampleRate * .047)), 0.0f);
@@ -436,15 +607,28 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     juce::ScopedNoDenormals noDenormals;
     buffer.clear();
 
-    if (phrase.followsHostTempo())
-    {
-        // Tempo is independent of transport start/stop in v0.8.
-        // If a standalone player has no host, the last known (or 110) BPM is used.
-        if (auto* host = getPlayHead())
-            if (const auto position = host->getPosition())
-                if (const auto bpm = position->getBpm())
-                    phrase.setHostTempo(*bpm);
-    }
+    double hostQuarterNotes = -1.0;
+    if (auto* host = getPlayHead())
+        if (const auto position = host->getPosition())
+        {
+            // If a standalone player has no host, the last known (or 110) BPM is used.
+            if (const auto bpm = position->getBpm())
+                phrase.setHostTempo(*bpm);
+            if (phrase.followsHostTransport())
+            {
+                // 0.9.7: the phrase starts and stops with the DAW and follows its song position.
+                const bool hostPlaying = position->getIsPlaying();
+                if (hostPlaying != lastHostPlaying)
+                {
+                    phrase.setPlaying(hostPlaying);
+                    lastHostPlaying = hostPlaying;
+                }
+                if (hostPlaying)
+                    if (const auto ppq = position->getPpqPosition())
+                        hostQuarterNotes = juce::jmax(0.0, *ppq);
+            }
+        }
+    if (!phrase.followsHostTransport()) lastHostPlaying = false;
 
     // Capture external MIDI and virtual PC/piano notes BEFORE the internal
     // Phrase Editor injects its channel-16 playback. The recording is strictly
@@ -461,8 +645,16 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         if (message.isNoteOnOrOff())
             midiInputMonitor.note(message.getChannel(), message.getNoteNumber(), message.isNoteOn());
         else if (message.isController())
+        {
             midiInputMonitor.controller(message.getChannel(),
                                         message.getControllerNumber(), message.getControllerValue());
+            if (message.getChannel() < 16)
+            {
+                const int target = parameterCC.handleController(message.getControllerNumber());
+                if (target >= 0 && target < learnableCount)
+                    pendingCCValues[static_cast<std::size_t>(target)].store(message.getControllerValue() / 127.0f);
+            }
+        }
         else if (message.isChannelPressure())
             midiInputMonitor.pressure(message.getChannel(), message.getChannelPressureValue());
     }
@@ -566,10 +758,11 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                         windlab::PhraseEngine::midiChannel, value), offset);
                     break;
             }
-        });
+        }, hostQuarterNotes);
     synthesiser->renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
     outputGain.setTargetValue(parameters.getRawParameterValue("gain")->load());
     roomAmount.setTargetValue(parameters.getRawParameterValue("space")->load());
+    panPosition.setTargetValue(parameters.getRawParameterValue("pan")->load());
     eq.setGains(parameters.getRawParameterValue("bass")->load(),
                 parameters.getRawParameterValue("mid")->load(),
                 parameters.getRawParameterValue("treble")->load());
@@ -581,8 +774,9 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
         // Equalize the dry voice before sending it into the ambient processors.
-        left[i] = eq.process(0, left[i]);
-        right[i] = eq.process(1, right[i]);
+        const float panValue = panPosition.getNextValue();
+        left[i] = eq.process(0, left[i]) * juce::jmin(1.0f, 1.0f - panValue);
+        right[i] = eq.process(1, right[i]) * juce::jmin(1.0f, 1.0f + panValue);
         const float dry = .5f * (left[i] + right[i]);
         const float echoL = earlyReflectionL[reflectionPositionL];
         const float echoR = earlyReflectionR[reflectionPositionR];
@@ -634,6 +828,7 @@ void WindLabAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
         auto* phraseXml = xml->createNewChildElement("WindLabPhraseV1");
         phraseXml->setAttribute("tempo", phrase.getTempo());
         phraseXml->setAttribute("followHostTempo", phrase.followsHostTempo() ? 1 : 0);
+        phraseXml->setAttribute("followHostTransport", phrase.followsHostTransport() ? 1 : 0);
         // V2 keeps the old s0..s15 attributes (slot 0 of every step) so older builds
         // still load the primary melody; chords and grid are added alongside.
         phraseXml->setAttribute("grid", static_cast<int>(phrase.getGrid()));
@@ -650,6 +845,10 @@ void WindLabAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
         // while MIDI Learn starts with standard CC1/CC2/CC11 defaults.
         auto* learnXml = xml->createNewChildElement("WindLabMidiLearnV1");
         learnXml->setAttribute("ccMap", static_cast<int>(midiLearn.snapshot()));
+        // Universal MIDI Learn: stored by parameter ID, robust to future parameters.
+        auto* ccXml = xml->createNewChildElement("WindLabCCMapV1");
+        for (const auto& [cc, index] : parameterCC.assignments())
+            ccXml->setAttribute("cc" + juce::String(cc), parameterIDAt(index));
         copyXmlToBinary(*xml, destData);
     }
 }
@@ -663,10 +862,23 @@ void WindLabAudioProcessor::setStateInformation(const void* data, int sizeInByte
         phrase.clear();
         phrase.setFollowHostTempo(false); // old sessions keep their v0.7 tempo
         midiLearn.reset(); // old sessions preserve default CC assignments
+        parameterCC.clearAll();
+        if (auto* ccXml = xml->getChildByName("WindLabCCMapV1"))
+        {
+            for (int i = 0; i < ccXml->getNumAttributes(); ++i)
+            {
+                const auto name = ccXml->getAttributeName(i);
+                const int index = parameterIndexFor(ccXml->getAttributeValue(i));
+                if (name.startsWith("cc") && index >= 0)
+                    parameterCC.assign(name.substring(2).getIntValue(), index);
+            }
+            xml->removeChildElement(ccXml, true);
+        }
         if (auto* phraseXml = xml->getChildByName("WindLabPhraseV1"))
         {
             phrase.setTempo(phraseXml->getIntAttribute("tempo", 110));
             phrase.setFollowHostTempo(phraseXml->getBoolAttribute("followHostTempo", false));
+            phrase.setFollowHostTransport(phraseXml->getBoolAttribute("followHostTransport", false));
             // Projects saved before V2 have no grid attribute: they load as eighths.
             const int gridValue = phraseXml->getIntAttribute("grid", 0);
             phrase.setGrid(static_cast<windlab::PhraseGrid>(std::clamp(gridValue, 0, 3)));

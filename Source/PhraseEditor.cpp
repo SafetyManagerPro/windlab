@@ -111,6 +111,22 @@ WindLabPhraseEditor::WindLabPhraseEditor(windlab::PhraseEngine& engine,
     exportButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     exportButton.onClick = [this] { exportMidi(); };
     addAndMakeVisible(exportButton);
+    syncButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff294c59));
+    syncButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    syncButton.setTooltip("La frase parte e si ferma con il play della DAW e segue la sua posizione");
+    syncButton.onClick = [this] {
+        const bool on = !phrase.followsHostTransport();
+        phrase.setFollowHostTransport(on);
+        if (on) phrase.setFollowHostTempo(true); // a locked loop must also use the DAW tempo
+        else phrase.setPlaying(false);
+        updateButtons();
+    };
+    addAndMakeVisible(syncButton);
+    dragButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff8a5a2e));
+    dragButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    dragButton.setTooltip("Trascina questo pulsante su una traccia della DAW per inserire la frase come clip MIDI");
+    dragButton.makeFile = [this] { return writePhraseToTempFile(); };
+    addAndMakeVisible(dragButton);
 
     tempoLabel.setText("PHRASE BPM", juce::dontSendNotification);
     tempoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffb9ced3));
@@ -170,7 +186,9 @@ void WindLabPhraseEditor::resized()
     scoreButton.setBounds(911, 80, 140, 38);
     laneBox.setBounds(75, 543, 287, 34);
     gridBox.setBounds(75, 790, 240, 32);
-    exportButton.setBounds(330, 790, 200, 32);
+    exportButton.setBounds(330, 790, 170, 32);
+    syncButton.setBounds(512, 790, 220, 32);
+    dragButton.setBounds(744, 790, 200, 32);
 }
 
 void WindLabPhraseEditor::updateButtons()
@@ -178,6 +196,9 @@ void WindLabPhraseEditor::updateButtons()
     playButton.setButtonText(phrase.isPlaying() ? "STOP" : "PLAY");
     legatoButton.setButtonText(phrase.note(selectedStep).legato
                              ? "LEGATO: ON" : "LEGATO: OFF");
+    syncButton.setButtonText(phrase.followsHostTransport() ? "SEGUI PLAY DAW: ON" : "SEGUI PLAY DAW: OFF");
+    syncButton.setColour(juce::TextButton::buttonColourId,
+                         phrase.followsHostTransport() ? juce::Colour(0xff416a64) : juce::Colour(0xff294c59));
     hostButton.setButtonText(phrase.followsHostTempo()
         ? "HOST " + juce::String(phrase.effectiveTempo()) + " BPM" : "HOST BPM: OFF");
     scoreButton.setButtonText(scoreView ? "PIANO ROLL" : "SCORE VIEW");
@@ -188,7 +209,7 @@ void WindLabPhraseEditor::updateButtons()
     importButton.setEnabled(recordState == windlab::PhraseRecorder::Ready);
     const juce::String recordText =
         recordState == windlab::PhraseRecorder::Recording
-        ? ("REC " + juce::String(capture.progress()) + "/16")
+        ? ("REC " + juce::String(capture.progress()) + "/" + juce::String(phrase.activeSteps()))
         : recordState == windlab::PhraseRecorder::Ready
           ? ("PRONTA " + juce::String(capture.notesCaptured()) + " NOTE")
           : "MIDI: PRONTO";
@@ -589,6 +610,15 @@ void WindLabPhraseEditor::updateLane(float x, float y)
     phrase.setNote(step, n);
     updateButtons();
     repaint();
+}
+
+juce::File WindLabPhraseEditor::writePhraseToTempFile() const
+{
+    const auto file = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                          .getChildFile("WindLab-frase.mid");
+    const auto bytes = windlab::buildPhraseMidiFile(phrase, phrase.effectiveTempo());
+    file.replaceWithData(bytes.data(), bytes.size());
+    return file;
 }
 
 void WindLabPhraseEditor::exportMidi()

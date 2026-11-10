@@ -231,6 +231,27 @@ Per i legni **H** (o il pulsante **# +1**) alza la nota di un semitono. Il riqua
 
 **Limiti:** solo le diteggiature principali (alternative e sovracuti in seguito); il mouse preme una chiave alla volta; il microfono come sorgente del fiato non è ancora disponibile.
 
+## Espressione, preset e MIDI Learn universale
+
+Il pulsante **ESPRESSIONE** apre i controlli dell'interpretazione:
+
+| Controllo | Cosa fa |
+|---|---|
+| **MODALITÀ LEGATO** | AUTO (legato a una voce, accordi se premi più tasti), SEMPRE LEGATO, MAI LEGATO |
+| **LEGATO TIME** | durata della scivolata fra le note, da pochi ms a un glissando; durante il legato il fiato cala un poco |
+| **VIBRATO RATE** | velocità del vibrato (x 1 = naturale) |
+| **VIBRATO DAL FIATO** | il vibrato cresce quando soffi di più |
+| **GROWL** | ruvidezza di chi canta dentro lo strumento |
+| **FLUTTER TONGUE** | frullato di lingua |
+| **EFFETTO JAZZ** | SCOOP (entra da sotto), FALL (cade alla fine), DOIT (sale alla fine), SHAKE (trillo di labbro) |
+| **PAN** | posizione da sinistra a destra |
+
+**Preset:** suoni pronti per ogni strumento, più i tuoi (**SALVA PRESET**, **APRI PRESET**, file `.windlabpreset`). I preset cambiano solo il suono, non canali MIDI né calibrazione del fiato.
+
+**MIDI Learn universale:** clic destro (o ctrl+clic) su qualsiasi manopola → **Impara** → muovi un controllo MIDI. Sotto la manopola compare il CC, per esempio `[CC21]`. Le assegnazioni restano nel progetto; il pedale CC64 non è assegnabile.
+
+**Phrase Editor e DAW:** **SEGUI PLAY DAW** fa partire e fermare la frase con il play della DAW, agganciata alle sue battute. **TRASCINA IN DAW**: tieni premuto il pulsante e trascinalo su una traccia per inserire la frase come clip MIDI.
+
 ## 7. Risoluzione dei problemi
 
 | Problema | Verifica |

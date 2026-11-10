@@ -7,16 +7,17 @@
 #include "Dsp/PhraseRecorder.h"
 #include "Dsp/MidiLearnBindings.h"
 #include "Dsp/MidiInputMonitor.h"
+#include "Dsp/ParameterCCMap.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <atomic>
 #include <memory>
 #include <vector>
 
-class WindLabAudioProcessor final : public juce::AudioProcessor
+class WindLabAudioProcessor final : public juce::AudioProcessor, private juce::Timer
 {
 public:
     WindLabAudioProcessor();
-    ~WindLabAudioProcessor() override = default;
+    ~WindLabAudioProcessor() override { stopTimer(); }
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -49,13 +50,32 @@ public:
     juce::MidiMessageCollector virtualInstrumentInput;
     std::atomic<bool> virtualInputReady {false};
 
+    // 0.9.7 universal MIDI Learn: any parameter (by index in getParameters()) follows a CC.
+    windlab::ParameterCCMap parameterCC;
+    int parameterIndexFor(const juce::String& parameterID) const;
+    juce::String parameterIDAt(int index) const;
+
+    // 0.9.7 presets: factory sounds and user files (*.windlabpreset). Presets change
+    // the sound only, never MIDI routing, channels or breath calibration.
+    static juce::StringArray factoryPresetNames();
+    void applyFactoryPreset(int index);
+    static juce::File userPresetFolder();
+    bool saveUserPreset(const juce::File& file) const;
+    bool loadUserPreset(const juce::File& file);
+
 private:
+    void timerCallback() override;
+    void setParameterPlain(const juce::String& id, float plainValue);
+    static bool presetSkips(const juce::String& id);
+    std::unique_ptr<std::atomic<float>[]> pendingCCValues; // audio -> message thread
+    int learnableCount = 0;
     windlab::RecordedWinds sampleBank;
     std::unique_ptr<juce::Synthesiser> synthesiser;
     windlab::ToneEQ eq;
     juce::Reverb stereoReverb;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> reverbMix, reverbSize, reverbDamping;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputGain, roomAmount;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputGain, roomAmount, panPosition;
+    bool lastHostPlaying = false; // audio thread only: DAW transport edge detection
     std::vector<float> earlyReflectionL, earlyReflectionR;
     std::size_t reflectionPositionL = 0, reflectionPositionR = 0;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WindLabAudioProcessor)

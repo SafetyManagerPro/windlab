@@ -1,4 +1,26 @@
-# WindLab 0.9.3 — REC MIDI → Phrase Editor + popup in-plugin
+# WindLab 0.9.7 — Strumento a video, espressione e MIDI Learn universale
+
+Plugin AU / VST3 / Standalone di strumenti a fiato (9 strumenti, campioni reali + motore espressivo).
+
+## Novità 0.9.5 – 0.9.7
+
+- **STRUMENTO A VIDEO**: sax soprano, contralto, tenore e baritono, clarinetto, flauto,
+  tromba, corno e trombone disegnati e suonabili con mouse e tastiera del computer,
+  con diteggiature vere, fiato dalla barra spaziatrice o dal mouse e coulisse con glissando.
+- **ESPRESSIONE**: modalità e tempo del legato (con calo di fiato fra le note),
+  velocità del vibrato e vibrato dal fiato, growl, flutter tongue, effetti jazz
+  (scoop, fall, doit, shake), pan.
+- **Preset** di fabbrica e personali (`.windlabpreset`).
+- **MIDI Learn universale**: clic destro su qualsiasi manopola, assegnazioni salvate nel progetto.
+- **Controller a fiato**: modalità tastiera / fiato / ibrida, soffio da CC o aftertouch,
+  calibrazione SOGLIA e CURVA, profili EWI / Aerophone / Artinoise, monitor MIDI.
+- **Phrase Editor**: griglie 1/8, 1/16 e terzine, accordi fino a 4 note, pedale di sustain,
+  esportazione MIDI, **SEGUI PLAY DAW** (agganciato al play e alle battute della DAW)
+  e **TRASCINA IN DAW** (la frase diventa una clip MIDI).
+
+Guida completa: [docs/Guida-Utente-WindLab-IT.md](docs/Guida-Utente-WindLab-IT.md) e pulsante **?** dentro il plugin.
+
+## Versione 0.9.3 — REC MIDI → Phrase Editor + popup in-plugin
 
 **CI a basso consumo:** il progetto accumula circa tre commit per PR in
 modalita' Draft e compila tutti i formati solo quando la PR passa a

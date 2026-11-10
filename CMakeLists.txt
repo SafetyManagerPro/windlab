@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WindLab VERSION 0.9.3 LANGUAGES C CXX)
+project(WindLab VERSION 0.9.7 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -49,6 +49,10 @@ target_sources(WindLab PRIVATE
     Source/WindLabVirtualInstrumentPanel.cpp
     Source/WindLabVirtualInstrumentPanel.h
     Source/Dsp/VirtualFingering.h
+    Source/WindLabExpressionPanel.cpp
+    Source/WindLabExpressionPanel.h
+    Source/WindLabParameterLearn.h
+    Source/Dsp/ParameterCCMap.h
     Source/Dsp/WindEngine.h
     Source/Dsp/ToneEQ.h
     Source/Dsp/RecordedWinds.h
@@ -143,4 +147,10 @@ if (BUILD_TESTING)
     add_executable(windlab_virtual_fingering_smoke tests/virtual-fingering-smoke.cpp)
     target_include_directories(windlab_virtual_fingering_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_virtual_fingering_smoke COMMAND windlab_virtual_fingering_smoke)
+    foreach(test_name expression_097 phrase_sync parameter_cc_map)
+        string(REPLACE "_" "-" test_file "${test_name}")
+        add_executable(windlab_${test_name}_smoke tests/${test_file}-smoke.cpp)
+        target_include_directories(windlab_${test_name}_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+        add_test(NAME windlab_${test_name}_smoke COMMAND windlab_${test_name}_smoke)
+    endforeach()
 endif()

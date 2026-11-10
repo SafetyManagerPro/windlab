@@ -16,7 +16,8 @@ juce::StringArray WindLabGuidePanel::sectionTitles()
         "10  Vista spartito e BPM",
         "11  Risolvere i problemi",
         "12  Limiti e prossimi sviluppi",
-        "13  Strumento a video"
+        "13  Strumento a video",
+        "14  Espressione, preset e MIDI Learn"
     };
 }
 
@@ -210,6 +211,8 @@ ALTRI COMANDI:
 - CLEAR: cancella tutte le note.
 - LEGATO: seleziona uno step e attiva LEGATO per sovrapporre brevemente la transizione con il precedente.
 - PHRASE BPM: velocita' del loop interno sulle due battute.
+- SEGUI PLAY DAW: la frase parte e si ferma con il play della DAW e segue la sua posizione (il giro di due battute e' agganciato alle battute della canzone). Attiva anche il tempo della DAW.
+- TRASCINA IN DAW: tieni premuto il pulsante e trascinalo su una traccia della DAW: la frase viene inserita come clip MIDI, senza salvare file.
 - EXPORT MIDI: salva la frase come file .mid standard (formato 0, 480 tick per quarto) con tempo, note e accordi, CC2, CC11, CC1 e pitch bend. Trascina il file in Logic Pro, Studio One, Ableton Live, Reaper o in un'altra DAW.
 
 CORSIE GRAFICHE:
@@ -274,14 +277,17 @@ PRESENTE:
 - Expression & Phrase Editor con griglie 1/8, 1/16 e terzine (fino a 48 step), accordi fino a 4 note, pedale di sustain, legato MIDI, fiato, volume, pitch e vibrato.
 - Esportazione della frase in file MIDI standard per le DAW.
 - STRUMENTO A VIDEO: i 9 strumenti disegnati e suonabili con mouse e tastiera del computer, con diteggiature vere.
+- ESPRESSIONE: tempo e modalita' del legato, velocita' del vibrato e vibrato dal fiato, growl, flutter tongue, effetti jazz (scoop, fall, doit, shake), pan.
+- MIDI Learn universale (clic destro su ogni manopola) e preset di fabbrica e personali.
+- Phrase Editor agganciato al play della DAW e trascinamento della frase nella DAW.
 - Vista spartito di lettura e opzione HOST BPM.
 - MIDI LEARN per assegnare CC a vibrato, fiato ed espressione, salvato per progetto.
 - Loop delle registrazioni sostenute e coda degli staccati perfezionati.
 
 NON ANCORA IMPLEMENTATO:
 - Legato campionato con vere transizioni fra note.
-- Sincronizzazione automatica della frase alla testina della DAW.
-- MIDI Learn universale per tutti i parametri e assegnazione visuale dei controller ai pistoni/chiavi.
+- Assegnazione visuale dei controller MIDI ai pistoni e alle chiavi dello strumento a video.
+- Fiato dal microfono, modalita' sezione (piu' strumenti insieme) e riverbero a convoluzione.
 - MPE avanzato per ogni singola nota.
 - Spartito completo modificabile ed esportazione MusicXML.
 - Velocity separata per ogni nota dell'accordo dalle corsie grafiche.
@@ -318,6 +324,32 @@ LIMITI:
 - Sono presenti le diteggiature principali; quelle alternative e il registro sovracuto verranno aggiunti dopo.
 - Il mouse preme una chiave alla volta: per suonare veloce usa la tastiera del computer.
 - Il microfono come sorgente del fiato non e' ancora disponibile.)";
+
+        case expression: return R"(ESPRESSIONE, PRESET E MIDI LEARN UNIVERSALE
+
+Premi ESPRESSIONE (a destra, accanto ai canali MIDI) per aprire il pannello.
+
+LEGATO E VIBRATO:
+- MODALITA' LEGATO: AUTO = legato quando suoni una nota alla volta, accordi quando premi piu' tasti insieme; SEMPRE LEGATO = ogni nota sovrapposta e' legata, anche nei passaggi velocissimi; MAI LEGATO = ogni nota ha il suo attacco (per accordi e sezioni).
+- LEGATO TIME: quanto dura la scivolata da una nota all'altra (pochi ms = dita veloci, 100-300 ms = glissando, ideale per il trombone). Durante il legato il fiato cala un poco, come sullo strumento vero.
+- VIBRATO RATE: velocita' del vibrato (x 1 = naturale dello strumento).
+- VIBRATO DAL FIATO: a 0 il vibrato ha sempre la stessa ampiezza; alzandolo il vibrato cresce quando soffi di piu' (controller a fiato, CC2 o strumento a video).
+
+COLORI E EFFETTI JAZZ:
+- GROWL: ruvidezza di chi canta dentro lo strumento (sax rock e jazz).
+- FLUTTER TONGUE: frullato di lingua (flauto, tromba, sax).
+- EFFETTO JAZZ: SCOOP = la nota entra da sotto; FALL = alla fine la nota cade; DOIT = alla fine la nota sale; SHAKE = trillo di labbro sulle note tenute. Il fall e il doit si sentono quando lasci la nota; nel legato fra due note non intervengono.
+- PAN: posizione dello strumento da sinistra (L) a destra (R).
+
+PRESET:
+- Il menu PRESET contiene suoni pronti (sax, tromba, flauto, clarinetto, trombone, corno). SALVA PRESET registra il tuo suono; i tuoi preset compaiono in fondo al menu. APRI PRESET carica un file .windlabpreset.
+- I preset cambiano solo il suono: non toccano canali MIDI, modalita' ibrida, sorgente e calibrazione del fiato.
+
+MIDI LEARN UNIVERSALE:
+- Clic destro (oppure ctrl+clic) su qualsiasi manopola, nella finestra principale o in questo pannello, poi "Impara" e muovi un controllo MIDI: la manopola lo seguira'.
+- Sotto la manopola compare il CC assegnato, per esempio [CC21]. Dallo stesso menu puoi rimuoverlo; RIMUOVI TUTTI I CC li cancella tutti.
+- Le assegnazioni sono salvate nel progetto. Il pedale (CC64) e i messaggi di banco non sono assegnabili.
+- Il MIDI LEARN dei tre controlli espressivi (vibrato, fiato, volume) resta nel pannello MIDI LEARN.)";
     }
     return {};
 }
