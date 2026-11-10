@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "Dsp/WindEngine.h"
+#include "Dsp/AcousticExpression.h"
 #include "Dsp/VelocityResponse.h"
 #include "Dsp/HybridMidiRoute.h"
 #include "Dsp/BreathCalibration.h"
@@ -296,6 +297,9 @@ namespace
                          static_cast<windlab::Instrument>(instrumentIndex),
                          attack->load(), release->load(),
                          static_cast<windlab::Articulation>(articulationIndex), legatoFrom);
+            // Recorded attacks begin with the current breath and tone; keep per-voice filter state.
+            acousticExpression.reset(c.breathEnabled ? c.breath : 1.0f,
+                                     juce::jlimit(0.0f, 1.0f, tone->load() + timbreOffset));
             // A slurred note joins the sustained body of the recording instead of replaying its attack.
             entryRandom = entryRandom * 1664525u + 1013904223u;
             cursor.start(sample, 440.0 * std::exp2((midiNoteNumber - 69.0) / 12.0), getSampleRate(),
@@ -343,13 +347,15 @@ namespace
         {
             juce::SynthesiserVoice::setCurrentPlaybackSampleRate(newRate);
             engine.prepare(newRate);
+            acousticExpression.prepare(newRate);
         }
 
     private:
         template <typename Sample>
         void render(juce::AudioBuffer<Sample>& output, int startSample, int numSamples)
         {
-            engine.setTone(juce::jlimit(0.0f, 1.0f, tone->load() + timbreOffset));
+            const float acousticTone = juce::jlimit(0.0f, 1.0f, tone->load() + timbreOffset);
+            engine.setTone(acousticTone);
             engine.setAir(air->load());
             engine.setBreathLength(breathLength->load());
             engine.setVibrato(vibrato->load());
@@ -363,7 +369,8 @@ namespace
                 float result = model;
                 if (cursor.valid())
                 {
-                    const float wav = cursor.read(engine.currentFrequency());
+                    const float wav = acousticExpression.process(cursor.read(engine.currentFrequency()),
+                                                                  engine.currentBreathIntensity(), acousticTone);
                     const float recorded = wav * engine.currentLevel() * 3.6f;
                     result = modeAtNoteOn == 1 ? (.8f * recorded + .20f * model)
                                                : (recorded + .055f * model);
@@ -384,6 +391,7 @@ namespace
             engine.setFlutter(flutter->load());
         }
         windlab::WindEngine engine;
+        windlab::AcousticExpression acousticExpression;
         PerformanceSynthesiser& controllerSource;
         const windlab::RecordedWinds& sampleSource;
         windlab::RecordedCursor cursor;
