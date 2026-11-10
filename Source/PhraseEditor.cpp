@@ -452,7 +452,7 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
               ? "Notation is a preview, not editable. Use Piano Roll to edit notes and legato."
               : (phrase.followsHostTempo()
                  ? "Tempo follows DAW BPM; Play remains manual and does not follow host transport position."
-                 : "Right-click note = delete. LEGATO creates a short overlap. Use HOST BPM for tempo."),
+                 : "Click empty row = add note (max 4 per step). Click note = remove, drag = pitch/length. Right-click = delete."),
                75, 806, getWidth() - 115, 27, juce::Justification::centredLeft);
 }
 
