@@ -388,6 +388,14 @@ namespace
                 if (startDelay > 0) { --startDelay; continue; } // late unison player
                 if (!engine.active()) { clearCurrentNote(); break; }
                 const float model = engine.render();
+                // MIDI note-off and breath-length exhaustion can both start a
+                // phrase release. Legitimate interval-legato fastRelease stays
+                // separate and does not trigger a fake recorded phrase ending.
+                if (engine.releasingPhraseNaturally())
+                {
+                    cursor.beginRelease();
+                    companionCursor.beginRelease();
+                }
                 float result = model;
                 if (cursor.valid())
                 {
