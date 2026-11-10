@@ -1,4 +1,16 @@
-# WindLab 0.9.12 — Legato dei campioni registrati (prima fase)
+# WindLab 0.9.13 — Loop acustici più continui
+
+## Novità 0.9.13 — Chiusura dei campioni sostenuti con confronto della forma d'onda
+
+- Per i campioni Sustain/Swell la ricerca del punto finale del loop considera, oltre al passaggio per lo zero, **quanto si somigliano i due segmenti WAV/FLAC sovrapposti** durante la dissolvenza.
+- La scelta viene eseguita solo quando si caricano i campioni; il thread audio mantiene invariata la riproduzione in tempo reale, senza nuove allocazioni o scansioni.
+- L'algoritmo conserva il precedente punto finale se nessuna alternativa fornisce un miglioramento netto: cosi' si minimizzano regressioni su registrazioni rumorose o poco periodiche.
+- Staccati one-shot, campioni originali, MIDI, parametri, preset e formati AU/VST3/Standalone restano invariati.
+- Nuovo test DSP con sustain quasi-periodico e deriva d'intonazione a 44,1/48/96 kHz; verifica che la giunzione non peggiori rispetto alla scelta precedente.
+- **Build CI solo su main:** niente trigger Actions su PR o branch di sviluppo; un avvio manuale e' consentito solo se il riferimento selezionato e' main.
+- **Da validare all'ascolto:** questa misura attenua differenze di forma d'onda sul loop; non corregge automaticamente la fase fra i differenti take dinamici e non sostituisce registrazioni di vero legato.
+
+## WindLab 0.9.12 — Legato dei campioni registrati (prima fase)
 
 ## Novità 0.9.12 — Passaggio fra note senza nuovo attacco
 
