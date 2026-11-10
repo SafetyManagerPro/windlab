@@ -1,6 +1,6 @@
 # WindLab — Guida utente (italiano)
 
-> Aggiornata per WindLab **0.9.3**. La stessa guida è consultabile **senza Internet** aprendo il pulsante **?** nella schermata principale del plugin o della Standalone. Nel Phrase Editor, il **?** apre direttamente la sezione dedicata alla creazione e modifica delle frasi.
+> Aggiornata per WindLab **0.9.5**. La stessa guida è consultabile **senza Internet** aprendo il pulsante **?** nella schermata principale del plugin o della Standalone. Nel Phrase Editor, il **?** apre direttamente la sezione dedicata alla creazione e modifica delle frasi.
 
 ## 1. Avvio e formati
 
@@ -106,13 +106,14 @@ né il controllo MIDI MPE separato per singola nota.
 
 Per un risultato più realistico, iniziare da timbro pulito e poco riverbero; aggiungere variazioni graduali di fiato ed espressione invece di tenere una dinamica perfettamente piatta.
 
-## 5. Registrare quello che suoni e modificarlo nel Phrase Editor (v0.9.3)
+## 5. Registrare quello che suoni e modificarlo nel Phrase Editor
 
 WindLab puo' registrare **eventi MIDI**, non l'audio WAV, dalla tastiera
 grafica, dal computer, da una tastiera esterna e dai controller MIDI a fiato
 che inviano note e segnali compatibili. In questa prima versione la
-registrazione e' limitata a **due battute in 4/4, quantizzate su 16 crome**,
-perche' il Phrase Editor contiene 16 step. Non registra ancora una lunga
+registrazione e' limitata a **due battute in 4/4**, quantizzate sulla
+griglia scelta nel menu **GRID**: crome (16 step), semicrome (32),
+terzine di crome (24) o terzine di semicrome (48). Non registra ancora una lunga
 performance libera o una regione MIDI completa della DAW.
 
 **Come fare:**
@@ -124,7 +125,7 @@ performance libera o una regione MIDI completa della DAW.
 2. Imposta il BPM interno dal Phrase Editor, oppure attiva HOST BPM per
    seguire il BPM di Logic/Studio One (non la posizione della testina).
 3. Premi **REC MIDI** / **REC** e suona la frase: note, fiato e pitch bend.
-4. La registrazione termina dopo 16 step o quando premi **STOP REC**.
+4. La registrazione termina dopo due battute o quando premi **STOP REC**.
    Il pulsante principale diventa **VEDI TAKE**, che apre il Phrase Editor.
 5. Prima di importare, la frase precedente rimane invariata. Premi
    **IMPORTA** dentro il Phrase Editor per sostituirla esplicitamente.
@@ -136,8 +137,11 @@ CC11 (expression), CC1 (vibrato) e pitch bend. Se hai configurato il
 MIDI Learn, vengono riconosciuti anche i CC hardware assegnati a queste
 tre espressioni. Le curve CC sono campionate sulla griglia dell'editor.
 
-**Limiti espliciti:** una nota registrata per ogni step; accordi o altri
-attacchi sul medesimo step possono essere scartati. Il tono/volume
+**Accordi e pedale:** ogni step contiene fino a **4 note**; una quinta nota
+sullo stesso step viene scartata. Il **pedale di sustain (CC64)** prolunga le
+note finche' non lo rilasci (massimo 8 step per nota).
+
+**Limiti espliciti:** il tono/volume
 dell'audio WAV non viene analizzato per estrarre nuove note. I dati della
 cattura provvisoria non sono salvati finche' non premi **IMPORTA**;
 la frase importata viene salvata nello stato del plugin insieme al
@@ -154,17 +158,28 @@ del sistema operativo staccabili e spostabili su un secondo monitor.
 
 ## 5. Phrase Editor e legato
 
-Aprire **PHRASE EDITOR**. È un editor per **16 step** con piano roll e riproduzione interna.
+Aprire **PHRASE EDITOR**. È un editor di **due battute** con piano roll e riproduzione interna. Il menu **GRID** sceglie la risoluzione: **1/8** (16 step), **1/16** (32 step), **1/8 TRIPLET** (24 step), **1/16 TRIPLET** (48 step). La griglia è salvata con il progetto.
 
-- Clic sinistro nel piano roll: inserire una nota; trascinare in verticale per cambiare altezza e in orizzontale per estendere la durata.
-- Clic destro: cancellare la nota.
+**Mouse nel piano roll:**
+
+| Gesto | Effetto |
+|---|---|
+| Clic su una riga vuota | Aggiunge una nota allo step (fino a 4 note = accordo) |
+| Clic e trascinamento | In verticale cambia l'altezza, in orizzontale la durata (1–8 step) |
+| Clic su una nota senza trascinare | Toglie la nota |
+| Clic su una nota e trascinamento | Sposta o allunga quella nota dell'accordo |
+| Clic destro su una nota | Cancella la nota |
+
+Due note dello stesso step non possono avere la stessa altezza: trascinando sopra un'altra nota dell'accordo l'altezza non cambia.
+
 - **LEGATO**: applica una breve sovrapposizione di note MIDI, non una transizione registrata fra due note.
 - **DEMO**: carica una frase esempio.
 - **CLEAR**: cancella la sequenza.
 - **PLAY / STOP**: riproduce o ferma la frase.
-- **BPM**: imposta il tempo del loop a due battute.
+- **PHRASE BPM**: imposta il tempo del loop a due battute.
+- **EXPORT MIDI**: salva un file `.mid` standard (formato 0, 480 tick per quarto) con tempo, note e accordi, CC2, CC11, CC1 e pitch bend. Il file si trascina in Logic Pro, Studio One, Ableton Live, Reaper e nelle altre DAW.
 
-Le **corsie espressive** sono: Breath (CC2), Velocity, Volume/Expression (CC11), Pitch Bend, Vibrato (CC1). Selezionare la corsia e trascinare i punti in basso. Breath, volume, pitch e vibrato vengono interpolati durante la nota; la velocity agisce sull'attacco.
+Le **corsie espressive** sono: Breath (CC2), Velocity, Volume/Expression (CC11), Pitch Bend, Vibrato (CC1). Selezionare la corsia e trascinare i punti in basso. Breath, volume, pitch e vibrato vengono interpolati durante la nota e valgono per tutte le note dello step; la velocity agisce sull'attacco della prima nota dello step (le altre note dell'accordo mantengono la propria velocity).
 
 Le frasi sono salvate **nel progetto della DAW** tramite lo stato del plugin. Quando il progetto viene riaperto, la sequenza parte **ferma**. L'editor genera MIDI interno sul **canale 16**.
 
@@ -173,6 +188,26 @@ Le frasi sono salvate **nel progetto della DAW** tramite lo stato del plugin. Qu
 **SCORE VIEW** mostra una versione semplificata dello spartito con altezza delle note, diesis, indicazioni grafiche della durata e legature. È **soltanto un'anteprima**: per spostare le note tornare a **PIANO ROLL**.
 
 **HOST BPM** attiva l'uso del tempo letto da Logic Pro/Studio One, se disponibile. Non segue ancora automaticamente il play/stop o la posizione temporale della testina: premere manualmente PLAY nel Phrase Editor. Disattivare HOST BPM per tornare al tempo interno.
+
+## Controller a fiato, EWI e modalità ibrida
+
+Nel selettore **MIDI PERFORMANCE** scegliere:
+
+- **TASTIERA / MIDI**: comportamento normale (tastiera, piano a video, DAW).
+- **STRUMENTO A FIATO**: note e soffio arrivano dallo stesso controller sullo stesso canale.
+- **IBRIDO: NOTE CH + SOFFIO CH**: le note arrivano da una tastiera sul canale **NOTE CH**, il soffio da un controller separato sul canale **BREATH CH** (1–15). WindLab sposta il soffio sul canale delle note e ignora le note del canale del soffio. Instradare entrambi i controller alla stessa istanza di WindLab. Il canale 16 resta riservato al Phrase Editor.
+
+Nella fascia in basso:
+
+- **SOFFIO DA**: **CC (MIDI LEARN)** usa il CC assegnato al fiato (CC2 di serie, oppure quello appreso). **AFTERTOUCH** usa il Channel Pressure, utile per EWI/Aerophone impostati per inviare la pressione come aftertouch.
+- **SOGLIA**: pressione minima sotto la quale il soffio è zero.
+- **CURVA**: sensibilità; 1 è lineare, valori più bassi rispondono di più al soffio leggero, più alti danno più controllo sul soffio forte. I valori iniziali (0 e 1) mantengono la risposta originale.
+
+Il soffio registrato con **REC** viene salvato già calibrato, così la frase suona come l'hai sentita.
+
+In **MIDI LEARN** scegliere e applicare volontariamente il profilo **STANDARD CC2 / EWI / AEROPHONE** oppure **ARTINOISE RE.CORDER CC11**; usare MIDI Learn manuale se il dispositivo è configurato diversamente. **ULTIMA NOTA**, **ULTIMO CC** e **ULTIMO AFTERTOUCH** mostrano l'ultimo segnale ricevuto: servono a controllare canale e numero CC del controller.
+
+Il collegamento Bluetooth e la scelta delle porte MIDI dipendono dal sistema operativo o dalla DAW, non dal plugin. Vedere la [guida tecnica MIDI](MIDI-Performance-Modes.md).
 
 ## 7. Risoluzione dei problemi
 
@@ -188,7 +223,7 @@ Le frasi sono salvate **nel progetto della DAW** tramite lo stato del plugin. Qu
 
 ## 8. Limiti attuali (non confondere con funzioni già disponibili)
 
-WindLab è ancora un prototipo in sviluppo. **Non** sono disponibili: legato con registrazioni autentiche di transizione, MIDI Learn universale per tutte le manopole, sincronizzazione automatica della frase con la posizione della DAW, MPE per-nota completo, spartito completamente modificabile/MusicXML, esportazione MIDI dalla frase e pacchetti universalmente firmati/notarizzati.
+WindLab è ancora un prototipo in sviluppo. **Non** sono disponibili: legato con registrazioni autentiche di transizione, MIDI Learn universale per tutte le manopole, sincronizzazione automatica della frase con la posizione della DAW, MPE per-nota completo, spartito completamente modificabile/MusicXML, velocity separata per ogni nota dell'accordo dalle corsie e pacchetti universalmente firmati/notarizzati.
 
 La compilazione su GitHub di AU/VST3/Standalone e i test automatici non sostituiscono un **test d'ascolto e caricamento manuale** in Logic Pro e Studio One.
 

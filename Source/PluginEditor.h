@@ -17,11 +17,14 @@ public:
 private:
     WindLabAudioProcessor& processor;
     juce::ComboBox instrumentBox, articulationBox, sourceBox;
-    juce::ComboBox inputModeBox, velocityResponseBox;
+    juce::ComboBox inputModeBox, velocityResponseBox, performanceModeBox, noteMidiChannelBox, breathMidiChannelBox;
     juce::Label instrumentLabel, articulationLabel, sourceLabel;
-    juce::Label inputModeLabel, velocityLabel, octaveLabel, velocityResponseLabel;
+    juce::Label inputModeLabel, velocityLabel, octaveLabel, velocityResponseLabel, performanceModeLabel, noteMidiChannelLabel, breathMidiChannelLabel;
     juce::TextButton octaveDown {"-"}, octaveUp {"+"}, midiHelpButton {"MIDI ?"};
     juce::Slider keyVelocity;
+    juce::Slider breathThresholdSlider, breathCurveSlider;
+    juce::Label breathThresholdLabel, breathCurveLabel, breathSourceLabel;
+    juce::ComboBox breathSourceBox;
     juce::TextButton phraseButton {"PHRASE EDITOR"}, helpButton {"?"}, midiLearnButton {"MIDI LEARN"}, quickRecordButton {"REC MIDI"};
     std::unique_ptr<WindLabPhraseEditor> phrasePanel;
     std::unique_ptr<WindLabGuidePanel> guidePanel;
@@ -35,6 +38,10 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> sourceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> inputModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> velocityResponseAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> performanceModeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> breathThresholdAttachment, breathCurveAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> noteMidiChannelAttachment, breathMidiChannelAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> breathSourceAttachment;
     std::array<juce::Slider, 15> knobs;
     std::array<juce::Label, 15> labels;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, 15> knobAttachments;

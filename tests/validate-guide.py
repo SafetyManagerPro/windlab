@@ -38,7 +38,7 @@ assert "midiLearn.route" not in main  # audio routing belongs in processor, not 
 # A plugin can be compiled successfully even when a child overlay is 0x0.
 # Editor setSize runs before overlays are constructed; require explicit bounds
 # BEFORE addChildComponent so buttons open a visible screen on first click.
-assert "setSize(1080, 849)" in main
+assert "setSize(1080, 922)" in main, "Editor dimensions must fit the MIDI/breath controls"
 for child in ("phrasePanel", "guidePanel", "midiLearnPanel"):
     add = f"addChildComponent(*{child})"
     if add not in main:
@@ -69,5 +69,15 @@ assert "std::array<std::atomic<std::uint64_t>" in recorder_header
 assert "Source/Dsp/PhraseRecorder.h" in cmake and "windlab_phrase_record_smoke" in cmake
 assert "REC" in manual and "IMPORTA" in manual
 assert "popup" in manual.lower()
+# 0.9.5: grids, chords, pedal, mouse chord editing and MIDI export must be documented.
+for token in ("GRID", "TRIPLET", "EXPORT MIDI", "4 note", "CC64"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
+assert "exportButton" in phrase and "gridBox" in phrase
+# 0.9.6: wind controller modes and aftertouch breath (PR #16 + #17).
+for token in ("IBRIDO", "SOFFIO DA", "AFTERTOUCH", "ULTIMO AFTERTOUCH"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
+assert '"breathSource"' in processor and "breathSourceBox" in main
 
 print("PASS: 12 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")

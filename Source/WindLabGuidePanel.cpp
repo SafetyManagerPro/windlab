@@ -112,6 +112,14 @@ Le assegnazioni vengono salvate nel progetto Logic/Studio One e ricordate alla r
 
 Se due espressioni utilizzano lo stesso numero CC, l'assegnazione precedente viene scambiata automaticamente: una sorgente non controlla due funzioni in conflitto. CC64 puo' essere appreso come pedale di espressione, ma in tal caso non svolge contemporaneamente la funzione sustain. I CC interni del Phrase Editor (canale MIDI 16) sono esclusi dal MIDI Learn.
 
+CONTROLLER A FIATO / EWI (MIDI PERFORMANCE):
+- TASTIERA / MIDI: comportamento normale.
+- STRUMENTO A FIATO: note e soffio dallo stesso controller.
+- IBRIDO: note dalla tastiera sul canale NOTE CH, soffio da un controller separato sul canale BREATH CH (1-15).
+- SOFFIO DA: CC (MIDI LEARN) oppure AFTERTOUCH (Channel Pressure, per EWI/Aerophone impostati cosi').
+- SOGLIA = pressione minima; CURVA = sensibilita' (1 = lineare).
+- In MIDI LEARN: profili STANDARD CC2 / EWI / AEROPHONE e ARTINOISE RE.CORDER CC11, piu' il monitor ULTIMA NOTA / ULTIMO CC / ULTIMO AFTERTOUCH per controllare canale e CC del dispositivo.
+
 Il MIDI Learn attuale riguarda tre espressioni: vibrato, fiato e volume. Non e' ancora un MIDI Learn universale di tutte le manopole. L'MPE per singola nota non e' ancora disponibile.)";
 
         case logic: return R"(UTILIZZO IN LOGIC PRO (APPLE SILICON)
@@ -175,17 +183,33 @@ Per un fiato credibile usa un po' di air, attacchi non tutti identici, vibrato m
 
 Clicca PHRASE EDITOR nella schermata principale.
 
+GRIGLIA (menu GRID):
+- 1/8 = crome, 16 step. 1/16 = semicrome, 32 step.
+- 1/8 TRIPLET = terzine di crome, 24 step. 1/16 TRIPLET = terzine di semicrome, 48 step.
+- La frase dura sempre due battute in 4/4: cambia solo la risoluzione. La griglia viene salvata con il progetto.
+
+REGISTRAZIONE:
 - REC MIDI (SCHERMATA PRINCIPALE): consigliato quando suoni con la tastiera PC. Premi REC MIDI, suona le note, poi STOP REC oppure lascia terminare automaticamente due battute. Il pulsante diventa VEDI TAKE: apre la registrazione nel Phrase Editor senza togliere il focus ai tasti durante la ripresa.
-- REC (NEL PHRASE EDITOR): ideale per dispositivi MIDI esterni. La cattura dura al massimo 16 step (due battute); STOP REC termina prima.
-- IMPORTA: soltanto quando la cattura e' pronta, sostituisce le note attualmente nel Phrase Editor con la registrazione. Non cancella la frase prima della tua conferma.
+- REC (NEL PHRASE EDITOR): ideale per dispositivi MIDI esterni. La cattura dura due battute sulla griglia scelta; STOP REC termina prima.
+- IMPORTA: soltanto quando la cattura e' pronta, sostituisce le note attualmente nel Phrase Editor con la registrazione e porta con se' la griglia. Non cancella la frase prima della tua conferma.
 - Vengono registrate note, velocity, durata, CC2 fiato, CC11 volume, CC1 vibrato e pitch bend. Il risultato e' MIDI modificabile, NON una registrazione audio/WAV.
-- Una nota alla volta per step: accordi e note iniziate sul medesimo step possono essere ignorati. Il registratore quantizza su 16 step di crome (due battute in 4/4).
+- ACCORDI: fino a 4 note per step. Una quinta nota suonata sullo stesso step viene ignorata.
+- PEDALE DI SUSTAIN (CC64): mentre il pedale e' premuto le note continuano anche se rilasci il tasto; finiscono quando alzi il pedale. Lunghezza massima di una nota: 8 step.
+
+PIANO ROLL CON IL MOUSE:
+- Clic su una riga vuota: aggiunge una nota allo step, anche sopra un accordo gia' presente (massimo 4 note).
+- Clic e trascinamento: in verticale cambia l'altezza, in orizzontale la durata (da 1 a 8 step).
+- Clic su una nota esistente senza trascinare: la toglie. Clic e trascinamento sulla nota: la sposta o la allunga.
+- Clic destro su una nota: la cancella.
+- Due note dello stesso step non possono avere la stessa altezza: se trascini sopra un'altra nota dell'accordo, l'altezza resta quella precedente.
+
+ALTRI COMANDI:
 - PLAY / STOP: avvia o interrompe il loop interno.
 - DEMO: carica una frase dimostrativa.
 - CLEAR: cancella tutte le note.
-- Piano Roll: clic sinistro per inserire una nota; trascina in verticale per cambiare altezza, in orizzontale per modificarne la durata. Clic destro per cancellare.
-- LEGATO: seleziona una nota e attiva LEGATO per sovrapporre brevemente la transizione con la precedente.
-- BPM: velocita' del loop interno, su 16 step / due battute.
+- LEGATO: seleziona uno step e attiva LEGATO per sovrapporre brevemente la transizione con il precedente.
+- PHRASE BPM: velocita' del loop interno sulle due battute.
+- EXPORT MIDI: salva la frase come file .mid standard (formato 0, 480 tick per quarto) con tempo, note e accordi, CC2, CC11, CC1 e pitch bend. Trascina il file in Logic Pro, Studio One, Ableton Live, Reaper o in un'altra DAW.
 
 CORSIE GRAFICHE:
 BREATH (CC2) = pressione del fiato.
@@ -194,7 +218,7 @@ VOLUME (CC11) = volume continuo.
 PITCH BEND = intonazione continua, circa +/-2 semitoni.
 VIBRATO (CC1) = profondita' del vibrato.
 
-Seleziona una corsia, poi fai clic e trascina i suoi punti. Fiato, volume, pitch e vibrato vengono interpolati fra gli step. La velocity si applica all'attacco della nota.
+Seleziona una corsia, poi fai clic e trascina i suoi punti. Fiato, volume, pitch e vibrato vengono interpolati fra gli step e valgono per tutte le note dello step. La velocity si applica all'attacco della prima nota dello step; le altre note dell'accordo mantengono la loro velocity registrata (96 se inserite con il mouse).
 
 Le frasi vengono salvate con lo stato del plugin. Al riavvio del progetto non partono da sole. Il MIDI interno della frase utilizza il canale 16.)";
 
@@ -246,7 +270,8 @@ PRESENTE:
 - Plugin AU (macOS), VST3 (Mac/Windows) e Standalone.
 - Sei strumenti a fiato con campioni CC0 incorporati e motore Hybrid/Synth.
 - Tastiera grafica, tastiera PC, ingresso MIDI esterno e profili velocity.
-- Expression & Phrase Editor con 16 step, legato MIDI, fiato, volume, pitch e vibrato.
+- Expression & Phrase Editor con griglie 1/8, 1/16 e terzine (fino a 48 step), accordi fino a 4 note, pedale di sustain, legato MIDI, fiato, volume, pitch e vibrato.
+- Esportazione della frase in file MIDI standard per le DAW.
 - Vista spartito di lettura e opzione HOST BPM.
 - MIDI LEARN per assegnare CC a vibrato, fiato ed espressione, salvato per progetto.
 - Loop delle registrazioni sostenute e coda degli staccati perfezionati.
@@ -256,7 +281,8 @@ NON ANCORA IMPLEMENTATO:
 - Sincronizzazione automatica della frase alla testina della DAW.
 - MIDI Learn universale per tutti i parametri e assegnazione visuale dei controller ai pistoni/chiavi.
 - MPE avanzato per ogni singola nota.
-- Spartito completo modificabile, MusicXML e MIDI export.
+- Spartito completo modificabile ed esportazione MusicXML.
+- Velocity separata per ogni nota dell'accordo dalle corsie grafiche.
 - Firma/notarizzazione universale dei pacchetti e collaudo completo in tutte le DAW.
 
 Questa guida descrive i comandi realmente presenti nel programma. I miglioramenti futuri vengono aggiunti solo dopo lo sviluppo e la verifica.)";
