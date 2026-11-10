@@ -1,4 +1,14 @@
-# WindLab 0.9.11 — Prima evoluzione del realismo acustico
+# WindLab 0.9.12 — Legato dei campioni registrati (prima fase)
+
+## Novità 0.9.12 — Passaggio fra note senza nuovo attacco
+
+- Il passaggio legato fra registrazioni mantiene lo slur e l'ingresso nella parte sostenuta del campione, ma adesso usa una dissolvenza in ingresso per voce sincronizzata con il rilascio veloce della voce uscente.
+- Il tempo della transizione dipende dall'intervallo (circa 35–74 ms): gli intervalli piccoli passano più rapidamente, quelli grandi sono un poco più morbidi. L'inviluppo monotono evita cambi di livello istantanei del nuovo campione.
+- Chord mode, note indipendenti, staccato e sorgente Synthetic mantengono il loro comportamento precedente. La dissolvenza aggiuntiva si applica solo ai campioni registrati in legato.
+- Nessun nuovo parametro pubblico, modifica ai file audio, variazione dei codici AU/VST3 o riconfigurazione hardware. Nuovo test unitario per 44,1/48/96 kHz.
+- **Limite dichiarato:** non sono transizioni intervallari autenticamente registrate; l'ascolto su strumenti reali è obbligatorio, soprattutto per gli intervalli ampi e per un eventuale calo di livello nella sovrapposizione.
+
+## WindLab 0.9.11 — Prima evoluzione del realismo acustico
 
 ## Novità 0.9.11 — Il fiato cambia anche il timbro dei campioni
 
