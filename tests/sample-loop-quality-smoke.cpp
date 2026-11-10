@@ -22,7 +22,8 @@ int main()
             const double amp = .42 * (1.0 + .045 * std::sin(pi2 * .72 * t));
             audio[i] = static_cast<float>(amp * (std::sin(angle) +
                                .21 * std::sin(2.0 * angle + .3) +
-                               .12 * std::sin(3.0 * angle - .24)));
+                               .12 * std::sin(3.0 * angle - .24) +
+                               .45 * std::sin(pi2 * 210.0 * t + .12)));
         }
         const int count = static_cast<int>(audio.size());
         const auto plan = windlab::chooseSampleLoop(audio.data(), count, rate);
@@ -41,7 +42,7 @@ int main()
         // When unchanged, identical score. When changed, noticeably less
         // waveform discrepancy even accounting for distance penalty.
         assert(std::isfinite(newMismatch));
-        assert(newMismatch <= originalMismatch + 1.0e-5f);
+        assert(newMismatch < originalMismatch * .80f);
         assert(std::abs(plan.end - oldEnd) <= radius + 5);
 
         const auto repeated = windlab::chooseSampleLoop(audio.data(), count, rate);
