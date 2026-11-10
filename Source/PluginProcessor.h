@@ -8,6 +8,7 @@
 #include "Dsp/MidiLearnBindings.h"
 #include "Dsp/MidiInputMonitor.h"
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -44,6 +45,9 @@ public:
     windlab::PhraseRecorder phraseRecorder; // isolated, non-destructive two-bar MIDI recorder
     windlab::MidiLearnBindings midiLearn; // atomic CC assignments, persisted with project
     windlab::MidiInputMonitor midiInputMonitor; // MIDI diagnostic snapshots, not persisted
+    // Notes, breath and bend from the on-screen instrument (UI thread -> audio thread).
+    juce::MidiMessageCollector virtualInstrumentInput;
+    std::atomic<bool> virtualInputReady {false};
 
 private:
     windlab::RecordedWinds sampleBank;

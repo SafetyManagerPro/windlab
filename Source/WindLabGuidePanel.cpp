@@ -15,7 +15,8 @@ juce::StringArray WindLabGuidePanel::sectionTitles()
         "09  Phrase Editor e curve",
         "10  Vista spartito e BPM",
         "11  Risolvere i problemi",
-        "12  Limiti e prossimi sviluppi"
+        "12  Limiti e prossimi sviluppi",
+        "13  Strumento a video"
     };
 }
 
@@ -272,6 +273,7 @@ PRESENTE:
 - Tastiera grafica, tastiera PC, ingresso MIDI esterno e profili velocity.
 - Expression & Phrase Editor con griglie 1/8, 1/16 e terzine (fino a 48 step), accordi fino a 4 note, pedale di sustain, legato MIDI, fiato, volume, pitch e vibrato.
 - Esportazione della frase in file MIDI standard per le DAW.
+- STRUMENTO A VIDEO: i 9 strumenti disegnati e suonabili con mouse e tastiera del computer, con diteggiature vere.
 - Vista spartito di lettura e opzione HOST BPM.
 - MIDI LEARN per assegnare CC a vibrato, fiato ed espressione, salvato per progetto.
 - Loop delle registrazioni sostenute e coda degli staccati perfezionati.
@@ -286,6 +288,36 @@ NON ANCORA IMPLEMENTATO:
 - Firma/notarizzazione universale dei pacchetti e collaudo completo in tutte le DAW.
 
 Questa guida descrive i comandi realmente presenti nel programma. I miglioramenti futuri vengono aggiunti solo dopo lo sviluppo e la verifica.)";
+
+        case virtualInstrument: return R"(STRUMENTO A VIDEO - SUONARE LO STRUMENTO DISEGNATO
+
+Premi STRUMENTO A VIDEO in alto: compare il disegno dello strumento scelto in INSTRUMENT (puoi cambiarlo anche dal menu STRUMENTO del pannello). Funziona con tutti i 9 strumenti: sax soprano, contralto, tenore e baritono, clarinetto, flauto, tromba, corno e trombone.
+
+COME SI SUONA:
+- Le chiavi, i fori e i pistoni si premono con i tasti del computer (la lettera e' scritta sulla chiave) oppure con il mouse.
+- Con il mouse un clic BLOCCA la chiave premuta e un secondo clic la rilascia: cosi' puoi preparare una diteggiatura completa. RILASCIA CHIAVI le libera tutte.
+- La nota esce solo quando soffi: tieni premuta la BARRA SPAZIATRICE (FIATO DA: SPAZIO) oppure tieni premuto il mouse sulla barra del FIATO (FIATO DA: MOUSE; piu' in alto = piu' forte).
+- FORZA DEL FIATO regola quanto soffia la barra spaziatrice.
+- Cambiando diteggiatura mentre soffi le note sono LEGATE, come sullo strumento vero.
+
+DITEGGIATURE:
+- SAX: F D S = mano sinistra (Si, La, Sol), J K L = mano destra (Fa, Mi, Re), M e N = Do e Si gravi, A = Sol#, Q W E = chiavi palmari, R e U = chiavi laterali Sib e Do, SHIFT = chiave d'ottava.
+- CLARINETTO: V = foro del pollice, F D S e J K L = fori, M e N = chiavi del Fa e del Mi gravi, R = chiave del La, SHIFT = portavoce (sale di una dodicesima).
+- FLAUTO: V = chiave del pollice, F D S e J K L, A = Sol#, M = Do grave; FRECCE SU/GIU' o SHIFT = ottava.
+- Per tutti i legni H (oppure il pulsante # +1) alza la nota di un semitono, utile per le alterazioni.
+- TROMBA e CORNO: J K L = pistoni o cilindri 1, 2, 3; FRECCE SU/GIU' o la colonna ARMONICO scelgono l'armonico, come la tensione delle labbra.
+- TROMBONE: trascina la coulisse con il mouse oppure usa i tasti 1-7 per le posizioni; fra una posizione e l'altra la nota scivola (glissando). FRECCE SU/GIU' = armonico.
+
+NOTA SCRITTA E NOTA REALE:
+Il riquadro NOTA mostra la nota scritta per lo strumento (sax e clarinetto e tromba sono traspositori) e la nota che suona davvero. Flauto e trombone suonano come scritto.
+
+REGISTRARE:
+REC MIDI registra quello che suoni nel Phrase Editor, come con una tastiera MIDI; poi puoi esportarlo con EXPORT MIDI. In modalita' IBRIDO le note escono sul canale NOTE CH.
+
+LIMITI:
+- Sono presenti le diteggiature principali; quelle alternative e il registro sovracuto verranno aggiunti dopo.
+- Il mouse preme una chiave alla volta: per suonare veloce usa la tastiera del computer.
+- Il microfono come sorgente del fiato non e' ancora disponibile.)";
     }
     return {};
 }

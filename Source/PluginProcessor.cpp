@@ -396,6 +396,8 @@ WindLabAudioProcessor::WindLabAudioProcessor()
 
 void WindLabAudioProcessor::prepareToPlay(double sampleRate, int)
 {
+    virtualInstrumentInput.reset(sampleRate);
+    virtualInputReady.store(true);
     synthesiser->setCurrentPlaybackSampleRate(sampleRate);
     synthesiser->allNotesOff(0, false);
     static_cast<PerformanceSynthesiser*>(synthesiser.get())->resetControllers();
@@ -449,6 +451,8 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     // MIDI (notes + CC curves), not a bounced WAV file. Recording and playing
     // use separate buffers so REC never destroys an existing phrase.
     keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
+    if (virtualInputReady.load() && buffer.getNumSamples() > 0)
+        virtualInstrumentInput.removeNextBlockOfMessages(midiMessages, buffer.getNumSamples());
     // Observe original incoming MIDI before hybrid-channel normalization.
     // The monitor is diagnostic only; it does not modify MIDI or sound.
     for (const auto event : midiMessages)

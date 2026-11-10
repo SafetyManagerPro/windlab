@@ -264,7 +264,12 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
     // without spawning a host-dependent secondary window.
     guidePanel = std::make_unique<WindLabGuidePanel>([this] {
         guidePanel->setVisible(false);
-        if (midiLearnPanel && midiLearnPanel->isVisible())
+        if (virtualInstrumentPanel && virtualInstrumentPanel->isVisible())
+        {
+            virtualInstrumentPanel->toFront(true);
+            virtualInstrumentPanel->grabKeyboardFocus();
+        }
+        else if (midiLearnPanel && midiLearnPanel->isVisible())
             midiLearnPanel->toFront(true);
         else if (phrasePanel && phrasePanel->isVisible())
             phrasePanel->toFront(true);
@@ -294,6 +299,27 @@ WindLabAudioProcessorEditor::WindLabAudioProcessorEditor(WindLabAudioProcessor& 
         if (!show) processor.midiLearn.cancel();
         midiLearnPanel->setVisible(show);
         if (show) midiLearnPanel->toFront(true);
+    };
+    virtualInstrumentPanel = std::make_unique<WindLabVirtualInstrumentPanel>(
+        processor,
+        [this] {
+            virtualInstrumentPanel->setVisible(false);
+            if (inputModeBox.getSelectedId() == 2)
+                keyboard.grabKeyboardFocus();
+        },
+        [this] { quickRecordButton.triggerClick(); },
+        [this] { return quickRecordButton.getButtonText(); },
+        [this] { showGuide(WindLabGuidePanel::virtualInstrument); });
+    virtualInstrumentPanel->setBounds(getLocalBounds());
+    addChildComponent(*virtualInstrumentPanel);
+    virtualInstrumentButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff8a5a2e));
+    virtualInstrumentButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    virtualInstrumentButton.setTooltip("Suona lo strumento disegnato a video con mouse e tastiera del computer");
+    addAndMakeVisible(virtualInstrumentButton);
+    virtualInstrumentButton.onClick = [this] {
+        virtualInstrumentPanel->setVisible(true);
+        virtualInstrumentPanel->toFront(true);
+        virtualInstrumentPanel->grabKeyboardFocus();
     };
     startTimerHz(8);
 }
@@ -419,6 +445,7 @@ void WindLabAudioProcessorEditor::resized()
     quickRecordButton.setBounds(getWidth() - 550, 20, 123, 41);
     helpButton.setBounds(getWidth() - 263, 20, 45, 41);
     midiLearnButton.setBounds(getWidth() - 418, 20, 145, 41);
+    virtualInstrumentButton.setBounds(getWidth() - 735, 20, 175, 41);
     breathSourceLabel.setBounds(35, 858, 85, 24);
     breathSourceBox.setBounds(120, 857, 175, 28);
     breathThresholdLabel.setBounds(312, 858, 65, 24);
@@ -428,4 +455,5 @@ void WindLabAudioProcessorEditor::resized()
     if (phrasePanel) phrasePanel->setBounds(getLocalBounds());
     if (guidePanel) guidePanel->setBounds(getLocalBounds());
     if (midiLearnPanel) midiLearnPanel->setBounds(getLocalBounds());
+    if (virtualInstrumentPanel) virtualInstrumentPanel->setBounds(getLocalBounds());
 }

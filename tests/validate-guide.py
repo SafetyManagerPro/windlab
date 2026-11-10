@@ -79,5 +79,10 @@ for token in ("IBRIDO", "SOFFIO DA", "AFTERTOUCH", "ULTIMO AFTERTOUCH"):
     assert token in panel, f"In-app guide misses {token}"
     assert token in manual, f"User manual misses {token}"
 assert '"breathSource"' in processor and "breathSourceBox" in main
+# On-screen instrument (STRUMENTO A VIDEO).
+for token in ("STRUMENTO A VIDEO", "RILASCIA CHIAVI", "ARMONICO", "coulisse"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
+assert "virtualInstrumentButton" in main and "virtualInstrument" in header
 
-print("PASS: 12 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")
+print("PASS: 13 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")

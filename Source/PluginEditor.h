@@ -3,6 +3,7 @@
 #include "PhraseEditor.h"
 #include "WindLabGuidePanel.h"
 #include "WindLabMidiLearnPanel.h"
+#include "WindLabVirtualInstrumentPanel.h"
 #include <array>
 #include <memory>
 
@@ -25,10 +26,11 @@ private:
     juce::Slider breathThresholdSlider, breathCurveSlider;
     juce::Label breathThresholdLabel, breathCurveLabel, breathSourceLabel;
     juce::ComboBox breathSourceBox;
-    juce::TextButton phraseButton {"PHRASE EDITOR"}, helpButton {"?"}, midiLearnButton {"MIDI LEARN"}, quickRecordButton {"REC MIDI"};
+    juce::TextButton phraseButton {"PHRASE EDITOR"}, helpButton {"?"}, midiLearnButton {"MIDI LEARN"}, quickRecordButton {"REC MIDI"}, virtualInstrumentButton {"STRUMENTO A VIDEO"};
     std::unique_ptr<WindLabPhraseEditor> phrasePanel;
     std::unique_ptr<WindLabGuidePanel> guidePanel;
     std::unique_ptr<WindLabMidiLearnPanel> midiLearnPanel;
+    std::unique_ptr<WindLabVirtualInstrumentPanel> virtualInstrumentPanel;
     int keyboardOctave = 5; // physical keyboard A = MIDI 60 (middle C)
     void changeKeyboardOctave(int delta);
     void showGuide(int topic);

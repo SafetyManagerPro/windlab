@@ -209,6 +209,28 @@ In **MIDI LEARN** scegliere e applicare volontariamente il profilo **STANDARD CC
 
 Il collegamento Bluetooth e la scelta delle porte MIDI dipendono dal sistema operativo o dalla DAW, non dal plugin. Vedere la [guida tecnica MIDI](MIDI-Performance-Modes.md).
 
+## Strumento a video
+
+Il pulsante **STRUMENTO A VIDEO** in alto apre il disegno dello strumento scelto, per suonarlo come uno strumento vero con mouse e tastiera del computer. Vale per tutti i 9 strumenti: sax soprano, contralto, tenore e baritono, clarinetto, flauto, tromba, corno e trombone.
+
+**Come si suona**
+
+- Ogni chiave, foro o pistone porta scritta la lettera del tasto del computer che lo preme. Con il mouse un clic **blocca** la chiave (un altro clic la rilascia); **RILASCIA CHIAVI** le libera tutte.
+- La nota esce solo **soffiando**: barra spaziatrice tenuta premuta (**FIATO DA: SPAZIO**, forza regolabile con **FORZA DEL FIATO**) oppure mouse tenuto premuto sulla barra del fiato (**FIATO DA: MOUSE**, più in alto = più forte).
+- Cambiando diteggiatura mentre si soffia le note sono legate.
+
+| Strumento | Tasti |
+|---|---|
+| Sax | F D S = mano sinistra (Si La Sol), J K L = mano destra (Fa Mi Re), M/N = Do e Si gravi, A = Sol#, Q W E = palmari, R/U = laterali Sib e Do, SHIFT = chiave d'ottava |
+| Clarinetto | V = foro del pollice, F D S e J K L = fori, M/N = Fa e Mi gravi, R = chiave del La, SHIFT = portavoce (una dodicesima sopra) |
+| Flauto | V = chiave del pollice, F D S e J K L, A = Sol#, M = Do grave, FRECCE o SHIFT = ottava |
+| Tromba e corno | J K L = pistoni/cilindri 1 2 3, FRECCE SU/GIÙ o colonna **ARMONICO** = armonico (labbra) |
+| Trombone | coulisse trascinata con il mouse (glissando) o tasti 1–7, FRECCE SU/GIÙ = armonico |
+
+Per i legni **H** (o il pulsante **# +1**) alza la nota di un semitono. Il riquadro **NOTA** mostra la nota scritta e quella reale per gli strumenti traspositori. **REC MIDI** registra nel Phrase Editor quello che suoni; in modalità **IBRIDO** le note escono sul canale NOTE CH.
+
+**Limiti:** solo le diteggiature principali (alternative e sovracuti in seguito); il mouse preme una chiave alla volta; il microfono come sorgente del fiato non è ancora disponibile.
+
 ## 7. Risoluzione dei problemi
 
 | Problema | Verifica |

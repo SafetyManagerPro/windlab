@@ -46,6 +46,9 @@ target_sources(WindLab PRIVATE
     Source/WindLabGuidePanel.h
     Source/WindLabMidiLearnPanel.cpp
     Source/WindLabMidiLearnPanel.h
+    Source/WindLabVirtualInstrumentPanel.cpp
+    Source/WindLabVirtualInstrumentPanel.h
+    Source/Dsp/VirtualFingering.h
     Source/Dsp/WindEngine.h
     Source/Dsp/ToneEQ.h
     Source/Dsp/RecordedWinds.h
@@ -137,4 +140,7 @@ if (BUILD_TESTING)
     add_executable(windlab_phrase_grid_smoke tests/phrase-grid-smoke.cpp)
     target_include_directories(windlab_phrase_grid_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_phrase_grid_smoke COMMAND windlab_phrase_grid_smoke)
+    add_executable(windlab_virtual_fingering_smoke tests/virtual-fingering-smoke.cpp)
+    target_include_directories(windlab_virtual_fingering_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    add_test(NAME windlab_virtual_fingering_smoke COMMAND windlab_virtual_fingering_smoke)
 endif()
