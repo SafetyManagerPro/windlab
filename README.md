@@ -1,4 +1,14 @@
-# WindLab 0.9.10 — Strumento a video, espressione, sezioni, MPE e sale registrate
+# WindLab 0.9.11 — Prima evoluzione del realismo acustico
+
+## Novità 0.9.11 — Il fiato cambia anche il timbro dei campioni
+
+- Il motore dei campioni acustici ora applica un filtraggio spettrale per voce, controllato dal fiato **CC2** (anche via controller, microfono o aftertouch instradato) e dalla manopola **Brightness**.
+- Un soffio più leggero rende la registrazione più scura; aumentando il fiato il suono recupera naturalmente contenuto armonico, non soltanto volume. I cambiamenti sono smussati per evitare salti bruschi.
+- Funziona anche in modalità Hybrid; non modifica la modalità Synthetic, i campioni WAV/FLAC, gli ID dei parametri, le mappature MIDI o i progetti esistenti.
+- DSP per voce, nessuna allocazione o I/O nella callback audio. Nuovo test sulle frequenze acute e gravi, cambi di fiato e sample rate 44,1/48/96 kHz.
+- **Limite esplicito:** è una modellazione timbrica del campione, non un crossfade tra vere registrazioni forti/piano o un legato registrato. Questi rimangono obiettivi del successivo upgrade acustico.
+
+## WindLab 0.9.10 — Strumento a video, espressione, sezioni, MPE e sale registrate
 
 Plugin AU / VST3 / Standalone di strumenti a fiato (9 strumenti, campioni reali + motore espressivo).
 
