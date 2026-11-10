@@ -1,4 +1,5 @@
 #include "Dsp/RecordedRelease.h"
+#include "Dsp/PhraseBreathEnvelope.h"
 #include "Dsp/WindEngine.h"
 #include <cassert>
 #include <cmath>
@@ -93,5 +94,39 @@ int main()
         for (int i = 0; i < static_cast<int>(sr * 2.02); ++i) engine.render();
         assert(engine.releasingPhraseNaturally());
     }
-    std::cout << "WindLab recorded acoustic release 0.9.17: PASS\n";
+    // Phrase breath falls continuously to a lower air level and never
+    // restores full gain when a note enters its release stage.
+    for (int instrument = 0; instrument < 9; ++instrument)
+    {
+        float previous = 1.0f;
+        for (int i = 0; i <= 100; ++i)
+        {
+            const auto shape = phraseBreathShape(1.6 + .004 * i, 2.0f, instrument, false);
+            assert(shape.level > .45f && shape.level <= previous + 1.0e-6f);
+            assert(shape.vibratoScale >= .71f && shape.vibratoScale <= 1.0f);
+            previous = shape.level;
+        }
+        const auto finished = phraseBreathShape(2.5, 2.0f, instrument, false);
+        assert(std::abs(finished.level - previous) < 1.0e-6f);
+        assert(phraseBreathShape(2.0, 30.0f, instrument, false).level == 1.0f);
+        assert(phraseBreathShape(2.0, 2.0f, instrument, true).level == 1.0f);
+    }
+
+    // Regression: the short-breath auto note-off may not double the loudness
+    // by clearing the previous taper when Release begins.
+    WindEngine e;
+    e.prepare(48000.0);
+    e.setHumanize(0.0f);
+    e.setVibrato(0.0f);
+    e.setBreathLength(2.0f);
+    e.start(60, .9f, Instrument::TenorSax, .01f, .4f);
+    for (int i = 0; i < static_cast<int>(48000 * 2.0) - 2; ++i) e.render();
+    const float justBefore = e.currentLevel();
+    for (int i = 0; i < 8; ++i) e.render();
+    const float justAfter = e.currentLevel();
+    assert(e.releasingPhraseNaturally());
+    assert(justBefore > 0.0f && justAfter > 0.0f);
+    assert(justAfter <= justBefore * 1.025f);
+
+    std::cout << "WindLab recorded acoustic release 0.9.17: PASS\\n";
 }
