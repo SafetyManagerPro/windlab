@@ -2,9 +2,10 @@
 #include <utility>
 
 WindLabMidiLearnPanel::WindLabMidiLearnPanel(windlab::MidiLearnBindings& bindings,
+                                           windlab::MidiInputMonitor& monitor,
                                            std::function<void()> close,
                                            std::function<void()> help)
-    : midiLearn(bindings), onClose(std::move(close)), onHelp(std::move(help))
+    : midiLearn(bindings), midiMonitor(monitor), onClose(std::move(close)), onHelp(std::move(help))
 {
     setOpaque(true);
     const juce::StringArray names {"VIBRATO", "FIATO / BREATH", "VOLUME / EXPRESSION"};
@@ -30,6 +31,12 @@ WindLabMidiLearnPanel::WindLabMidiLearnPanel(windlab::MidiLearnBindings& binding
         addAndMakeVisible(cc);
     }
 
+    for (auto* label : {&noteMonitorLabel, &ccMonitorLabel, &pressureMonitorLabel})
+    {
+        label->setColour(juce::Label::textColourId, juce::Colour(0xffb6dbcb));
+        label->setFont(juce::Font(14.0f, juce::Font::bold));
+        addAndMakeVisible(*label);
+    }
     status.setColour(juce::Label::textColourId, juce::Colour(0xffb6dbcb));
     status.setFont(juce::Font(15.0f, juce::Font::bold));
     addAndMakeVisible(status);
@@ -43,7 +50,19 @@ WindLabMidiLearnPanel::WindLabMidiLearnPanel(windlab::MidiLearnBindings& binding
     instructions.setFont(juce::Font(14.0f));
     addAndMakeVisible(instructions);
 
-    for (auto* button : {&resetButton, &cancelButton, &helpButton, &closeButton})
+    // Explicit profiles: do not silently override a user's MIDI Learn map.
+    profileBox.addItem("STANDARD CC2 / EWI / AEROPHONE", windlab::WindControllerProfiles::StandardCC2);
+    profileBox.addItem("ARTINOISE RE.CORDER CC11", windlab::WindControllerProfiles::ArtinoiseReCorderCC11);
+    profileBox.setSelectedId(windlab::WindControllerProfiles::StandardCC2, juce::dontSendNotification);
+    profileBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff182831));
+    profileBox.setColour(juce::ComboBox::textColourId, juce::Colours::white);
+    addAndMakeVisible(profileBox);
+    addAndMakeVisible(applyProfileButton);
+    applyProfileButton.onClick = [this] {
+        if (windlab::WindControllerProfiles::apply(midiLearn, profileBox.getSelectedId()))
+            updateState();
+    };
+    for (auto* button : {&resetButton, &cancelButton, &helpButton, &closeButton, &applyProfileButton})
     {
         button->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff294c59));
         button->setColour(juce::TextButton::textColourOffId, juce::Colours::white);
@@ -83,6 +102,27 @@ void WindLabMidiLearnPanel::updateState()
         : "PRONTO. Mappature salvate nel progetto. MIDI interno canale 16 escluso.";
     if (status.getText() != message)
         status.setText(message, juce::dontSendNotification);
+
+    const auto note = midiMonitor.noteSnapshot();
+    const auto cc = midiMonitor.ccSnapshot();
+    const juce::String noteText = note.valid
+        ? "ULTIMA NOTA: CH " + juce::String(note.channel) + "  NOTE "
+          + juce::String(note.pitch) + (note.on ? "  ON" : "  OFF")
+        : "ULTIMA NOTA: nessun dato MIDI";
+    const juce::String ccText = cc.valid
+        ? "ULTIMO CC: CH " + juce::String(cc.channel)
+          + "  CC " + juce::String(cc.number) + "  VAL " + juce::String(cc.value)
+        : "ULTIMO CC: nessun dato MIDI";
+    if (noteMonitorLabel.getText() != noteText)
+        noteMonitorLabel.setText(noteText, juce::dontSendNotification);
+    if (ccMonitorLabel.getText() != ccText)
+        ccMonitorLabel.setText(ccText, juce::dontSendNotification);
+    const auto at = midiMonitor.pressureSnapshot();
+    const juce::String atText = at.valid
+        ? "ULTIMO AFTERTOUCH: CH " + juce::String(at.channel) + "  VAL " + juce::String(at.value)
+        : "ULTIMO AFTERTOUCH: nessun dato MIDI";
+    if (pressureMonitorLabel.getText() != atText)
+        pressureMonitorLabel.setText(atText, juce::dontSendNotification);
 }
 
 void WindLabMidiLearnPanel::paint(juce::Graphics& g)
@@ -111,10 +151,13 @@ void WindLabMidiLearnPanel::paint(juce::Graphics& g)
     }
     g.setColour(juce::Colour(0xffacbfc5));
     g.setFont(juce::Font(14.0f));
+    g.drawText("PROFILO MIDI: controlla il CC del dispositivo prima di applicare",
+               38, 582, getWidth() - 76, 22, juce::Justification::centredLeft);
+    g.setFont(juce::Font(14.0f));
     g.drawFittedText(
         "Se usi CC64 (pedale sustain) per un'espressione, quel pedale non inviera' "
         "il sustain tradizionale mentre e' assegnato. Le altre note MIDI restano invariate.",
-        38, 632, getWidth() - 76, 51, juce::Justification::centredLeft, 2);
+        38, 687, getWidth() - 76, 51, juce::Justification::centredLeft, 2);
 }
 
 void WindLabMidiLearnPanel::resized()
@@ -130,6 +173,11 @@ void WindLabMidiLearnPanel::resized()
         learnButtons[static_cast<std::size_t>(i)].setBounds(w - 224, y + 18, 164, 46);
     }
     status.setBounds(38, 539, w - 70, 37);
+    noteMonitorLabel.setBounds(38, 750, w - 76, 26);
+    ccMonitorLabel.setBounds(38, 778, w - 76, 26);
+    pressureMonitorLabel.setBounds(38, 806, w - 76, 26);
+    profileBox.setBounds(38, 611, 420, 34);
+    applyProfileButton.setBounds(474, 611, 190, 34);
     resetButton.setBounds(38, h - 76, 145, 40);
     cancelButton.setBounds(198, h - 76, 138, 40);
     helpButton.setBounds(w - 255, 20, 43, 41);

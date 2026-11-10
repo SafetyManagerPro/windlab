@@ -38,7 +38,7 @@ assert "midiLearn.route" not in main  # audio routing belongs in processor, not 
 # A plugin can be compiled successfully even when a child overlay is 0x0.
 # Editor setSize runs before overlays are constructed; require explicit bounds
 # BEFORE addChildComponent so buttons open a visible screen on first click.
-assert "setSize(1080, 849)" in main
+assert "setSize(1080, 922)" in main, "Editor dimensions must fit the MIDI/breath controls"
 for child in ("phrasePanel", "guidePanel", "midiLearnPanel"):
     add = f"addChildComponent(*{child})"
     if add not in main:
@@ -71,3 +71,7 @@ assert "REC" in manual and "IMPORTA" in manual
 assert "popup" in manual.lower()
 
 print("PASS: 12 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")
+
+for token in ("IBRIDO", "SOFFIO DA", "AFTERTOUCH", "ULTIMO AFTERTOUCH"):
+    assert token in panel and token in manual, token
+assert '"breathSource"' in processor and "breathSourceBox" in main

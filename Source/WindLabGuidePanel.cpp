@@ -112,6 +112,14 @@ Le assegnazioni vengono salvate nel progetto Logic/Studio One e ricordate alla r
 
 Se due espressioni utilizzano lo stesso numero CC, l'assegnazione precedente viene scambiata automaticamente: una sorgente non controlla due funzioni in conflitto. CC64 puo' essere appreso come pedale di espressione, ma in tal caso non svolge contemporaneamente la funzione sustain. I CC interni del Phrase Editor (canale MIDI 16) sono esclusi dal MIDI Learn.
 
+CONTROLLER A FIATO / EWI (MIDI PERFORMANCE):
+- TASTIERA / MIDI: comportamento normale.
+- STRUMENTO A FIATO: note e soffio dallo stesso controller.
+- IBRIDO: note dalla tastiera sul canale NOTE CH, soffio da un controller separato sul canale BREATH CH (1-15).
+- SOFFIO DA: CC (MIDI LEARN) oppure AFTERTOUCH (Channel Pressure, per EWI/Aerophone impostati cosi').
+- SOGLIA = pressione minima; CURVA = sensibilita' (1 = lineare).
+- In MIDI LEARN: profili STANDARD CC2 / EWI / AEROPHONE e ARTINOISE RE.CORDER CC11, piu' il monitor ULTIMA NOTA / ULTIMO CC / ULTIMO AFTERTOUCH per controllare canale e CC del dispositivo.
+
 Il MIDI Learn attuale riguarda tre espressioni: vibrato, fiato e volume. Non e' ancora un MIDI Learn universale di tutte le manopole. L'MPE per singola nota non e' ancora disponibile.)";
 
         case logic: return R"(UTILIZZO IN LOGIC PRO (APPLE SILICON)

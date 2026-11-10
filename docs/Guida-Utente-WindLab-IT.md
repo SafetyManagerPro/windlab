@@ -174,6 +174,26 @@ Le frasi sono salvate **nel progetto della DAW** tramite lo stato del plugin. Qu
 
 **HOST BPM** attiva l'uso del tempo letto da Logic Pro/Studio One, se disponibile. Non segue ancora automaticamente il play/stop o la posizione temporale della testina: premere manualmente PLAY nel Phrase Editor. Disattivare HOST BPM per tornare al tempo interno.
 
+## Controller a fiato, EWI e modalità ibrida
+
+Nel selettore **MIDI PERFORMANCE** scegliere:
+
+- **TASTIERA / MIDI**: comportamento normale (tastiera, piano a video, DAW).
+- **STRUMENTO A FIATO**: note e soffio arrivano dallo stesso controller sullo stesso canale.
+- **IBRIDO: NOTE CH + SOFFIO CH**: le note arrivano da una tastiera sul canale **NOTE CH**, il soffio da un controller separato sul canale **BREATH CH** (1–15). WindLab sposta il soffio sul canale delle note e ignora le note del canale del soffio. Instradare entrambi i controller alla stessa istanza di WindLab. Il canale 16 resta riservato al Phrase Editor.
+
+Nella fascia in basso:
+
+- **SOFFIO DA**: **CC (MIDI LEARN)** usa il CC assegnato al fiato (CC2 di serie, oppure quello appreso). **AFTERTOUCH** usa il Channel Pressure, utile per EWI/Aerophone impostati per inviare la pressione come aftertouch.
+- **SOGLIA**: pressione minima sotto la quale il soffio è zero.
+- **CURVA**: sensibilità; 1 è lineare, valori più bassi rispondono di più al soffio leggero, più alti danno più controllo sul soffio forte. I valori iniziali (0 e 1) mantengono la risposta originale.
+
+Il soffio registrato con **REC** viene salvato già calibrato, così la frase suona come l'hai sentita.
+
+In **MIDI LEARN** scegliere e applicare volontariamente il profilo **STANDARD CC2 / EWI / AEROPHONE** oppure **ARTINOISE RE.CORDER CC11**; usare MIDI Learn manuale se il dispositivo è configurato diversamente. **ULTIMA NOTA**, **ULTIMO CC** e **ULTIMO AFTERTOUCH** mostrano l'ultimo segnale ricevuto: servono a controllare canale e numero CC del controller.
+
+Il collegamento Bluetooth e la scelta delle porte MIDI dipendono dal sistema operativo o dalla DAW, non dal plugin. Vedere la [guida tecnica MIDI](MIDI-Performance-Modes.md).
+
 ## 7. Risoluzione dei problemi
 
 | Problema | Verifica |
