@@ -37,7 +37,9 @@ def main() -> int:
         import audb  # noqa: F401
     except ImportError:
         try:
-            subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "audb"], check=True)
+            # macOS runners ship a Homebrew Python that refuses plain pip installs.
+            subprocess.run([sys.executable, "-m", "pip", "install", "--quiet",
+                            "--break-system-packages", "audb"], check=True)
         except Exception as error:  # pragma: no cover - network dependent
             warn(f"cannot install audb: {error}")
             return 0
@@ -45,7 +47,9 @@ def main() -> int:
         import audb
 
         db = audb.load("openair", version="1.0.0", only_metadata=True, verbose=False)
-        files = sorted({str(f) for table in db.tables for f in db[table].files})
+        # audb returns absolute cache paths; load_media wants the relative names.
+        files = sorted({str(pathlib.PurePath(f).as_posix()) for f in db.files})
+        files = [f[f.index("wav/"):] if "wav/" in f else f for f in files]
     except Exception as error:  # pragma: no cover - network dependent
         warn(f"cannot read the OpenAIR index: {error}")
         return 0
