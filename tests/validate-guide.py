@@ -69,6 +69,11 @@ assert "std::array<std::atomic<std::uint64_t>" in recorder_header
 assert "Source/Dsp/PhraseRecorder.h" in cmake and "windlab_phrase_record_smoke" in cmake
 assert "REC" in manual and "IMPORTA" in manual
 assert "popup" in manual.lower()
+# 0.9.5: grids, chords, pedal, mouse chord editing and MIDI export must be documented.
+for token in ("GRID", "TRIPLET", "EXPORT MIDI", "4 note", "CC64"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
+assert "exportButton" in phrase and "gridBox" in phrase
 
 print("PASS: 12 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")
 
