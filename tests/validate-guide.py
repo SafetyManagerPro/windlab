@@ -74,9 +74,10 @@ for token in ("GRID", "TRIPLET", "EXPORT MIDI", "4 note", "CC64"):
     assert token in panel, f"In-app guide misses {token}"
     assert token in manual, f"User manual misses {token}"
 assert "exportButton" in phrase and "gridBox" in phrase
+# 0.9.6: wind controller modes and aftertouch breath (PR #16 + #17).
+for token in ("IBRIDO", "SOFFIO DA", "AFTERTOUCH", "ULTIMO AFTERTOUCH"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
+assert '"breathSource"' in processor and "breathSourceBox" in main
 
 print("PASS: 12 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")
-
-for token in ("IBRIDO", "SOFFIO DA", "AFTERTOUCH", "ULTIMO AFTERTOUCH"):
-    assert token in panel and token in manual, token
-assert '"breathSource"' in processor and "breathSourceBox" in main
