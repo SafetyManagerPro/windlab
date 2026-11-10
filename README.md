@@ -1,4 +1,17 @@
-# WindLab 0.9.13 — Loop acustici più continui
+# WindLab 0.9.14 — Allineamento di fase tra dinamiche campionate
+
+## Novità 0.9.14 — Transizioni piano/forte più coerenti
+
+- Durante il caricamento della banca acustica, il plugin analizza le coppie di take *piano/forte* della stessa nota e articolazione. Cerca entro un periodo musicale lo scorrimento temporale che migliora la correlazione fra le due forme d'onda, anche quando la frequenza di campionamento è diversa.
+- Applica l'allineamento solo quando il confronto è affidabile e mostra un miglioramento sostanziale. In caso contrario conserva il campione originale, senza correzioni speculative.
+- La fase del campione secondario viene anticipata mediante il cursore già presente. Il calcolo della correlazione è **esclusivamente in fase di caricamento**: nessun FFT, allocazione, ricerca o ritardo aggiuntivo nel thread audio.
+- Preset, parametri pubblici, staccati one-shot, note senza una seconda registrazione e formati AU/VST3/Standalone restano invariati.
+- Nuovo test C++ per registrazioni simulate con fase diversa e livello diverso, sample rate 44,1/48/96 kHz, combinazioni 44,1/48 kHz e condizioni non valide.
+- **Limite da ascoltare:** è una correzione approssimata di fase iniziale; il vibrato e l'intonazione di esecuzioni indipendenti possono comunque divergere nel tempo. Non è un algoritmo di time-stretch e non sostituisce il legato registrato autentico.
+
+**Build Actions:** sempre solo dopo l'aggiornamento di `main`; niente build delle PR. La firma e notarizzazione Apple rimangono fuori scope.
+
+## WindLab 0.9.13 — Loop acustici più continui
 
 ## Novità 0.9.13 — Chiusura dei campioni sostenuti con confronto della forma d'onda
 
