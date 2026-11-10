@@ -36,6 +36,7 @@ namespace windlab
         {
             stage = Stage::Idle;
             breathControlled = false;
+            naturalNoteRelease = false;
             env = 0.0f;
             phase = vibratoPhase = elapsed = 0.0;
             driftPhase = .13;
@@ -102,6 +103,7 @@ namespace windlab
             clickEnv = (recordedSource && !legato) ? 0.0f
                      : keyClickLevels[index] * (.4f + .6f * velocity) * (.6f + .4f * r2) * (legato ? .8f : 1.0f);
             stage = Stage::Attack;
+            naturalNoteRelease = false;
             env = 0.0f;
             phase = vibratoPhase = elapsed = 0.0;
             lowpass = noiseLowpass = 0.0f;
@@ -117,6 +119,7 @@ namespace windlab
             if (stage != Stage::Idle && stage != Stage::Release)
             {
                 stage = Stage::Release;
+                naturalNoteRelease = true;
                 float releaseSeconds = releaseTime;
                 if ((jazzEffect == JazzEffect::Fall || jazzEffect == JazzEffect::Doit)
                     && articulation != Articulation::Staccato)
@@ -136,6 +139,7 @@ namespace windlab
             const float step = env / static_cast<float>(sampleRate * std::max(.005f, seconds));
             releaseStep = stage == Stage::Release ? std::max(releaseStep, step) : step;
             stage = Stage::Release;
+            naturalNoteRelease = false; // a legato transfer never plays the end of a phrase
             releaseClock = -1.0; // a slur hand-over is never a fall or a doit
         }
 
@@ -180,6 +184,10 @@ namespace windlab
         }
         void setPitchWheel(int value) { pitchWheel = std::clamp(value, 0, 16383); }
         bool active() const { return stage != Stage::Idle; }
+        bool releasingPhraseNaturally() const noexcept
+        {
+            return stage == Stage::Release && naturalNoteRelease;
+        }
         float currentLevel() const noexcept { return latestLevel; }
         // Smoothed CC2 breath for the recorded-waveform timbre, independent of note-on velocity.
         float currentBreathIntensity() const noexcept { return currentBreath; }
@@ -391,6 +399,7 @@ namespace windlab
         double pitchAlpha = .002;
         // 0.9.4 slur / vibrato / noise state
         bool legato = false, recordedSource = false, breathControlled = false;
+        bool naturalNoteRelease = false;
         double glideSemis = 0.0, glideDecay = .999, vibratoClock = 0.0;
         float vibratoRate = 5.2f, vibratoDelay = .2f, vibratoRamp = .7f, onsetGain = 1.0f;
         float clickEnv = 0.0f, clickDecay = .99f, latestClick = 0.0f;
