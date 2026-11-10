@@ -31,7 +31,8 @@ struct RecordedWind
     int tuneCents = 0;     // SFZ-style correction: positive raises the pitch when played at its key
     float gain = 1.0f;     // per-zone level normalisation
     int attackStart = 0;  // precomputed one-shot leading-silence trim
-    RecordedReleasePlan releaseTail; // only when the source ending actually tapers
+    RecordedReleasePlan releaseTail; // offsets are relative to releaseWav
+    juce::AudioBuffer<float> releaseWav; // only the last <=260ms, if usable
     SamplePhaseAlignment companionAlignment; // computed once at bank load
 };
 
@@ -97,10 +98,20 @@ public:
                 entry.fade = plan.fade;
                 // Keep an existing decaying source ending only when a conservative
                 // off-line RMS check confirms it; otherwise reclaim unused WAV memory.
-                entry.releaseTail = detectRecordedRelease(entry.wav.getReadPointer(0),
-                                                          count, reader->sampleRate, plan.end);
-                const int keep = entry.releaseTail.valid ? count
-                                                         : std::min(count, plan.end + 4);
+                const auto originalTail = detectRecordedRelease(entry.wav.getReadPointer(0),
+                                                                count, reader->sampleRate, plan.end);
+                if (originalTail.valid)
+                {
+                    // Copy only the last <=260ms: avoid retaining several
+                    // seconds of unused audio between the sustain loop and
+                    // the ending, especially for long 12-second source takes.
+                    const int length = count - originalTail.start;
+                    entry.releaseWav.setSize(1, length);
+                    entry.releaseWav.copyFrom(0, 0, entry.wav, 0,
+                                              originalTail.start, length);
+                    entry.releaseTail = {0, length - 2, true};
+                }
+                const int keep = std::min(count, plan.end + 4);
                 if (keep < count)
                     entry.wav.setSize(1, keep, true);
             }
@@ -255,8 +266,16 @@ public:
         // handover to the *recorded* ending, if its taper was verified.
         if (releaseTransition.active())
         {
-            const float tail = releaseTransition.finished()
-                             ? 0.0f : readAt(releaseTransition.sourcePosition());
+            float tail = 0.0f;
+            if (!releaseTransition.finished() && sample->releaseWav.getNumSamples() >= 2)
+            {
+                const auto& t = sample->releaseWav;
+                const double p = releaseTransition.sourcePosition();
+                const int i = std::clamp(static_cast<int>(p), 0, t.getNumSamples() - 2);
+                const float fraction = static_cast<float>(p - i);
+                tail = t.getSample(0, i) * (1.0f - fraction)
+                     + t.getSample(0, i + 1) * fraction;
+            }
             output = releaseTransition.mix(output, tail, speed);
         }
         output *= sample->gain;
