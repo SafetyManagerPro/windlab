@@ -63,6 +63,20 @@ int main()
             primary.data(), static_cast<int>(primary.size()), primaryRate,
             silence.data(), static_cast<int>(silence.size()), companionRate, rootHz);
         assert(quiet.companionAdvance == 0.0);
+
+        // Unrelated/noisy takes must never be force-aligned.
+        std::vector<float> uncorrelated(loud.size());
+        std::uint32_t seed = 0x24f06a5du;
+        for (auto& value : uncorrelated)
+        {
+            seed = seed * 1664525u + 1013904223u;
+            value = (static_cast<float>((seed >> 8) & 0xffffffu) / 8388608.0f - 1.0f) * .25f;
+        }
+        const auto unrelated = estimateSamplePhaseAlignment(
+            primary.data(), static_cast<int>(primary.size()), primaryRate,
+            uncorrelated.data(), static_cast<int>(uncorrelated.size()), companionRate, rootHz);
+        assert(unrelated.companionAdvance == 0.0);
+
         assert(estimateSamplePhaseAlignment(nullptr, 0, 0,
             loud.data(), static_cast<int>(loud.size()), companionRate, rootHz)
             .companionAdvance == 0.0);
