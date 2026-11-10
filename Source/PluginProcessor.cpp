@@ -3,6 +3,7 @@
 #include "Dsp/WindEngine.h"
 #include "Dsp/AcousticExpression.h"
 #include "Dsp/DynamicLayerMorph.h"
+#include "Dsp/LegatoHandoff.h"
 #include "Dsp/VelocityResponse.h"
 #include "Dsp/HybridMidiRoute.h"
 #include "Dsp/BreathCalibration.h"
@@ -29,7 +30,7 @@ namespace
     struct LegatoYield
     {
         virtual ~LegatoYield() = default;
-        virtual void yieldToLegato() noexcept = 0;
+        virtual void yieldToLegato(float seconds) noexcept = 0;
     };
 
     // Cache CC events in MIDI-event order, including CCs received before note-on.
@@ -56,6 +57,7 @@ namespace
         }
         // Frequency of the note being slurred from, or 0 when the new note starts fresh.
         double currentlyStartingLegatoFrom() const noexcept { return legatoFrom; }
+        float currentlyStartingLegatoSeconds() const noexcept { return legatoSeconds; }
         ChannelControls currentlyStartingControls() const noexcept
         {
             return channels[static_cast<std::size_t>(juce::jlimit(1, 16, startingChannel) - 1)];
@@ -70,6 +72,7 @@ namespace
         {
             startingChannel = midiChannel;
             legatoFrom = 0.0;
+            legatoSeconds = 0.0f;
             const auto channelIndex = static_cast<std::size_t>(juce::jlimit(1, 16, midiChannel) - 1);
             // Monophonic-style slur: exactly one key still held, the new key comes at
             // least 60 ms later (so chords are not slurred), within an octave, and the
@@ -85,10 +88,12 @@ namespace
                 && midiNoteNumber != lastNote[channelIndex])
             {
                 legatoFrom = 440.0 * std::exp2((lastNote[channelIndex] - 69.0) / 12.0);
+                legatoSeconds = windlab::LegatoHandoff::durationForSemitones(
+                    midiNoteNumber - lastNote[channelIndex]);
                 for (auto* voice : voices)
                     if (voice->isVoiceActive() && voice->isPlayingChannel(midiChannel) && voice->isKeyDown())
                         if (auto* yielding = dynamic_cast<LegatoYield*>(voice))
-                            yielding->yieldToLegato();
+                            yielding->yieldToLegato(legatoSeconds);
             }
             lastNote[channelIndex] = midiNoteNumber;
             lastNoteOnSample[channelIndex] = renderedSamples;
@@ -108,6 +113,7 @@ namespace
                 }
             startingDoubler = 0;
             legatoFrom = 0.0;
+            legatoSeconds = 0.0f;
         }
         void noteOff(int midiChannel, int midiNoteNumber, float velocity, bool allowTailOff) override
         {
@@ -210,6 +216,7 @@ namespace
         std::array<std::int64_t, 16> lastNoteOnSample{};
         std::int64_t renderedSamples = 0;
         double legatoFrom = 0.0;
+        float legatoSeconds = 0.0f;
         int startingChannel = 1;
     };
 
@@ -312,6 +319,8 @@ namespace
             const bool slurred = legatoFrom > 0.0 && articulationIndex == 0;
             cursor.start(sample, noteFrequency, getSampleRate(), slurred, entryFraction);
             companionCursor.start(companion, noteFrequency, getSampleRate(), slurred, entryFraction);
+            legatoHandoff.start(slurred && sample != nullptr,
+                                controllerSource.currentlyStartingLegatoSeconds());
         }
 
         void stopNote(float, bool allowTailOff) override
@@ -320,7 +329,7 @@ namespace
             else { engine.reset(); clearCurrentNote(); }
         }
 
-        void yieldToLegato() noexcept override { engine.fastRelease(.05f); }
+        void yieldToLegato(float seconds) noexcept override { engine.fastRelease(seconds); }
 
         void pitchWheelMoved(int newValue) override { engine.setPitchWheel(newValue); }
         void controllerMoved(int controllerNumber, int newValue) override
@@ -356,6 +365,7 @@ namespace
             engine.prepare(newRate);
             acousticExpression.prepare(newRate);
             dynamicLayerMorph.prepare(newRate);
+            legatoHandoff.prepare(newRate);
         }
 
     private:
@@ -395,7 +405,7 @@ namespace
                                                : (recorded + .055f * model);
                 }
                 result += engine.currentClick();
-                const auto sample = static_cast<Sample>(result * unisonGain);
+                const auto sample = static_cast<Sample>(result * unisonGain * legatoHandoff.nextGain());
                 for (int channel = 0; channel < output.getNumChannels(); ++channel)
                     output.addSample(channel, startSample + i,
                                      sample * static_cast<Sample>(channel == 0 ? seatGainL : seatGainR));
@@ -412,6 +422,7 @@ namespace
         windlab::WindEngine engine;
         windlab::AcousticExpression acousticExpression;
         windlab::DynamicLayerMorph dynamicLayerMorph;
+        windlab::LegatoHandoff legatoHandoff;
         PerformanceSynthesiser& controllerSource;
         const windlab::RecordedWinds& sampleSource;
         windlab::RecordedCursor cursor;
