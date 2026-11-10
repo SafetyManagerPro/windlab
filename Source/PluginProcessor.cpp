@@ -318,7 +318,8 @@ namespace
             const auto entryFraction = static_cast<float>((entryRandom >> 8) & 0xffffffu) / 16777216.0f;
             const bool slurred = legatoFrom > 0.0 && articulationIndex == 0;
             cursor.start(sample, noteFrequency, getSampleRate(), slurred, entryFraction);
-            companionCursor.start(companion, noteFrequency, getSampleRate(), slurred, entryFraction);
+            companionCursor.start(companion, noteFrequency, getSampleRate(), slurred, entryFraction,
+                                  sample != nullptr ? sample->companionAlignment.companionAdvance : 0.0);
             legatoHandoff.start(slurred && sample != nullptr,
                                 controllerSource.currentlyStartingLegatoSeconds());
         }
