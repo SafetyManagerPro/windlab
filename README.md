@@ -1,4 +1,18 @@
-# WindLab 0.9.14 — Allineamento di fase tra dinamiche campionate
+# WindLab 0.9.15 — Attacchi staccati e ripetizioni espressive
+
+## Novità 0.9.15 — Articolazioni acustiche più affidabili
+
+- **Round robin indipendente per nota:** quando la banca contiene più registrazioni realmente intercambiabili della stessa nota campionata, intensità e articolazione, WindLab le alterna con un contatore specifico per strumento, tasto MIDI e Sustain/Staccato. Le note diverse non avanzano più il contatore delle ripetizioni altrui; le voci di unisono possono scegliere take diversi.
+- **Staccato più pronto:** all'apertura della banca il plugin cerca un eventuale silenzio tecnico iniziale nei campioni one-shot e lo salta mantenendo circa 1,5 ms prima del transiente naturale. Limite conservativo: non oltre 80 ms; se il segnale è troppo debole o ambiguo, non lo modifica.
+- **Suono originale preservato:** niente compressione del transiente, niente nuovi campioni inventati, nessun taglio della coda one-shot e nessuna alterazione dei loop Sustain. Quando esiste un solo take, viene sempre usato quello.
+- Nessun nuovo parametro pubblico, modifica dei preset o modifica a firma/notarizzazione. AU, VST3 e applicazioni Standalone rimangono i target per macOS e Windows.
+- I nuovi test verificano contatori isolati tra note/articolazioni e strumenti, assenza di take alternativi, attacco iniziale, silenzio, click isolato e frequenze 44,1/48/96 kHz.
+
+Il controllo dell'attacco e la banca dei take alternativi si realizzano nel caricamento o con operazioni a costo costante nel callback audio. La qualità timbrica va verificata all'ascolto per tromba, sax, trombone e legni.
+
+**Build:** GitHub Actions esclusivamente dopo la pubblicazione su `main`; nessun trigger di branch o PR.
+
+## WindLab 0.9.14 — Allineamento di fase tra dinamiche campionate
 
 ## Novità 0.9.14 — Transizioni piano/forte più coerenti
 
