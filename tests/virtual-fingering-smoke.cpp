@@ -77,6 +77,16 @@ int main()
     assert(n.concert == 54 && std::fabs(n.bendSemitones - 0.3f) < 1e-4f);
     assert(computeVirtualNote(tbn, 0, 0, 9.0f).concert == 40);                              // clamped to 7th
 
+    // --- Sax altissimo: octave + ALTISSIMO on F#5..C#6 fingerings = F#6..C#7 (written).
+    assert(computeVirtualNote(alto, keys({VkOctave, VkAltissimo, VkL1, VkL2, VkL3}), 0).written == 91);       // G6
+    assert(computeVirtualNote(alto, keys({VkOctave, VkAltissimo, VkL1, VkL2, VkL3, VkR2}), 0).written == 90); // F#6
+    assert(computeVirtualNote(alto, keys({VkOctave, VkAltissimo, VkL2}), 0).written == 96);                   // C7
+    assert(computeVirtualNote(alto, keys({VkAltissimo, VkL1, VkL2, VkL3}), 0).written == 67); // needs the octave key
+    {
+        const auto g6 = fingeringFor(alto, 91 - 9);
+        assert(g6.valid && (g6.mask & vkBit(VkAltissimo)) != 0u);
+    }
+
     // --- Alternate Bb "1+1" on sax and flute.
     assert(computeVirtualNote(alto, keys({VkL1, VkR1}), 0).written == 70);
     assert(computeVirtualNote(flute, keys({VkThumb, VkL1, VkR1}), 0).concert == 70);

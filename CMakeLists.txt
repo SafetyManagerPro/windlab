@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WindLab VERSION 0.9.9 LANGUAGES C CXX)
+project(WindLab VERSION 0.9.10 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -94,6 +94,19 @@ if(WINDLAB_RECORDED_WAVS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Sampl
     target_compile_definitions(WindLab PRIVATE WINDLAB_HAS_RECORDED_SAMPLES=1)
 else()
     message(WARNING "No CC0 sample bank found. Run python scripts/download-recordings.py for acoustic builds.")
+endif()
+
+# 0.9.10 recorded rooms (OpenAIR, CC BY 4.0) for the convolution reverb, if downloaded.
+file(GLOB WINDLAB_ROOM_WAVS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Rooms/room_*.wav")
+if(WINDLAB_ROOM_WAVS)
+    juce_add_binary_data(WindLabRoomData
+        HEADER_NAME WindLabRoomData.h
+        NAMESPACE WindLabRoomData
+        SOURCES ${WINDLAB_ROOM_WAVS})
+    target_link_libraries(WindLab PRIVATE WindLabRoomData)
+    target_compile_definitions(WindLab PRIVATE WINDLAB_HAS_RECORDED_ROOMS=1)
+else()
+    message(STATUS "No recorded rooms: the convolution reverb uses generated rooms.")
 endif()
 
 target_link_libraries(WindLab PRIVATE

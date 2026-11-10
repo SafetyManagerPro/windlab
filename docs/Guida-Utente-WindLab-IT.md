@@ -262,6 +262,14 @@ Il pulsante **ESPRESSIONE** apre i controlli dell'interpretazione:
 - **SALA DEL RIVERBERO**: ALGORITMICO (classico) oppure riverberi a convoluzione STUDIO, CLUB JAZZ, SALA DA CONCERTO, CHIESA. Le risposte all'impulso sono generate da WindLab, non registrate in sale reali. REVERB SIZE allunga la sala, DAMPING la scurisce.
 - **Fiato dal microfono**: in **SOFFIO DA** (o nello strumento a video) scegli **MICROFONO** e soffia verso il microfono; **SENSIBILITÀ MICROFONO** regola la risposta, la barra **SOFFIO MIC** mostra il segnale. In Standalone macOS chiede il permesso; se la barra resta ferma: Options → Audio/MIDI Settings → togli *Mute audio input*. Nella DAW collega il microfono all'ingresso **Breath Mic** di WindLab (side-chain in Logic, ingresso della traccia nelle altre DAW). L'audio serve solo a misurare il soffio: non viene registrato.
 
+**Sale registrate e sala personalizzata**: STUDIO, CLUB JAZZ, SALA DA CONCERTO e CHIESA usano risposte all'impulso **registrate in sale vere** (libreria **OpenAIR**, Università di York, [openairlib.net](https://www.openairlib.net), licenza CC BY 4.0) quando la build ha potuto scaricarle, altrimenti risposte generate; sotto il menu è indicato quale. **SALA PERSONALIZZATA** + **CARICA SALA WAV...** usa qualsiasi file WAV di risposta all'impulso, salvato nel progetto. REVERB SIZE e DAMPING valgono per le sale generate.
+
+**MPE** (fascia 03): con **MPE: ACCESO** ogni nota arriva sul suo canale (2–15; il canale 1 è quello generale): pitch bend, **pressione = fiato** e **slide CC74 = timbro** per ogni singola nota; **BEND** sceglie l'escursione (48 semitoni = standard MPE). Imposta il controller su **14 canali (2–15)**: il canale 16 resta del Phrase Editor.
+
+**Frasi lunghe**: nel Phrase Editor il menu **2 / 4 / 8 BATTUTE** sceglie la lunghezza; il piano roll mostra due battute alla volta (pulsanti **<** e **>**, durante il PLAY segue la riproduzione). REC, IMPORTA, SEGUI PLAY DAW ed EXPORT MIDI usano tutta la lunghezza.
+
+**Sax sovracuto**: nello strumento a video tieni **G** (chiave ALTISSIMO) con **SHIFT** e diteggia Fa#5–Do#6 per suonare un'ottava sopra (schema semplificato).
+
 **Firma Apple:** la build è pronta per la firma Developer ID e la notarizzazione; si attiva inserendo i dati dell'account Apple come descritto in [Firma-Apple-Notarizzazione.md](Firma-Apple-Notarizzazione.md).
 
 **Phrase Editor e DAW:** **SEGUI PLAY DAW** fa partire e fermare la frase con il play della DAW, agganciata alle sue battute. **TRASCINA IN DAW**: tieni premuto il pulsante e trascinalo su una traccia per inserire la frase come clip MIDI.

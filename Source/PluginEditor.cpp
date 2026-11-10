@@ -395,7 +395,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("WINDLAB", 27, 12, 475, 48, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xffc2d2d7));
     g.setFont(juce::Font(13.0f));
-    g.drawText("RECORDED WINDS  /  0.9.9  /  STRUMENTO A VIDEO + ESPRESSIONE + SEZIONI + FIATO DAL MICROFONO", 32, 63, 910, 21,
+    g.drawText("RECORDED WINDS  /  0.9.10  /  STRUMENTO A VIDEO + ESPRESSIONE + SEZIONI + FIATO DAL MICROFONO", 32, 63, 910, 21,
                juce::Justification::centredLeft);
 
     constexpr int rowTop[3] {207, 359, 511};
@@ -416,7 +416,7 @@ void WindLabAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("CC1 VIBRATO  /  CC2 BREATH  /  CC11 EXPRESSION  /  AFTERTOUCH  /  PITCH BEND",
                29, 658, 960, 19, juce::Justification::centredLeft);
     g.setColour(juce::Colour(0xff8faab3));
-    g.drawText("BREATH LENGTH: 30 = continuous. Winds: Versilian Studios / FreePats (CC0); Soprano, Alto, Baritone Sax: MTG / Freesound (CC BY 4.0).",
+    g.drawText("BREATH LENGTH: 30 = continuous. Winds: Versilian / FreePats (CC0); Sax: MTG (CC BY 4.0); Flute: Ixox (CC BY 4.0); Rooms: OpenAIR (CC BY 4.0).",
                29, 679, 1020, 18, juce::Justification::centredLeft);
 
     g.setColour(juce::Colour(0xff1d313b));

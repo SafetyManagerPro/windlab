@@ -71,6 +71,12 @@ public:
     bool saveUserPreset(const juce::File& file) const;
     bool loadUserPreset(const juce::File& file);
 
+    // 0.9.10 rooms: recorded OpenAIR responses (when embedded) or a user WAV file.
+    juce::String roomDescription(int type) const;
+    void setCustomRoomFile(const juce::File& file);
+    juce::File getCustomRoomFile() const;
+    static constexpr int customRoomType = 5;
+
 private:
     void timerCallback() override;
     void setParameterPlain(const juce::String& id, float plainValue);
@@ -85,6 +91,9 @@ private:
     std::atomic<double> preparedSampleRate {0.0};
     std::atomic<int> roomLoadedKey {-1};
     int roomPendingKey = -1, roomStableTicks = 0;
+    juce::File customRoomFile;            // message thread only
+    int customRoomRevision = 0;           // bumps when a new file is chosen
+    juce::CriticalSection customRoomLock; // getter used by the editor
     void updateRoomImpulse();
     int learnableCount = 0;
     windlab::RecordedWinds sampleBank;

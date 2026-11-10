@@ -188,7 +188,12 @@ Clicca PHRASE EDITOR nella schermata principale.
 GRIGLIA (menu GRID):
 - 1/8 = crome, 16 step. 1/16 = semicrome, 32 step.
 - 1/8 TRIPLET = terzine di crome, 24 step. 1/16 TRIPLET = terzine di semicrome, 48 step.
-- La frase dura sempre due battute in 4/4: cambia solo la risoluzione. La griglia viene salvata con il progetto.
+- La griglia cambia la risoluzione; la griglia viene salvata con il progetto.
+
+LUNGHEZZA DELLA FRASE:
+- Il menu accanto alla corsia sceglie 2 BATTUTE, 4 BATTUTE o 8 BATTUTE (in 4/4). Il piano roll mostra due battute alla volta: con i pulsanti < e > passi alle battute successive; durante il PLAY la pagina segue la riproduzione.
+- REC registra per tutta la lunghezza scelta; IMPORTA porta anche la lunghezza. SEGUI PLAY DAW ripete il giro ogni 2, 4 o 8 battute della canzone; EXPORT MIDI e TRASCINA IN DAW esportano tutta la frase.
+- I progetti salvati prima di questa versione si riaprono con 2 battute.
 
 REGISTRAZIONE:
 - REC MIDI (SCHERMATA PRINCIPALE): consigliato quando suoni con la tastiera PC. Premi REC MIDI, suona le note, poi STOP REC oppure lascia terminare automaticamente due battute. Il pulsante diventa VEDI TAKE: apre la registrazione nel Phrase Editor senza togliere il focus ai tasti durante la ripresa.
@@ -211,7 +216,7 @@ ALTRI COMANDI:
 - DEMO: carica una frase dimostrativa.
 - CLEAR: cancella tutte le note.
 - LEGATO: seleziona uno step e attiva LEGATO per sovrapporre brevemente la transizione con il precedente.
-- PHRASE BPM: velocita' del loop interno sulle due battute.
+- PHRASE BPM: velocita' del loop interno.
 - SEGUI PLAY DAW: la frase parte e si ferma con il play della DAW e segue la sua posizione (il giro di due battute e' agganciato alle battute della canzone). Attiva anche il tempo della DAW.
 - TRASCINA IN DAW: tieni premuto il pulsante e trascinalo su una traccia della DAW: la frase viene inserita come clip MIDI, senza salvare file.
 - EXPORT MIDI: salva la frase come file .mid standard (formato 0, 480 tick per quarto) con tempo, note e accordi, CC2, CC11, CC1 e pitch bend. Trascina il file in Logic Pro, Studio One, Ableton Live, Reaper o in un'altra DAW.
@@ -290,9 +295,8 @@ PRESENTE:
 NON ANCORA IMPLEMENTATO:
 - Legato campionato con vere transizioni fra note.
 - Assegnazione visuale dei controller MIDI ai pistoni e alle chiavi dello strumento a video.
-- Risposte all'impulso registrate in sale reali (oggi sono generate).
-- Registro sovracuto del sax e diteggiature alternative oltre a Sib "1+1".
-- MPE avanzato per ogni singola nota.
+- Diteggiature reali del sovracuto del sax (oggi uno schema semplificato) e altre diteggiature alternative.
+- Zona MPE alta e piu' di 14 canali MPE (il canale 16 resta del Phrase Editor).
 - Spartito completo modificabile ed esportazione MusicXML.
 - Collaudo completo in tutte le DAW.
 
@@ -311,6 +315,7 @@ COME SI SUONA:
 
 DITEGGIATURE:
 - SAX: F D S = mano sinistra (Si, La, Sol), J K L = mano destra (Fa, Mi, Re), M e N = Do e Si gravi, A = Sol#, Q W E = chiavi palmari, R e U = chiavi laterali Sib e Do, SHIFT = chiave d'ottava.
+- SAX SOVRACUTO: tieni G (chiave ALTISSIMO, vicino alle palmari) insieme a SHIFT e diteggia Fa#5-Do#6: suona un'ottava sopra (Fa#6-Do#7 scritti). E' uno schema semplificato e coerente, non la diteggiatura di un sassofonista specifico.
 - CLARINETTO: V = foro del pollice, F D S e J K L = fori, M e N = chiavi del Fa e del Mi gravi, R = chiave del La, SHIFT = portavoce (sale di una dodicesima).
 - FLAUTO: V = chiave del pollice, F D S e J K L, A = Sol#, M = Do grave; FRECCE SU/GIU' o SHIFT = ottava.
 - Per tutti i legni H (oppure il pulsante # +1) alza la nota di un semitono, utile per le alterazioni.
@@ -363,7 +368,15 @@ UNISONO:
 
 SEZIONE, SALA E FIATO DAL MICROFONO (fascia 04):
 - MODALITA' SEZIONE: ogni nota la suona lo strumento della sezione che ha quel registro, in una sua posizione sul palco. SEZIONE SAX: baritono, tenore, contralto, soprano dal grave all'acuto. SEZIONE OTTONI: trombone, corno, tromba. LEGNI: clarinetto e flauto. BIG BAND: baritono e trombone sotto, sax al centro, tromba in alto. Suona accordi (MODALITA' LEGATO: MAI LEGATO consigliata) e ogni nota avra' il suo strumento. SPENTA = lo strumento scelto in INSTRUMENT.
-- SALA DEL RIVERBERO: ALGORITMICO e' il riverbero di sempre; STUDIO, CLUB JAZZ, SALA DA CONCERTO e CHIESA sono riverberi a convoluzione con risposte all'impulso generate da WindLab (non registrate in sale reali). REVERB regola la quantita', REVERB SIZE allunga la sala, DAMPING la rende piu' scura.
+- SALA DEL RIVERBERO: ALGORITMICO e' il riverbero di sempre; STUDIO, CLUB JAZZ, SALA DA CONCERTO e CHIESA sono riverberi a convoluzione. Quando la build ha potuto scaricarle, usano risposte all'impulso REGISTRATE in sale vere (libreria OpenAIR dell'Universita' di York, openairlib.net, licenza CC BY 4.0); altrimenti risposte generate da WindLab. Sotto il menu e' scritto quale delle due e' in uso.
+- REVERB regola la quantita'. REVERB SIZE e DAMPING agiscono sulle sale generate (una sala registrata e' com'e').
+- SALA PERSONALIZZATA: premi CARICA SALA WAV... e scegli un file WAV di risposta all'impulso (per esempio scaricato da openairlib.net). Il percorso viene salvato nel progetto.
+
+MPE (tastiere espressive come ROLI, LinnStrument, Osmose, Expressive E):
+- Nella fascia 03 metti MPE: ACCESO. Ogni nota arriva sul suo canale (2-15, il canale 1 e' quello generale): il pitch bend di ogni dito piega solo la sua nota, la pressione del dito diventa il fiato di quella nota e lo slide verticale (CC74) la rende piu' brillante o piu' scura.
+- BEND: escursione del pitch bend MPE (48 semitoni e' lo standard MPE).
+- Imposta il controller su 14 canali (2-15): il canale 16 resta riservato al Phrase Editor.
+- I comandi sul canale 1 (fiato, volume, vibrato, pedale) valgono per tutte le note.
 - FIATO DAL MICROFONO: in SOFFIO DA (finestra principale) o nello STRUMENTO A VIDEO scegli MICROFONO e soffia verso il microfono del computer: piu' soffi, piu' suona forte; se smetti la nota si spegne. SENSIBILITA' MICROFONO regola quanto deve essere forte il soffio; la barra SOFFIO MIC mostra cosa arriva.
 - Standalone: al primo uso macOS chiede il permesso del microfono. Se la barra resta ferma apri Options > Audio/MIDI Settings, scegli l'ingresso e togli 'Mute audio input'.
 - Nella DAW: WindLab ha un ingresso audio (Breath Mic). Collega li' il microfono, per esempio come side-chain dello strumento in Logic o con l'ingresso audio della traccia in Studio One, Ableton o Reaper.

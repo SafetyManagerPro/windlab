@@ -97,6 +97,10 @@ for token in ("MICROFONO", "SEZIONE SAX", "BIG BAND", "CLUB JAZZ", "CHIESA", "Mu
 assert (root / "docs/Firma-Apple-Notarizzazione.md").exists()
 # 0.9.9 didactic fingering, unison, chord velocity.
 assert "rotella" in panel.lower() and "rotella" in manual.lower()
+# 0.9.10 recorded rooms, custom room, MPE, longer phrases, sax altissimo.
+for token in ("OpenAIR", "CARICA SALA WAV", "MPE", "CC74", "8 BATTUTE", "ALTISSIMO"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
 for token in ("MOSTRA DITEGGIATURA", "IN UNISONO", "1+1"):
     assert token in panel, f"In-app guide misses {token}"
     assert token in manual, f"User manual misses {token}"

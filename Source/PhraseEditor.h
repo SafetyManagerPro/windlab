@@ -69,12 +69,21 @@ private:
     juce::Rectangle<float> laneBounds() const;
     int stepAt(float x) const;
     int stepCount() const { return phrase.activeSteps(); }
+    // 0.9.10 longer phrases: the roll shows two bars at a time.
+    juce::ComboBox barsBox;
+    juce::TextButton previousPage {"<"}, nextPage {">"};
+    juce::Label pageLabel;
+    int page = 0;
+    int windowSteps() const { return 2 * windlab::stepsPerBarFor(phrase.getGrid()); }
+    int pageCount() const { return juce::jmax(1, phrase.getBars() / 2); }
+    int firstStep() const { return juce::jlimit(0, pageCount() - 1, page) * windowSteps(); }
+    void updatePage();
     int slotAtPitch(int step, int pitch) const;
     int firstFreeSlot(int step) const;
     void exportMidi();
     int pitchAt(float y) const;
     void updateLane(float x, float y);
     void updateButtons();
-    void timerCallback() override { updateButtons(); repaint(); }
+    void timerCallback() override { updatePage(); updateButtons(); repaint(); }
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WindLabPhraseEditor)
 };

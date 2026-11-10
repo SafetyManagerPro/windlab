@@ -15,7 +15,7 @@ int main()
     using windlab::PhraseNote;
 
     // Sizes per grid: two bars of each subdivision, and ticks per step (480 per quarter).
-    assert(PhraseEngine::maxSteps == 48 && PhraseEngine::chordSlots == 4);
+    assert(PhraseEngine::maxSteps == 192 && PhraseEngine::chordSlots == 4); // 8 bars of 16th triplets (0.9.10)
     assert(windlab::stepsPerBarFor(PhraseGrid::Eighth) * 2 == 16);
     assert(windlab::stepsPerBarFor(PhraseGrid::Sixteenth) * 2 == 32);
     assert(windlab::stepsPerBarFor(PhraseGrid::EighthTriplet) * 2 == 24);

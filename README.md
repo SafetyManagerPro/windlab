@@ -1,8 +1,12 @@
-# WindLab 0.9.9 — Strumento a video, espressione, sezioni e fiato dal microfono
+# WindLab 0.9.10 — Strumento a video, espressione, sezioni, MPE e sale registrate
 
 Plugin AU / VST3 / Standalone di strumenti a fiato (9 strumenti, campioni reali + motore espressivo).
 
-## Novità 0.9.5 – 0.9.9
+## Novità 0.9.5 – 0.9.10
+
+- **Sale registrate** (OpenAIR, CC BY 4.0, scaricate in CI) e **sala personalizzata** da file WAV;
+  **MPE** (canali 2–15: bend, pressione = fiato, CC74 = timbro per nota);
+  **frasi di 2, 4 o 8 battute** nel Phrase Editor; **sovracuto del sax** nello strumento a video.
 
 - **MOSTRA DITEGGIATURA**: lo strumento a video mostra le chiavi delle note suonate (didattica);
   **unisono** a 2 o 3 esecutori; **velocity di ogni nota dell'accordo** con la rotella del mouse;

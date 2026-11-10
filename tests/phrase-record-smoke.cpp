@@ -133,5 +133,35 @@ int main()
         assert(repeat.recorded(1).gate >= 1);
     }
 
+    {
+        // 0.9.10: a 4-bar recording keeps notes after bar 2 and imports the length.
+        windlab::PhraseRecorder rec4;
+        windlab::PhraseEngine target;
+        rec4.requestStart();
+        // Eighth = 12000 samples at 120 BPM: step 20 (bar 3) starts at 240000 samples.
+        int elapsed = 0;
+        while (elapsed + 512 <= 240000)
+        {
+            rec4.beginBlock(512, 48000.0, 120, windlab::PhraseGrid::Eighth, 4);
+            rec4.endBlock();
+            elapsed += 512;
+        }
+        rec4.beginBlock(512, 48000.0, 120, windlab::PhraseGrid::Eighth, 4);
+        rec4.noteOn(1, 67, 100, 240000 - elapsed);
+        rec4.endBlock();
+        rec4.beginBlock(512, 48000.0, 120, windlab::PhraseGrid::Eighth, 4);
+        rec4.noteOff(1, 67, 0);
+        rec4.endBlock();
+        rec4.requestStop();
+        rec4.beginBlock(512, 48000.0, 120, windlab::PhraseGrid::Eighth, 4);
+        rec4.endBlock();
+        assert(rec4.status() == windlab::PhraseRecorder::Ready);
+        assert(rec4.importInto(target));
+        assert(target.getBars() == 4 && target.activeSteps() == 32);
+        bool found = false;
+        for (int step = 16; step < 32; ++step)
+            if (target.note(step).active && target.note(step).pitch == 67) found = true;
+        assert(found);
+    }
     std::cout << "WindLab 0.9.3 phrase record: PASS (2 bars, notes, gates, CCs, pitch, non-destructive import)\n";
 }

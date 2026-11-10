@@ -31,7 +31,9 @@ private:
     std::array<juce::String, knobCount> knobNames;
     std::array<juce::String, knobCount> knobIDs;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, knobCount> attachments;
-    juce::ComboBox legatoModeBox, jazzBox, presetBox, sectionBox, roomBox, unisonBox;
+    juce::ComboBox legatoModeBox, jazzBox, presetBox, sectionBox, roomBox, unisonBox, mpeBox, bendBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> mpeAttachment, bendAttachment;
+    juce::Label mpeLabel;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> legatoModeAttachment, jazzAttachment,
                                                                             sectionAttachment, roomAttachment, unisonAttachment;
     juce::Label legatoModeLabel, jazzLabel, presetLabel, assignments, sectionLabel, roomLabel, micLabel, unisonLabel;
@@ -39,7 +41,9 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> micAttachment;
     float shownMicLevel = 0.0f;
     juce::TextButton savePresetButton {"SALVA PRESET..."}, openPresetButton {"APRI PRESET..."},
-                     clearCCButton {"RIMUOVI TUTTI I CC"}, closeButton {"CHIUDI X"}, helpButton {"?"};
+                     clearCCButton {"RIMUOVI TUTTI I CC"}, closeButton {"CHIUDI X"}, helpButton {"?"},
+                     loadRoomButton {"CARICA SALA WAV..."};
+    juce::Label roomInfo;
     std::unique_ptr<juce::FileChooser> chooser;
     juce::Array<juce::File> userPresets;
     std::vector<std::unique_ptr<windlabui::LearnOnRightClick>> learners;

@@ -6,6 +6,9 @@
 #include "Dsp/BreathCalibration.h"
 #include "Dsp/SectionMode.h"
 #include "Dsp/RoomImpulse.h"
+#if WINDLAB_HAS_RECORDED_ROOMS
+  #include <WindLabRoomData.h>
+#endif
 #include <array>
 #include <cmath>
 
@@ -40,8 +43,11 @@ namespace
               breathCurve(params.getRawParameterValue("breathCurve")),
               breathSource(params.getRawParameterValue("breathSource")),
               legatoMode(params.getRawParameterValue("legatoMode")),
-              unison(params.getRawParameterValue("unison")) {}
+              unison(params.getRawParameterValue("unison")),
+              mpeMode(params.getRawParameterValue("mpeMode")),
+              mpeBendRange(params.getRawParameterValue("mpeBendRange")) {}
         int currentlyStartingDoubler() const noexcept { return startingDoubler; }
+        int currentlyStartingChannel() const noexcept { return startingChannel; }
         int currentUnison() const noexcept
         {
             return unison != nullptr ? juce::jlimit(1, 3, 1 + static_cast<int>(unison->load())) : 1;
@@ -123,6 +129,21 @@ namespace
             // uses channel 16 and never participates in MIDI Learn.
             controllerNumber = ccAssignments.route(midiChannel, controllerNumber);
             if (controllerNumber < 0) return;
+            // 0.9.10 MPE: the master channel (1) controls every note of the zone (2-15).
+            if (mpeOn() && midiChannel == 1)
+                for (int member = 2; member <= 15; ++member)
+                    applyController(member, controllerNumber, controllerValue);
+            applyController(midiChannel, controllerNumber, controllerValue);
+        }
+        bool mpeOn() const noexcept { return mpeMode != nullptr && mpeMode->load() >= .5f; }
+        double bendRangeFor(int midiChannel) const noexcept
+        {
+            static constexpr double ranges[4] {2.0, 12.0, 24.0, 48.0};
+            if (!mpeOn() || midiChannel < 2 || midiChannel > 15) return 2.0;
+            return ranges[juce::jlimit(0, 3, static_cast<int>(mpeBendRange->load()))];
+        }
+        void applyController(int midiChannel, int controllerNumber, int controllerValue)
+        {
             if (juce::isPositiveAndBelow(midiChannel - 1, 16))
             {
                 auto& c = channels[static_cast<std::size_t>(midiChannel - 1)];
@@ -149,7 +170,9 @@ namespace
                 c.pressure = value / 127.0f;
                 // Aftertouch as breath (EWI/Aerophone set to Channel Pressure).
                 // The internal Phrase Editor channel 16 is never re-routed.
-                if (midiChannel < 16 && breathSource != nullptr && static_cast<int>(breathSource->load()) == 1)
+                // MPE: the pressure of each finger is that note's breath.
+                const bool mpePressure = mpeOn() && midiChannel >= 2 && midiChannel <= 15;
+                if (midiChannel < 16 && ((breathSource != nullptr && static_cast<int>(breathSource->load()) == 1) || mpePressure))
                 {
                     const auto normalized = windlab::calibrateBreath(value / 127.0f,
                         breathThreshold->load(), breathCurve->load());
@@ -176,6 +199,8 @@ namespace
         std::atomic<float>* breathSource;
         std::atomic<float>* legatoMode;
         std::atomic<float>* unison;
+        std::atomic<float>* mpeMode;
+        std::atomic<float>* mpeBendRange;
         int startingDoubler = 0;
         std::array<ChannelControls, 16> channels{};
         std::array<int, 16> heldKeys{};
@@ -228,6 +253,8 @@ namespace
         {
             const auto c = controllerSource.currentlyStartingControls();
             engine.setPitchWheel(currentPitchWheelPosition);
+            engine.setBendRange(controllerSource.bendRangeFor(controllerSource.currentlyStartingChannel()));
+            timbreOffset = 0.0f;
             engine.setModWheel(c.mod);
             engine.setExpression(c.expression);
             engine.setBreath(c.breath, c.breathEnabled);
@@ -290,6 +317,9 @@ namespace
             if (controllerNumber == 1) engine.setModWheel(newValue / 127.0f);
             if (controllerNumber == 2) engine.setBreath(newValue / 127.0f, true);
             if (controllerNumber == 11) engine.setExpression(newValue / 127.0f);
+            // MPE "timbre" (slide, CC74): brighter or darker for this note only.
+            if (controllerNumber == 74 && controllerSource.mpeOn())
+                timbreOffset = (static_cast<float>(newValue) - 64.0f) / 64.0f * .45f;
             if (controllerNumber == 121)
             {
                 engine.setModWheel(0.0f);
@@ -319,7 +349,7 @@ namespace
         template <typename Sample>
         void render(juce::AudioBuffer<Sample>& output, int startSample, int numSamples)
         {
-            engine.setTone(tone->load());
+            engine.setTone(juce::jlimit(0.0f, 1.0f, tone->load() + timbreOffset));
             engine.setAir(air->load());
             engine.setBreathLength(breathLength->load());
             engine.setVibrato(vibrato->load());
@@ -377,7 +407,7 @@ namespace
         std::atomic<float>* flutter;
         std::atomic<float>* jazzEffect;
         std::atomic<float>* sectionMode;
-        float seatGainL = 1.0f, seatGainR = 1.0f, unisonGain = 1.0f;
+        float seatGainL = 1.0f, seatGainR = 1.0f, unisonGain = 1.0f, timbreOffset = 0.0f;
         int startDelay = 0;
     };
 }
@@ -480,7 +510,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
         juce::StringArray {"Off", "Sax section", "Brass section", "Woodwinds", "Big band"}, 0));
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"reverbType", 1}, "Reverb Type",
-        juce::StringArray {"Algorithmic", "Studio", "Jazz club", "Concert hall", "Church"}, 0));
+        juce::StringArray {"Algorithmic", "Studio", "Jazz club", "Concert hall", "Church", "Custom WAV"}, 0));
+    // 0.9.10 MPE (zone: master channel 1, notes on channels 2-15; 16 stays the Phrase Editor).
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"mpeMode", 1}, "MPE", juce::StringArray {"Off", "On (channels 2-15)"}, 0));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"mpeBendRange", 1}, "MPE Bend Range",
+        juce::StringArray {"2 semitones", "12 semitones", "24 semitones", "48 semitones"}, 3));
     // 0.9.9: unison players on every note.
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"unison", 1}, "Unison Players",
@@ -525,6 +561,53 @@ juce::String WindLabAudioProcessor::parameterIDAt(int index) const
     return {};
 }
 
+namespace
+{
+    // Embedded OpenAIR response for a WindLab room, or nullptr (generated room).
+    const char* recordedRoomResource(int type)
+    {
+#if WINDLAB_HAS_RECORDED_ROOMS
+        static constexpr const char* names[5] {nullptr, "room_studio_wav", "room_club_wav", "room_hall_wav", "room_church_wav"};
+        if (type >= 1 && type <= 4)
+        {
+            int bytes = 0;
+            if (WindLabRoomData::getNamedResource(names[type], bytes) != nullptr && bytes > 0)
+                return names[type];
+        }
+#else
+        juce::ignoreUnused(type);
+#endif
+        return nullptr;
+    }
+}
+
+juce::String WindLabAudioProcessor::roomDescription(int type) const
+{
+    if (type <= 0) return "riverbero algoritmico";
+    if (type == customRoomType)
+    {
+        const auto file = getCustomRoomFile();
+        return file.existsAsFile() ? "file: " + file.getFileName() : juce::String("nessun file: premi CARICA SALA WAV");
+    }
+    return recordedRoomResource(type) != nullptr ? juce::String("registrata (OpenAIR, CC BY 4.0)")
+                                                 : juce::String("generata da WindLab");
+}
+
+void WindLabAudioProcessor::setCustomRoomFile(const juce::File& file)
+{
+    {
+        const juce::ScopedLock lock(customRoomLock);
+        customRoomFile = file;
+    }
+    ++customRoomRevision;
+}
+
+juce::File WindLabAudioProcessor::getCustomRoomFile() const
+{
+    const juce::ScopedLock lock(customRoomLock);
+    return customRoomFile;
+}
+
 void WindLabAudioProcessor::updateRoomImpulse()
 {
     // Message thread only. A key packs type, size and damping (in 5% steps) so the
@@ -532,13 +615,40 @@ void WindLabAudioProcessor::updateRoomImpulse()
     // have been still for ~200 ms (no rebuilds while dragging).
     const double rate = preparedSampleRate.load();
     if (rate <= 0.0) return;
-    const int type = juce::jlimit(0, 4, static_cast<int>(parameters.getRawParameterValue("reverbType")->load()));
+    const int type = juce::jlimit(0, customRoomType, static_cast<int>(parameters.getRawParameterValue("reverbType")->load()));
     const int size = juce::roundToInt(parameters.getRawParameterValue("reverbSize")->load() * 20.0f);
     const int damp = juce::roundToInt(parameters.getRawParameterValue("reverbDamp")->load() * 20.0f);
-    const int key = type == 0 ? 0 : type * 10000 + size * 100 + damp;
+    const char* recorded = recordedRoomResource(type);
+    // Recorded and custom rooms do not depend on SIZE / DAMPING (they are real rooms).
+    const int key = type == 0 ? 0
+                  : type == customRoomType ? 500000 + customRoomRevision
+                  : recorded != nullptr ? type * 10000 + 9999
+                  : type * 10000 + size * 100 + damp;
     if (key != roomPendingKey) { roomPendingKey = key; roomStableTicks = 0; return; }
     if (key == roomLoadedKey.load() || ++roomStableTicks < 6) return;
     if (type == 0) { roomLoadedKey.store(0); return; }
+    if (type == customRoomType)
+    {
+        const auto file = getCustomRoomFile();
+        if (!file.existsAsFile()) { roomLoadedKey.store(-1); roomPendingKey = -2; return; } // algorithmic until a file is chosen
+        convolution.loadImpulseResponse(file, juce::dsp::Convolution::Stereo::yes, juce::dsp::Convolution::Trim::yes,
+                                        0, juce::dsp::Convolution::Normalise::yes);
+        roomLoadedKey.store(key);
+        return;
+    }
+#if WINDLAB_HAS_RECORDED_ROOMS
+    if (recorded != nullptr)
+    {
+        int bytes = 0;
+        if (const auto* data = WindLabRoomData::getNamedResource(recorded, bytes))
+        {
+            convolution.loadImpulseResponse(data, static_cast<std::size_t>(bytes), juce::dsp::Convolution::Stereo::yes,
+                                            juce::dsp::Convolution::Trim::yes, 0, juce::dsp::Convolution::Normalise::yes);
+            roomLoadedKey.store(key);
+            return;
+        }
+    }
+#endif
     std::vector<float> l, r;
     windlab::generateRoomImpulse(static_cast<windlab::RoomType>(type), rate,
                                  static_cast<float>(size) / 20.0f, static_cast<float>(damp) / 20.0f, l, r);
@@ -565,7 +675,7 @@ void WindLabAudioProcessor::timerCallback()
 bool WindLabAudioProcessor::presetSkips(const juce::String& id)
 {
     static const juce::StringArray routing {"inputMode", "performanceMode", "noteMidiChannel", "breathMidiChannel",
-                                            "breathThreshold", "breathCurve", "breathSource", "velocityResponse",
+                                            "breathThreshold", "breathCurve", "breathSource", "velocityResponse", "mpeMode", "mpeBendRange",
                                             "micSensitivity"};
     return routing.contains(id);
 }
@@ -837,7 +947,7 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             midiMessages.swapWith(merged);
         }
     }
-    phraseRecorder.beginBlock(buffer.getNumSamples(), getSampleRate(), phrase.effectiveTempo(), phrase.getGrid());
+    phraseRecorder.beginBlock(buffer.getNumSamples(), getSampleRate(), phrase.effectiveTempo(), phrase.getGrid(), phrase.getBars());
     for (const auto metadata : midiMessages)
     {
         const auto message = metadata.getMessage();
@@ -951,7 +1061,7 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     settings.wetLevel = .55f * mix;
     settings.dryLevel = .5f; // JUCE FreeVerb doubles dryLevel internally; 0.5 = unity
     settings.width = 1.0f;
-    const int roomType = juce::jlimit(0, 4, static_cast<int>(parameters.getRawParameterValue("reverbType")->load()));
+    const int roomType = juce::jlimit(0, customRoomType, static_cast<int>(parameters.getRawParameterValue("reverbType")->load()));
     if (roomType == 0 || roomLoadedKey.load() < 0)
     {
         stereoReverb.setParameters(settings);
@@ -1001,6 +1111,7 @@ void WindLabAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
         // V2 keeps the old s0..s15 attributes (slot 0 of every step) so older builds
         // still load the primary melody; chords and grid are added alongside.
         phraseXml->setAttribute("grid", static_cast<int>(phrase.getGrid()));
+        phraseXml->setAttribute("bars", phrase.getBars());
         for (int i = 0; i < windlab::PhraseEngine::maxSteps; ++i)
         {
             phraseXml->setAttribute("s" + juce::String(i),
@@ -1015,6 +1126,8 @@ void WindLabAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
         auto* learnXml = xml->createNewChildElement("WindLabMidiLearnV1");
         learnXml->setAttribute("ccMap", static_cast<int>(midiLearn.snapshot()));
         // Universal MIDI Learn: stored by parameter ID, robust to future parameters.
+        if (getCustomRoomFile() != juce::File())
+            xml->createNewChildElement("WindLabRoomV1")->setAttribute("customFile", getCustomRoomFile().getFullPathName());
         auto* ccXml = xml->createNewChildElement("WindLabCCMapV1");
         for (const auto& [cc, index] : parameterCC.assignments())
             ccXml->setAttribute("cc" + juce::String(cc), parameterIDAt(index));
@@ -1029,9 +1142,16 @@ void WindLabAudioProcessor::setStateInformation(const void* data, int sizeInByte
         if (!xml->hasTagName(parameters.state.getType())) return;
         phrase.setPlaying(false); // project recall must never auto-start a phrase
         phrase.clear();
+        phrase.setBars(2);
         phrase.setFollowHostTempo(false); // old sessions keep their v0.7 tempo
         midiLearn.reset(); // old sessions preserve default CC assignments
         parameterCC.clearAll();
+        if (auto* roomXml = xml->getChildByName("WindLabRoomV1"))
+        {
+            const auto path = roomXml->getStringAttribute("customFile");
+            if (juce::File::isAbsolutePath(path)) setCustomRoomFile(juce::File(path));
+            xml->removeChildElement(roomXml, true);
+        }
         if (auto* ccXml = xml->getChildByName("WindLabCCMapV1"))
         {
             for (int i = 0; i < ccXml->getNumAttributes(); ++i)
@@ -1051,6 +1171,7 @@ void WindLabAudioProcessor::setStateInformation(const void* data, int sizeInByte
             // Projects saved before V2 have no grid attribute: they load as eighths.
             const int gridValue = phraseXml->getIntAttribute("grid", 0);
             phrase.setGrid(static_cast<windlab::PhraseGrid>(std::clamp(gridValue, 0, 3)));
+            phrase.setBars(phraseXml->getIntAttribute("bars", 2)); // older projects: 2 bars
             for (int i = 0; i < windlab::PhraseEngine::maxSteps; ++i)
             {
                 const auto name = "s" + juce::String(i);

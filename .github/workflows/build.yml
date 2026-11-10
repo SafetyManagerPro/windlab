@@ -39,6 +39,13 @@ jobs:
         shell: pwsh
         run: python scripts/download-recordings.py
 
+      # Optional: recorded rooms for the convolution reverb (OpenAIR, CC BY 4.0).
+      - name: Fetch recorded reverb rooms (optional)
+        continue-on-error: true
+        timeout-minutes: 10
+        shell: pwsh
+        run: python scripts/download-rooms.py
+
       - name: Verify acoustic recordings, velocity layers and staccatos
         shell: pwsh
         run: python tests/validate-recorded-bank.py
@@ -129,6 +136,13 @@ jobs:
       - name: Fetch CC0 acoustic samples
         shell: bash
         run: python3 scripts/download-recordings.py
+
+      # Optional: recorded rooms for the convolution reverb (OpenAIR, CC BY 4.0).
+      - name: Fetch recorded reverb rooms (optional)
+        continue-on-error: true
+        timeout-minutes: 10
+        shell: bash
+        run: python3 scripts/download-rooms.py
 
       - name: Verify acoustic recordings, velocity layers and staccatos
         shell: bash

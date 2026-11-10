@@ -162,6 +162,21 @@ int main()
         assert(cents > 8.0 && cents < 10.0);
     }
 
+    // --- 0.9.10 MPE bend range: a full bend up with range 48 = +4 octaves.
+    {
+        auto e = fresh();
+        e.setBendRange(48.0);
+        e.setPitchWheel(16383);
+        e.start(45, .8f, Instrument::Flute, .01f, .3f);
+        renderFor(e, .3);
+        assert(std::abs(semis(e.currentFrequency(), hz(45)) - 48.0) < .1);
+        auto classic = fresh();
+        classic.setPitchWheel(16383);
+        classic.start(45, .8f, Instrument::Flute, .01f, .3f);
+        renderFor(classic, .3);
+        assert(std::abs(semis(classic.currentFrequency(), hz(45)) - 2.0) < .05);
+    }
+
     std::cout << "WindLab 0.9.7 expression smoke test: PASS\n";
     return 0;
 }

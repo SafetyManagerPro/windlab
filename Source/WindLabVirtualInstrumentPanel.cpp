@@ -193,7 +193,8 @@ void WindLabVirtualInstrumentPanel::refreshProfile()
                       key(VkR1, 260, 356, 34, 34, 'j'), key(VkR2, 261, 400, 34, 34, 'k'),
                       key(VkR3, 262, 444, 34, 34, 'l'),
                       key(VkSideBb, 298, 368, 14, 26, 'r', false), key(VkSideC, 300, 400, 14, 26, 'u', false),
-                      key(VkLow1, 302, 498, 28, 18, 'm', false), key(VkLow2, 226, 502, 28, 18, 'n', false)};
+                      key(VkLow1, 302, 498, 28, 18, 'm', false), key(VkLow2, 226, 502, 28, 18, 'n', false),
+                      key(VkAltissimo, 306, 226, 18, 24, 'g', false)};
             break;
         case VirtualFamily::Clarinet:
             designBounds = {40.0f, 0.0f, 260.0f, 640.0f};
@@ -252,6 +253,7 @@ juce::String WindLabVirtualInstrumentPanel::helpText() const
                    "M / N = Do e Si gravi, A = Sol#\n"
                    "Q W E = chiavi palmari, R / U = laterali\n"
                    "SHIFT = chiave d'ottava, H = # +1\n"
+                   "G + SHIFT = sovracuto (un'ottava sopra Fa#5-Do#6)\n"
                    "SPAZIO = soffia (tieni premuto)";
         case VirtualFamily::Clarinet:
             return "COME SI SUONA (diteggiatura vera del clarinetto)\n"

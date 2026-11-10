@@ -31,6 +31,7 @@ enum VirtualKey : int
     VkSideBb, VkSideC, // sax side keys
     VkThroatA,      // clarinet throat A key
     VkSharp,        // helper: raises any woodwind fingering by a semitone
+    VkAltissimo,    // sax: altissimo (sovracuto) key, see saxWritten()
     VkValve1, VkValve2, VkValve3,
     VkCount
 };
@@ -101,6 +102,9 @@ inline int saxWritten(std::uint32_t m) noexcept
     if (n == 3 && down(m, VkLPinky)) note = 68;                           // G#4
     if (n == 3 && !down(m, VkR1) && down(m, VkR2)) note = 66;             // F#4 fork
     if (down(m, VkOctave) && note <= 73) note += 12;
+    // Altissimo (simplified, consistent scheme): ALTISSIMO + octave key on the
+    // fingerings F#5..C#6 sound one more octave up, F#6..C#7 (written).
+    if (down(m, VkAltissimo) && down(m, VkOctave) && note >= 78 && note <= 85) note += 12;
     return note;
 }
 
@@ -215,7 +219,7 @@ inline VirtualFingering fingeringFor(const VirtualProfile& p, int concertNote) n
     {
         case VirtualFamily::Sax:
             for (int k : {VkOctave, VkL1, VkL2, VkL3, VkLPinky, VkR1, VkR2, VkR3, VkLow1, VkLow2,
-                          VkPalm1, VkPalm2, VkPalm3, VkSideBb, VkSharp}) add(k);
+                          VkPalm1, VkPalm2, VkPalm3, VkSideBb, VkSharp, VkAltissimo}) add(k);
             break;
         case VirtualFamily::Clarinet:
             for (int k : {VkOctave, VkThumb, VkL1, VkL2, VkL3, VkR1, VkR2, VkR3, VkLow1, VkLow2, VkThroatA, VkSharp}) add(k);
@@ -236,7 +240,8 @@ inline VirtualFingering fingeringFor(const VirtualProfile& p, int concertNote) n
                 {
                     const int k = keys[static_cast<std::size_t>(b)];
                     mask |= vkBit(k);
-                    score += (k == VkSharp) ? 12 : (k == VkSideBb || k == VkLPinky || k == VkThroatA) ? 3
+                    score += (k == VkSharp) ? 12 : (k == VkAltissimo) ? 4
+                           : (k == VkSideBb || k == VkLPinky || k == VkThroatA) ? 3
                            : (k >= VkPalm1 && k <= VkPalm3) ? 2 : 1;
                 }
             if (score >= bestScore) continue;

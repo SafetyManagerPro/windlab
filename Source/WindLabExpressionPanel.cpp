@@ -58,6 +58,12 @@ WindLabExpressionPanel::WindLabExpressionPanel(WindLabAudioProcessor& p, std::fu
     sectionBox.addItem("SEZIONE OTTONI (trb, corno, tromba)", 3);
     sectionBox.addItem("LEGNI (clarinetto, flauto)", 4);
     sectionBox.addItem("BIG BAND (ottoni + sax)", 5);
+    mpeBox.addItem("MPE: SPENTO", 1);
+    mpeBox.addItem("MPE: ACCESO", 2);
+    bendBox.addItem("BEND 2", 1);
+    bendBox.addItem("BEND 12", 2);
+    bendBox.addItem("BEND 24", 3);
+    bendBox.addItem("BEND 48", 4);
     unisonBox.addItem("1 ESECUTORE", 1);
     unisonBox.addItem("2 IN UNISONO", 2);
     unisonBox.addItem("3 IN UNISONO", 3);
@@ -66,7 +72,8 @@ WindLabExpressionPanel::WindLabExpressionPanel(WindLabAudioProcessor& p, std::fu
     roomBox.addItem("CLUB JAZZ", 3);
     roomBox.addItem("SALA DA CONCERTO", 4);
     roomBox.addItem("CHIESA", 5);
-    for (auto* box : {&legatoModeBox, &jazzBox, &presetBox, &sectionBox, &roomBox, &unisonBox})
+    roomBox.addItem("SALA PERSONALIZZATA (file WAV)", 6);
+    for (auto* box : {&legatoModeBox, &jazzBox, &presetBox, &sectionBox, &roomBox, &unisonBox, &mpeBox, &bendBox})
     {
         box->setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff182831));
         box->setColour(juce::ComboBox::textColourId, juce::Colours::white);
@@ -85,6 +92,16 @@ WindLabExpressionPanel::WindLabExpressionPanel(WindLabAudioProcessor& p, std::fu
     unisonAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         processor.parameters, "unison", unisonBox);
     learners.push_back(std::make_unique<windlabui::LearnOnRightClick>(processor, unisonBox, "unison"));
+    mpeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processor.parameters, "mpeMode", mpeBox);
+    bendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processor.parameters, "mpeBendRange", bendBox);
+    mpeLabel.setText("MPE: note sui canali 2-15 (il 16 e' del Phrase Editor). Pressione = fiato, slide CC74 = timbro.",
+                     juce::dontSendNotification);
+    mpeLabel.setFont(juce::Font(11.0f));
+    mpeLabel.setColour(juce::Label::textColourId, textMuted);
+    mpeLabel.setJustificationType(juce::Justification::topLeft);
+    addAndMakeVisible(mpeLabel);
     micSensitivity.setSliderStyle(juce::Slider::LinearHorizontal);
     micSensitivity.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     micSensitivity.setColour(juce::Slider::thumbColourId, accent);
@@ -129,6 +146,25 @@ WindLabExpressionPanel::WindLabExpressionPanel(WindLabAudioProcessor& p, std::fu
     style(savePresetButton, juce::Colour(0xff416a64));
     style(openPresetButton, juce::Colour(0xff294c59));
     style(clearCCButton, juce::Colour(0xff7a3b37));
+    style(loadRoomButton, juce::Colour(0xff294c59));
+    roomInfo.setColour(juce::Label::textColourId, juce::Colour(0xffb6dbcb));
+    roomInfo.setFont(juce::Font(11.5f));
+    addAndMakeVisible(roomInfo);
+    loadRoomButton.setTooltip("Carica una risposta all'impulso WAV (per esempio da openairlib.net) come sala del riverbero");
+    loadRoomButton.onClick = [this]
+    {
+        chooser = std::make_unique<juce::FileChooser>("Scegli una risposta all'impulso (WAV)",
+            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory), "*.wav;*.aif;*.aiff");
+        chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this](const juce::FileChooser& fc)
+            {
+                const auto file = fc.getResult();
+                if (!file.existsAsFile()) return;
+                processor.setCustomRoomFile(file);
+                if (auto* type = processor.parameters.getParameter("reverbType"))
+                    type->setValueNotifyingHost(type->convertTo0to1(static_cast<float>(WindLabAudioProcessor::customRoomType)));
+            });
+    };
     style(closeButton, juce::Colour(0xff294c59));
     style(helpButton, juce::Colour(0xff36525e));
     closeButton.onClick = [this] { if (onClose) onClose(); };
@@ -223,6 +259,9 @@ void WindLabExpressionPanel::timerCallback()
     }
     const auto text = assignmentsText();
     if (assignments.getText() != text) assignments.setText(text, juce::dontSendNotification);
+    const auto room = processor.roomDescription(
+        static_cast<int>(processor.parameters.getRawParameterValue("reverbType")->load()));
+    if (roomInfo.getText() != room) roomInfo.setText(room, juce::dontSendNotification);
     const float level = processor.micBreathLevel.load();
     if (std::abs(level - shownMicLevel) > .01f)
     {
@@ -256,13 +295,18 @@ void WindLabExpressionPanel::resized()
         knobs[static_cast<std::size_t>(i)].setBounds(columns[column] + 18, rowTop[row] + 32, 124, 120);
     }
     assignments.setBounds(40, 690, 660, 66);
-    clearCCButton.setBounds(w - 260, 690, 220, 38);
+    clearCCButton.setBounds(w - 300, 646, 260, 30);
+    mpeBox.setBounds(w - 300, 684, 140, 30);
+    bendBox.setBounds(w - 152, 684, 112, 30);
+    mpeLabel.setBounds(w - 302, 718, 266, 44);
     sectionLabel.setBounds(40, 806, 245, 20);
     sectionBox.setBounds(40, 830, 245, 32);
     unisonLabel.setBounds(298, 806, 150, 20);
     unisonBox.setBounds(298, 830, 150, 32);
     roomLabel.setBounds(461, 806, 200, 20);
     roomBox.setBounds(461, 830, 200, 32);
+    roomInfo.setBounds(458, 863, 220, 16);
+    loadRoomButton.setBounds(461, 880, 200, 20);
     micLabel.setBounds(676, 806, 200, 20);
     micSensitivity.setBounds(672, 832, 200, 28);
 }
@@ -317,7 +361,7 @@ void WindLabExpressionPanel::paint(juce::Graphics& g)
     g.setFont(juce::Font(13.0f));
     g.drawFittedText("Clic destro su QUALSIASI manopola di WindLab (anche nella finestra principale) e scegli "
                      "\"Impara\": poi muovi un controllo MIDI. Le assegnazioni sono salvate con il progetto.",
-                     juce::Rectangle<int>(40, 652, getWidth() - 80, 34), juce::Justification::topLeft, 2);
+                     juce::Rectangle<int>(40, 652, 660, 34), juce::Justification::topLeft, 2);
     g.setColour(textMuted);
     g.setFont(juce::Font(12.0f));
     g.drawFittedText("AUTO: legato quando suoni una nota alla volta, accordi quando premi piu' tasti insieme. "

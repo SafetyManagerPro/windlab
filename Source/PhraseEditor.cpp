@@ -104,6 +104,33 @@ WindLabPhraseEditor::WindLabPhraseEditor(windlab::PhraseEngine& engine,
         selectedStep = std::min(selectedStep, stepCount() - 1);
         repaint();
     };
+    barsBox.addItem("2 BATTUTE", 2);
+    barsBox.addItem("4 BATTUTE", 4);
+    barsBox.addItem("8 BATTUTE", 8);
+    barsBox.setSelectedId(phrase.getBars(), juce::dontSendNotification);
+    barsBox.setTooltip("Lunghezza della frase");
+    barsBox.onChange = [this] {
+        phrase.setBars(barsBox.getSelectedId());
+        page = juce::jmin(page, pageCount() - 1);
+        selectedStep = std::min(selectedStep, stepCount() - 1);
+        updatePage();
+        repaint();
+    };
+    barsBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff213943));
+    barsBox.setColour(juce::ComboBox::textColourId, juce::Colours::white);
+    addAndMakeVisible(barsBox);
+    for (auto* b : {&previousPage, &nextPage})
+    {
+        b->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff294c59));
+        b->setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        addAndMakeVisible(*b);
+    }
+    previousPage.onClick = [this] { page = juce::jmax(0, page - 1); updatePage(); repaint(); };
+    nextPage.onClick = [this] { page = juce::jmin(pageCount() - 1, page + 1); updatePage(); repaint(); };
+    pageLabel.setJustificationType(juce::Justification::centred);
+    pageLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0b488));
+    pageLabel.setFont(juce::Font(13.0f, juce::Font::bold));
+    addAndMakeVisible(pageLabel);
     gridBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff213943));
     gridBox.setColour(juce::ComboBox::textColourId, juce::Colours::white);
     addAndMakeVisible(gridBox);
@@ -158,8 +185,9 @@ juce::Rectangle<float> WindLabPhraseEditor::laneBounds() const
 int WindLabPhraseEditor::stepAt(float x) const
 {
     const auto r = rollBounds();
-    return juce::jlimit(0, stepCount() - 1,
-        static_cast<int>((x - r.getX()) / (r.getWidth() / static_cast<float>(stepCount()))));
+    const int local = juce::jlimit(0, windowSteps() - 1,
+        static_cast<int>((x - r.getX()) / (r.getWidth() / static_cast<float>(windowSteps()))));
+    return juce::jlimit(0, stepCount() - 1, firstStep() + local);
 }
 
 int WindLabPhraseEditor::pitchAt(float y) const
@@ -185,6 +213,10 @@ void WindLabPhraseEditor::resized()
     hostButton.setBounds(757, 80, 147, 38);
     scoreButton.setBounds(911, 80, 140, 38);
     laneBox.setBounds(75, 543, 287, 34);
+    barsBox.setBounds(380, 543, 150, 34);
+    previousPage.setBounds(545, 543, 40, 34);
+    pageLabel.setBounds(588, 543, 150, 34);
+    nextPage.setBounds(741, 543, 40, 34);
     gridBox.setBounds(75, 790, 240, 32);
     exportButton.setBounds(330, 790, 170, 32);
     syncButton.setBounds(512, 790, 220, 32);
@@ -248,7 +280,9 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
     g.fillRoundedRectangle(r.expanded(2.0f), 5.0f);
     g.fillRoundedRectangle(lane.expanded(2.0f), 5.0f);
 
-    const auto stepWidth = r.getWidth() / static_cast<float>(stepCount());
+    // 0.9.10: the roll shows two bars at a time (pages for 4- and 8-bar phrases).
+    const auto stepWidth = r.getWidth() / static_cast<float>(windowSteps());
+    const int first = firstStep(), last = first + windowSteps();
     const auto pitchHeight = r.getHeight() / 37.0f;
     if (!scoreView)
     {
@@ -290,13 +324,13 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
                    static_cast<int>(staffBottom + 33), 235, 24, juce::Justification::centredLeft);
     }
 
-    for (int step = 0; step <= stepCount(); ++step)
+    for (int step = first; step <= last; ++step)
     {
-        const float x = r.getX() + step * stepWidth;
+        const float x = r.getX() + (step - first) * stepWidth;
         g.setColour(step % 4 == 0 ? juce::Colour(0xff7a9299)
                                    : juce::Colour(0xff3b5660));
         g.drawLine(x, r.getY(), x, lane.getBottom(), step % 4 == 0 ? 1.3f : 0.7f);
-        if (step < stepCount())
+        if (step < last && (windowSteps() <= 24 || step % 2 == 0))
         {
             g.setColour(juce::Colour(0xffafc3c8));
             g.setFont(juce::Font(11.0f));
@@ -306,41 +340,43 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
         }
     }
 
-    if (phrase.isPlaying())
+    if (phrase.isPlaying() && phrase.visualStep() >= first && phrase.visualStep() < last)
     {
-        const float x = r.getX() + phrase.visualStep() * stepWidth;
+        const float x = r.getX() + (phrase.visualStep() - first) * stepWidth;
         g.setColour(juce::Colour(0x30f3b879));
         g.fillRect(x, r.getY(), stepWidth, lane.getBottom() - r.getY());
     }
 
     if (!scoreView)
     {
-    for (int step = 0; step < stepCount(); ++step)
+    // Notes that started on the previous page but still sound are drawn too.
+    for (int step = juce::jmax(0, first - 8); step < last; ++step)
     for (int slot = 0; slot < windlab::PhraseEngine::chordSlots; ++slot)
     {
         const auto n = phrase.chordNote(step, slot);
-        if (!n.active) continue;
-        const float x = r.getX() + step * stepWidth + 2.0f;
+        if (!n.active || step + n.gate <= first) continue;
+        const float x = r.getX() + (step - first) * stepWidth + 2.0f;
         const float y = r.getY() + (84 - juce::jlimit(48, 84, n.pitch)) * pitchHeight + .7f;
-        const float width = std::min(static_cast<float>(n.gate) * stepWidth - 4.0f,
-                                    r.getRight() - x - 1.0f);
+        const float clippedX = std::max(x, r.getX());
+        const float width = std::min(static_cast<float>(n.gate) * stepWidth - 4.0f - (clippedX - x),
+                                    r.getRight() - clippedX - 1.0f);
         // Softer notes are drawn darker, so chord balance is visible at a glance.
         const float strength = .45f + .55f * static_cast<float>(n.velocity) / 127.0f;
         g.setColour((step == selectedStep ? juce::Colour(0xffffcb83) : juce::Colour(0xffed9f6c))
                         .withMultipliedBrightness(strength));
-        g.fillRoundedRectangle(x, y, std::max(7.0f, width), pitchHeight - 1.8f, 3.0f);
+        g.fillRoundedRectangle(clippedX, y, std::max(7.0f, width), pitchHeight - 1.8f, 3.0f);
         if (width >= 24.0f && pitchHeight >= 8.0f)
         {
             g.setColour(juce::Colour(0xff2a1a0c));
             g.setFont(juce::Font(std::min(10.0f, pitchHeight - 1.0f), juce::Font::bold));
-            g.drawText(juce::String(n.velocity), juce::Rectangle<float>(x + 3.0f, y, width - 4.0f, pitchHeight - 1.8f).toNearestInt(),
+            g.drawText(juce::String(n.velocity), juce::Rectangle<float>(clippedX + 3.0f, y, width - 4.0f, pitchHeight - 1.8f).toNearestInt(),
                        juce::Justification::centredLeft, false);
         }
         if (n.legato)
         {
             g.setColour(juce::Colour(0xffb0eff1));
-            g.drawLine(x + width - 11.0f, y - 3.0f,
-                       x + width + 4.0f, y - 3.0f, 2.0f);
+            g.drawLine(clippedX + width - 11.0f, y - 3.0f,
+                       clippedX + width + 4.0f, y - 3.0f, 2.0f);
         }
     }
 
@@ -357,11 +393,11 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
         const auto noteY = [&](int midi) {
             return staffBottom - (staffIndex(midi) - 2) * halfSpace;
         };
-        for (int step = 0; step < stepCount(); ++step)
+        for (int step = first; step < last; ++step)
         {
             const auto n = phrase.note(step);
             if (!n.active) continue;
-            const float x = r.getX() + (step + .5f) * stepWidth;
+            const float x = r.getX() + (step - first + .5f) * stepWidth;
             const float y = noteY(n.pitch);
             const int staff = staffIndex(n.pitch);
             g.setColour(juce::Colour(0xff96b5c0));
@@ -404,11 +440,11 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
             // draw a slur from a previous sounding note into this attack.
             if (n.legato)
             {
-                for (int previous = step - 1; previous >= 0; --previous)
+                for (int previous = step - 1; previous >= first; --previous)
                 {
                     const auto src = phrase.note(previous);
                     if (!src.active || previous + src.gate < step) continue;
-                    const float x0 = r.getX() + (previous + .5f) * stepWidth;
+                    const float x0 = r.getX() + (previous - first + .5f) * stepWidth;
                     const float y0 = noteY(src.pitch);
                     juce::Path slur;
                     slur.startNewSubPath(x0 + 9.0f, y0 - 9.0f);
@@ -441,7 +477,7 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
         g.setColour(juce::Colour(0xff4c6871));
         g.drawHorizontalLine(static_cast<int>(lane.getCentreY()), lane.getX(), lane.getRight());
     }
-    for (int step = 0; step < stepCount(); ++step)
+    for (int step = first; step < last; ++step)
     {
         auto getValue = [this, laneType](int s) {
             const auto n = phrase.note(s);
@@ -450,9 +486,9 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
                    laneType == 3 ? n.expression :
                    laneType == 4 ? n.bend : n.vibrato;
         };
-        const float x = lane.getX() + (step + .5f) * stepWidth;
+        const float x = lane.getX() + (step - first + .5f) * stepWidth;
         const float y = lane.getBottom() - (getValue(step) / 127.0f) * lane.getHeight();
-        if (step != 15)
+        if (step + 1 < last)
         {
             const float nx = x + stepWidth;
             const float ny = lane.getBottom() - (getValue(step + 1) / 127.0f) * lane.getHeight();
@@ -640,6 +676,22 @@ void WindLabPhraseEditor::updateLane(float x, float y)
     phrase.setNote(step, n);
     updateButtons();
     repaint();
+}
+
+void WindLabPhraseEditor::updatePage()
+{
+    // While playing, the page follows the playhead.
+    if (phrase.isPlaying())
+        page = phrase.visualStep() / juce::jmax(1, windowSteps());
+    page = juce::jlimit(0, pageCount() - 1, page);
+    if (barsBox.getSelectedId() != phrase.getBars())
+        barsBox.setSelectedId(phrase.getBars(), juce::dontSendNotification);
+    const int firstBar = page * 2 + 1;
+    const auto text = "BATTUTE " + juce::String(firstBar) + "-" + juce::String(firstBar + 1)
+                    + " DI " + juce::String(phrase.getBars());
+    if (pageLabel.getText() != text) pageLabel.setText(text, juce::dontSendNotification);
+    previousPage.setEnabled(page > 0);
+    nextPage.setEnabled(page < pageCount() - 1);
 }
 
 juce::File WindLabPhraseEditor::writePhraseToTempFile() const
