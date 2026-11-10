@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WindLab VERSION 0.9.10 LANGUAGES C CXX)
+project(WindLab VERSION 0.9.11 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -60,6 +60,8 @@ target_sources(WindLab PRIVATE
     Source/Dsp/SectionMode.h
     Source/Dsp/RoomImpulse.h
     Source/Dsp/WindEngine.h
+    Source/Dsp/AcousticExpression.h
+    Source/Dsp/DynamicLayerMorph.h
     Source/Dsp/ToneEQ.h
     Source/Dsp/RecordedWinds.h
     Source/Dsp/SampleLoopPlan.h
@@ -123,6 +125,14 @@ if (BUILD_TESTING)
     add_executable(windlab_smoke tests/smoke.cpp)
     target_include_directories(windlab_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_smoke COMMAND windlab_smoke)
+
+    add_executable(windlab_dynamic_layer_morph_smoke tests/dynamic-layer-morph-smoke.cpp)
+    target_include_directories(windlab_dynamic_layer_morph_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    add_test(NAME windlab_dynamic_layer_morph_smoke COMMAND windlab_dynamic_layer_morph_smoke)
+
+    add_executable(windlab_acoustic_expression_smoke tests/acoustic-expression-smoke.cpp)
+    target_include_directories(windlab_acoustic_expression_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    add_test(NAME windlab_acoustic_expression_smoke COMMAND windlab_acoustic_expression_smoke)
 
     add_executable(windlab_expression_smoke tests/expression-smoke.cpp)
     target_include_directories(windlab_expression_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)

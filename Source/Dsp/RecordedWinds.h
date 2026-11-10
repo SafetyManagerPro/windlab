@@ -120,6 +120,30 @@ public:
         }
         return nullptr;
     }
+    // Choose a genuine alternative dynamic take of the SAME pitch zone and
+    // articulation. Never pair a nearby sampled pitch or a different one-shot.
+    // If no real complementary layer exists, keep the original sample unchanged.
+    const RecordedWind* selectCompanion(const RecordedWind* primary) const noexcept
+    {
+        if (primary == nullptr || primary->isOneShot) return nullptr;
+        const RecordedWind* companion = nullptr;
+        int bestScore = -1;
+        for (const auto& candidate : bank)
+        {
+            if (candidate.instrument != primary->instrument
+                || candidate.rootNote != primary->rootNote
+                || candidate.articulation != primary->articulation
+                || candidate.velocityLayer == primary->velocityLayer)
+                continue;
+            // Prefer the largest genuine dynamic difference, then a matching
+            // round-robin take where the sample library offers one.
+            const int score = 4 * std::abs(candidate.velocityLayer - primary->velocityLayer)
+                            + (candidate.roundRobin == primary->roundRobin ? 1 : 0);
+            if (score > bestScore) { bestScore = score; companion = &candidate; }
+        }
+        return companion;
+    }
+
     std::size_t size() const noexcept { return bank.size(); }
 
 private:

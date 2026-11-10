@@ -1,6 +1,8 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "Dsp/WindEngine.h"
+#include "Dsp/AcousticExpression.h"
+#include "Dsp/DynamicLayerMorph.h"
 #include "Dsp/VelocityResponse.h"
 #include "Dsp/HybridMidiRoute.h"
 #include "Dsp/BreathCalibration.h"
@@ -291,16 +293,25 @@ namespace
             const auto articulationIndex = juce::jlimit(0, 2, static_cast<int>(articulation->load()));
             modeAtNoteOn = juce::jlimit(0, 2, static_cast<int>(sourceMode->load()));
             const auto* sample = modeAtNoteOn == 2 ? nullptr : sampleSource.select(instrumentIndex, midiNoteNumber, curvedVelocity, articulationIndex);
+            // Two real velocity layers may share a pitch zone. Never mix unrelated
+            // root notes or one-shot staccatos; those keep the old single cursor.
+            const auto* companion = sampleSource.selectCompanion(sample);
+            dynamicLayerMorph.reset(companion != nullptr && sample->velocityLayer > companion->velocityLayer);
             engine.setRecordedSource(sample != nullptr);
             engine.start(midiNoteNumber, curvedVelocity,
                          static_cast<windlab::Instrument>(instrumentIndex),
                          attack->load(), release->load(),
                          static_cast<windlab::Articulation>(articulationIndex), legatoFrom);
+            // Recorded attacks begin with the current breath and tone; keep per-voice filter state.
+            acousticExpression.reset(c.breathEnabled ? c.breath : 1.0f,
+                                     juce::jlimit(0.0f, 1.0f, tone->load() + timbreOffset));
             // A slurred note joins the sustained body of the recording instead of replaying its attack.
             entryRandom = entryRandom * 1664525u + 1013904223u;
-            cursor.start(sample, 440.0 * std::exp2((midiNoteNumber - 69.0) / 12.0), getSampleRate(),
-                         legatoFrom > 0.0 && articulationIndex == 0,
-                         static_cast<float>((entryRandom >> 8) & 0xffffffu) / 16777216.0f);
+            const auto noteFrequency = 440.0 * std::exp2((midiNoteNumber - 69.0) / 12.0);
+            const auto entryFraction = static_cast<float>((entryRandom >> 8) & 0xffffffu) / 16777216.0f;
+            const bool slurred = legatoFrom > 0.0 && articulationIndex == 0;
+            cursor.start(sample, noteFrequency, getSampleRate(), slurred, entryFraction);
+            companionCursor.start(companion, noteFrequency, getSampleRate(), slurred, entryFraction);
         }
 
         void stopNote(float, bool allowTailOff) override
@@ -343,13 +354,16 @@ namespace
         {
             juce::SynthesiserVoice::setCurrentPlaybackSampleRate(newRate);
             engine.prepare(newRate);
+            acousticExpression.prepare(newRate);
+            dynamicLayerMorph.prepare(newRate);
         }
 
     private:
         template <typename Sample>
         void render(juce::AudioBuffer<Sample>& output, int startSample, int numSamples)
         {
-            engine.setTone(juce::jlimit(0.0f, 1.0f, tone->load() + timbreOffset));
+            const float acousticTone = juce::jlimit(0.0f, 1.0f, tone->load() + timbreOffset);
+            engine.setTone(acousticTone);
             engine.setAir(air->load());
             engine.setBreathLength(breathLength->load());
             engine.setVibrato(vibrato->load());
@@ -363,7 +377,19 @@ namespace
                 float result = model;
                 if (cursor.valid())
                 {
-                    const float wav = cursor.read(engine.currentFrequency());
+                    const auto frequency = engine.currentFrequency();
+                    float wave = cursor.read(frequency);
+                    if (companionCursor.valid())
+                    {
+                        // Both sample heads advance continuously, even when one is silent;
+                        // a slow crossfade keeps dynamic changes click-free.
+                        const float second = companionCursor.read(frequency);
+                        const float primaryWeight = dynamicLayerMorph.primaryWeight(
+                            engine.currentBreathIntensity(), engine.hasLiveBreath());
+                        wave = primaryWeight * wave + (1.0f - primaryWeight) * second;
+                    }
+                    const float wav = acousticExpression.process(
+                        wave, engine.currentBreathIntensity(), acousticTone);
                     const float recorded = wav * engine.currentLevel() * 3.6f;
                     result = modeAtNoteOn == 1 ? (.8f * recorded + .20f * model)
                                                : (recorded + .055f * model);
@@ -384,9 +410,12 @@ namespace
             engine.setFlutter(flutter->load());
         }
         windlab::WindEngine engine;
+        windlab::AcousticExpression acousticExpression;
+        windlab::DynamicLayerMorph dynamicLayerMorph;
         PerformanceSynthesiser& controllerSource;
         const windlab::RecordedWinds& sampleSource;
         windlab::RecordedCursor cursor;
+        windlab::RecordedCursor companionCursor;
         std::atomic<float>* sourceMode;
         std::atomic<float>* velocityResponse;
         int modeAtNoteOn = 0;
