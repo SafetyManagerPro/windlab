@@ -68,6 +68,7 @@ target_sources(WindLab PRIVATE
     Source/Dsp/RecordedWinds.h
     Source/Dsp/RecordedArticulation.h
     Source/Dsp/RecordedRelease.h
+    Source/Dsp/PhraseBreathEnvelope.h
     Source/Dsp/SampleLoopPlan.h
     Source/Dsp/SamplePhaseAlignment.h
     Source/Dsp/VelocityResponse.h
