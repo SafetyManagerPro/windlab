@@ -61,6 +61,7 @@ target_sources(WindLab PRIVATE
     Source/Dsp/RoomImpulse.h
     Source/Dsp/WindEngine.h
     Source/Dsp/AcousticExpression.h
+    Source/Dsp/DynamicLayerMorph.h
     Source/Dsp/ToneEQ.h
     Source/Dsp/RecordedWinds.h
     Source/Dsp/SampleLoopPlan.h
@@ -124,6 +125,10 @@ if (BUILD_TESTING)
     add_executable(windlab_smoke tests/smoke.cpp)
     target_include_directories(windlab_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_smoke COMMAND windlab_smoke)
+
+    add_executable(windlab_dynamic_layer_morph_smoke tests/dynamic-layer-morph-smoke.cpp)
+    target_include_directories(windlab_dynamic_layer_morph_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    add_test(NAME windlab_dynamic_layer_morph_smoke COMMAND windlab_dynamic_layer_morph_smoke)
 
     add_executable(windlab_acoustic_expression_smoke tests/acoustic-expression-smoke.cpp)
     target_include_directories(windlab_acoustic_expression_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
