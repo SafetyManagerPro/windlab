@@ -34,6 +34,7 @@ namespace windlab
         void reset()
         {
             stage = Stage::Idle;
+            breathControlled = false;
             env = 0.0f;
             phase = vibratoPhase = elapsed = 0.0;
             driftPhase = .13;
@@ -172,6 +173,7 @@ namespace windlab
         void setPressure(float value) { pressure = std::clamp(value, 0.0f, 1.0f); }
         void setBreath(float value, bool enabled)
         {
+            breathControlled = enabled;
             targetBreath = enabled ? std::clamp(value, 0.0f, 1.0f) : 1.0f;
         }
         void setPitchWheel(int value) { pitchWheel = std::clamp(value, 0, 16383); }
@@ -179,6 +181,7 @@ namespace windlab
         float currentLevel() const noexcept { return latestLevel; }
         // Smoothed CC2 breath for the recorded-waveform timbre, independent of note-on velocity.
         float currentBreathIntensity() const noexcept { return currentBreath; }
+        bool hasLiveBreath() const noexcept { return breathControlled; }
         double currentFrequency() const noexcept { return latestFrequency; }
         // Key / fingering click, already scaled; add it to the final mix.
         float currentClick() const noexcept { return latestClick; }
@@ -385,7 +388,7 @@ namespace windlab
         float controllerAlpha = .002f;
         double pitchAlpha = .002;
         // 0.9.4 slur / vibrato / noise state
-        bool legato = false, recordedSource = false;
+        bool legato = false, recordedSource = false, breathControlled = false;
         double glideSemis = 0.0, glideDecay = .999, vibratoClock = 0.0;
         float vibratoRate = 5.2f, vibratoDelay = .2f, vibratoRamp = .7f, onsetGain = 1.0f;
         float clickEnv = 0.0f, clickDecay = .99f, latestClick = 0.0f;
