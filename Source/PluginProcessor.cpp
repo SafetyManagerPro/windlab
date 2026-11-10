@@ -4,6 +4,8 @@
 #include "Dsp/VelocityResponse.h"
 #include "Dsp/HybridMidiRoute.h"
 #include "Dsp/BreathCalibration.h"
+#include "Dsp/SectionMode.h"
+#include "Dsp/RoomImpulse.h"
 #include <array>
 #include <cmath>
 
@@ -128,7 +130,7 @@ namespace
                 c.pressure = value / 127.0f;
                 // Aftertouch as breath (EWI/Aerophone set to Channel Pressure).
                 // The internal Phrase Editor channel 16 is never re-routed.
-                if (midiChannel < 16 && breathSource != nullptr && breathSource->load() >= .5f)
+                if (midiChannel < 16 && breathSource != nullptr && static_cast<int>(breathSource->load()) == 1)
                 {
                     const auto normalized = windlab::calibrateBreath(value / 127.0f,
                         breathThreshold->load(), breathCurve->load());
@@ -192,7 +194,8 @@ namespace
               vibratoBreath(params.getRawParameterValue("vibratoBreath")),
               growl(params.getRawParameterValue("growl")),
               flutter(params.getRawParameterValue("flutter")),
-              jazzEffect(params.getRawParameterValue("jazzEffect")) {}
+              jazzEffect(params.getRawParameterValue("jazzEffect")),
+              sectionMode(params.getRawParameterValue("sectionMode")) {}
 
         bool canPlaySound(juce::SynthesiserSound* sound) override
         {
@@ -218,7 +221,13 @@ namespace
             const auto legatoFrom = controllerSource.currentlyStartingLegatoFrom();
             const auto curvedVelocity = windlab::applyVelocityResponse(
                 velocity, juce::jlimit(0, 3, static_cast<int>(velocityResponse->load())));
-            const auto instrumentIndex = juce::jlimit(0, 8, static_cast<int>(instrument->load()));
+            // 0.9.8 section mode: the register decides which player of the section plays.
+            const auto section = static_cast<windlab::SectionMode>(juce::jlimit(0, 4, static_cast<int>(sectionMode->load())));
+            const auto instrumentIndex = windlab::sectionInstrumentFor(
+                section, midiNoteNumber, juce::jlimit(0, 8, static_cast<int>(instrument->load())));
+            const float seat = windlab::sectionPanFor(section, instrumentIndex);
+            seatGainL = juce::jmin(1.0f, 1.0f - seat);
+            seatGainR = juce::jmin(1.0f, 1.0f + seat);
             const auto articulationIndex = juce::jlimit(0, 2, static_cast<int>(articulation->load()));
             modeAtNoteOn = juce::jlimit(0, 2, static_cast<int>(sourceMode->load()));
             const auto* sample = modeAtNoteOn == 2 ? nullptr : sampleSource.select(instrumentIndex, midiNoteNumber, curvedVelocity, articulationIndex);
@@ -298,7 +307,8 @@ namespace
                 result += engine.currentClick();
                 const auto sample = static_cast<Sample>(result);
                 for (int channel = 0; channel < output.getNumChannels(); ++channel)
-                    output.addSample(channel, startSample + i, sample);
+                    output.addSample(channel, startSample + i,
+                                     sample * static_cast<Sample>(channel == 0 ? seatGainL : seatGainR));
             }
         }
         void applyExpression()
@@ -332,6 +342,8 @@ namespace
         std::atomic<float>* growl;
         std::atomic<float>* flutter;
         std::atomic<float>* jazzEffect;
+        std::atomic<float>* sectionMode;
+        float seatGainL = 1.0f, seatGainR = 1.0f;
     };
 }
 
@@ -405,7 +417,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
     // 0.9.6: breath can also come from Channel Pressure (aftertouch), as in PR #16.
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"breathSource", 1}, "Breath Source",
-        juce::StringArray {"MIDI CC (MIDI Learn)", "Aftertouch / Channel Pressure"}, 0));
+        juce::StringArray {"MIDI CC (MIDI Learn)", "Aftertouch / Channel Pressure", "Microphone (blow)"}, 0));
     // 0.9.7 expression (appended: existing automation indices stay the same).
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"legatoMode", 1}, "Legato Mode",
@@ -425,11 +437,22 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
         juce::StringArray {"None", "Scoop", "Fall", "Doit", "Shake"}, 0));
     layout.add(std::make_unique<Float>(juce::ParameterID {"pan", 1}, "Pan",
         juce::NormalisableRange<float>(-1.0f, 1.0f, .01f), 0.0f));
+    // 0.9.8: microphone breath, section mode and convolution rooms.
+    layout.add(std::make_unique<Float>(juce::ParameterID {"micSensitivity", 1}, "Microphone Sensitivity",
+        juce::NormalisableRange<float>(0.0f, 1.0f), .5f));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"sectionMode", 1}, "Section Mode",
+        juce::StringArray {"Off", "Sax section", "Brass section", "Woodwinds", "Big band"}, 0));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"reverbType", 1}, "Reverb Type",
+        juce::StringArray {"Algorithmic", "Studio", "Jazz club", "Concert hall", "Church"}, 0));
     return layout;
 }
 
 WindLabAudioProcessor::WindLabAudioProcessor()
-    : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+    : AudioProcessor(BusesProperties()
+                         .withInput("Breath Mic", juce::AudioChannelSet::mono(), true)
+                         .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, juce::Identifier("WindLabState"), createParameterLayout()),
       synthesiser(std::make_unique<PerformanceSynthesiser>(
           midiLearn, parameters.getRawParameterValue("articulation"), parameters))
@@ -463,8 +486,35 @@ juce::String WindLabAudioProcessor::parameterIDAt(int index) const
     return {};
 }
 
+void WindLabAudioProcessor::updateRoomImpulse()
+{
+    // Message thread only. A key packs type, size and damping (in 5% steps) so the
+    // impulse is rebuilt only when the sound really changes, and only once the knobs
+    // have been still for ~200 ms (no rebuilds while dragging).
+    const double rate = preparedSampleRate.load();
+    if (rate <= 0.0) return;
+    const int type = juce::jlimit(0, 4, static_cast<int>(parameters.getRawParameterValue("reverbType")->load()));
+    const int size = juce::roundToInt(parameters.getRawParameterValue("reverbSize")->load() * 20.0f);
+    const int damp = juce::roundToInt(parameters.getRawParameterValue("reverbDamp")->load() * 20.0f);
+    const int key = type == 0 ? 0 : type * 10000 + size * 100 + damp;
+    if (key != roomPendingKey) { roomPendingKey = key; roomStableTicks = 0; return; }
+    if (key == roomLoadedKey.load() || ++roomStableTicks < 6) return;
+    if (type == 0) { roomLoadedKey.store(0); return; }
+    std::vector<float> l, r;
+    windlab::generateRoomImpulse(static_cast<windlab::RoomType>(type), rate,
+                                 static_cast<float>(size) / 20.0f, static_cast<float>(damp) / 20.0f, l, r);
+    if (l.empty()) return;
+    juce::AudioBuffer<float> impulse(2, static_cast<int>(l.size()));
+    impulse.copyFrom(0, 0, l.data(), static_cast<int>(l.size()));
+    impulse.copyFrom(1, 0, r.data(), static_cast<int>(r.size()));
+    convolution.loadImpulseResponse(std::move(impulse), rate, juce::dsp::Convolution::Stereo::yes,
+                                    juce::dsp::Convolution::Trim::no, juce::dsp::Convolution::Normalise::yes);
+    roomLoadedKey.store(key);
+}
+
 void WindLabAudioProcessor::timerCallback()
 {
+    updateRoomImpulse();
     const auto& all = getParameters();
     for (int i = 0; i < learnableCount && i < all.size(); ++i)
     {
@@ -476,7 +526,8 @@ void WindLabAudioProcessor::timerCallback()
 bool WindLabAudioProcessor::presetSkips(const juce::String& id)
 {
     static const juce::StringArray routing {"inputMode", "performanceMode", "noteMidiChannel", "breathMidiChannel",
-                                            "breathThreshold", "breathCurve", "breathSource", "velocityResponse"};
+                                            "breathThreshold", "breathCurve", "breathSource", "velocityResponse",
+                                            "micSensitivity"};
     return routing.contains(id);
 }
 
@@ -510,7 +561,18 @@ namespace
                                        {"legatoTime", .02f}}},
             {"Trombone - glissato", {{"instrument", 2}, {"legatoTime", .16f}, {"legatoMode", 1}, {"tone", .55f}, {"reverb", .22f}}},
             {"Corno - orchestrale", {{"instrument", 5}, {"tone", .38f}, {"reverb", .45f}, {"reverbSize", .78f}, {"attack", .07f},
-                                     {"vibrato", .05f}}},
+                                     {"vibrato", .05f}, {"reverbType", 3}}},
+            // 0.9.8: sections and convolution rooms (sectionMode 1 sax, 2 brass, 3 woodwinds, 4 big band;
+            // reverbType 1 studio, 2 jazz club, 3 concert hall, 4 church).
+            {"Sezione sax - club jazz", {{"instrument", 7}, {"sectionMode", 1}, {"reverbType", 2}, {"reverb", .28f},
+                                         {"vibrato", .22f}, {"legatoMode", 2}, {"humanize", .55f}}},
+            {"Sezione ottoni - fanfara", {{"instrument", 0}, {"sectionMode", 2}, {"reverbType", 3}, {"reverb", .30f},
+                                          {"tone", .70f}, {"legatoMode", 2}}},
+            {"Big band - sala", {{"instrument", 0}, {"sectionMode", 4}, {"reverbType", 3}, {"reverb", .26f},
+                                 {"tone", .66f}, {"legatoMode", 2}, {"humanize", .5f}}},
+            {"Legni - cameristico", {{"instrument", 3}, {"sectionMode", 3}, {"reverbType", 1}, {"reverb", .30f},
+                                     {"vibrato", .3f}, {"legatoMode", 2}}},
+            {"Flauto in chiesa", {{"instrument", 3}, {"reverbType", 4}, {"reverb", .42f}, {"air", .45f}, {"vibrato", .45f}}},
         };
         return list;
     }
@@ -564,8 +626,17 @@ bool WindLabAudioProcessor::loadUserPreset(const juce::File& file)
     return true;
 }
 
-void WindLabAudioProcessor::prepareToPlay(double sampleRate, int)
+void WindLabAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
+    maxBlockSize = juce::jmax(64, samplesPerBlock);
+    micFollower.prepare(sampleRate);
+    lastMicBreathCC = -1;
+    convolution.reset();
+    convolution.prepare({sampleRate, static_cast<juce::uint32>(maxBlockSize), 2});
+    wetBuffer.setSize(2, maxBlockSize, false, true, true);
+    preparedSampleRate.store(sampleRate);
+    roomLoadedKey.store(-1); // regenerate the room for this sample rate
+    updateRoomImpulse();
     virtualInstrumentInput.reset(sampleRate);
     virtualInputReady.store(true);
     synthesiser->setCurrentPlaybackSampleRate(sampleRate);
@@ -598,13 +669,24 @@ void WindLabAudioProcessor::releaseResources()
 
 bool WindLabAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
-    return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    // Output stereo; the optional breath microphone may be mono, stereo or switched off.
+    const auto input = layouts.getMainInputChannelSet();
+    return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo()
+        && (input.isDisabled() || input == juce::AudioChannelSet::mono() || input == juce::AudioChannelSet::stereo());
 }
 
 void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                                          juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
+    // 0.9.8: read the breath microphone (if any) before the buffer becomes the output.
+    float micBreath = 0.0f;
+    if (getTotalNumInputChannels() > 0 && buffer.getNumSamples() > 0)
+    {
+        micFollower.setSensitivity(parameters.getRawParameterValue("micSensitivity")->load());
+        micBreath = micFollower.process(buffer.getReadPointer(0), buffer.getNumSamples());
+    }
+    micBreathLevel.store(micBreath);
     buffer.clear();
 
     double hostQuarterNotes = -1.0;
@@ -635,8 +717,6 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     // MIDI (notes + CC curves), not a bounced WAV file. Recording and playing
     // use separate buffers so REC never destroys an existing phrase.
     keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
-    if (virtualInputReady.load() && buffer.getNumSamples() > 0)
-        virtualInstrumentInput.removeNextBlockOfMessages(midiMessages, buffer.getNumSamples());
     // Observe original incoming MIDI before hybrid-channel normalization.
     // The monitor is diagnostic only; it does not modify MIDI or sound.
     for (const auto event : midiMessages)
@@ -658,7 +738,27 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         else if (message.isChannelPressure())
             midiInputMonitor.pressure(message.getChannel(), message.getChannelPressureValue());
     }
-    const bool pressureBreath = parameters.getRawParameterValue("breathSource")->load() >= .5f;
+    // Notes from the on-screen instrument and the microphone breath are added after the
+    // diagnostic monitor and the universal MIDI Learn, so they are never 'learned' by mistake.
+    if (virtualInputReady.load() && buffer.getNumSamples() > 0)
+        virtualInstrumentInput.removeNextBlockOfMessages(midiMessages, buffer.getNumSamples());
+    // Microphone breath becomes the breath CC (the one chosen in MIDI LEARN) on the
+    // note channel, so it is calibrated, routed and recorded like a breath controller.
+    if (static_cast<int>(parameters.getRawParameterValue("breathSource")->load()) == breathFromMicrophone)
+    {
+        const int value = juce::jlimit(0, 127, juce::roundToInt(micBreath * 127.0f));
+        if (value != lastMicBreathCC)
+        {
+            const bool hybrid = static_cast<int>(parameters.getRawParameterValue("performanceMode")->load()) == 2;
+            const int channel = hybrid ? 1 + static_cast<int>(parameters.getRawParameterValue("noteMidiChannel")->load()) : 1;
+            midiMessages.addEvent(juce::MidiMessage::controllerEvent(
+                channel, midiLearn.binding(windlab::MidiLearnBindings::Breath), value), 0);
+            lastMicBreathCC = value;
+        }
+    }
+    else
+        lastMicBreathCC = -1;
+    const bool pressureBreath = static_cast<int>(parameters.getRawParameterValue("breathSource")->load()) == 1;
     const auto calibratedBreath = [this](int value)
     {
         const auto normalized = windlab::calibrateBreath(value / 127.0f,
@@ -802,8 +902,28 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     settings.wetLevel = .55f * mix;
     settings.dryLevel = .5f; // JUCE FreeVerb doubles dryLevel internally; 0.5 = unity
     settings.width = 1.0f;
-    stereoReverb.setParameters(settings);
-    stereoReverb.processStereo(left, right, samples);
+    const int roomType = juce::jlimit(0, 4, static_cast<int>(parameters.getRawParameterValue("reverbType")->load()));
+    if (roomType == 0 || roomLoadedKey.load() < 0)
+    {
+        stereoReverb.setParameters(settings);
+        stereoReverb.processStereo(left, right, samples);
+    }
+    else
+    {
+        // 0.9.8 convolution room: the dry signal stays at unity, the room is added on top.
+        // Processed in chunks no longer than the size prepared in prepareToPlay.
+        const float wetGain = .62f * mix;
+        for (int start = 0; start < samples; start += maxBlockSize)
+        {
+            const int count = juce::jmin(maxBlockSize, samples - start);
+            wetBuffer.copyFrom(0, 0, left + start, count);
+            wetBuffer.copyFrom(1, 0, right + start, count);
+            auto block = juce::dsp::AudioBlock<float>(wetBuffer).getSubBlock(0, static_cast<std::size_t>(count));
+            convolution.process(juce::dsp::ProcessContextReplacing<float>(block));
+            juce::FloatVectorOperations::addWithMultiply(left + start, wetBuffer.getReadPointer(0), wetGain, count);
+            juce::FloatVectorOperations::addWithMultiply(right + start, wetBuffer.getReadPointer(1), wetGain, count);
+        }
+    }
 
     // Apply master gain and protect against stacked-note peaks.
     for (int i = 0; i < samples; ++i)

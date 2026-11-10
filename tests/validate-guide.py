@@ -90,5 +90,10 @@ for token in ("LEGATO TIME", "GROWL", "FLUTTER", "SCOOP", "FALL", "DOIT", "SHAKE
     assert token in panel, f"In-app guide misses {token}"
     assert token in manual, f"User manual misses {token}"
 assert "expressionButton" in main and "expression" in header
+# 0.9.8 microphone breath, section mode, convolution rooms, Apple signing.
+for token in ("MICROFONO", "SEZIONE SAX", "BIG BAND", "CLUB JAZZ", "CHIESA", "Mute audio input", "Breath Mic"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
+assert (root / "docs/Firma-Apple-Notarizzazione.md").exists()
 
 print("PASS: 14 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")

@@ -279,6 +279,8 @@ PRESENTE:
 - STRUMENTO A VIDEO: i 9 strumenti disegnati e suonabili con mouse e tastiera del computer, con diteggiature vere.
 - ESPRESSIONE: tempo e modalita' del legato, velocita' del vibrato e vibrato dal fiato, growl, flutter tongue, effetti jazz (scoop, fall, doit, shake), pan.
 - MIDI Learn universale (clic destro su ogni manopola) e preset di fabbrica e personali.
+- Fiato dal microfono, modalita' sezione (sax, ottoni, legni, big band) e riverbero a convoluzione (studio, club jazz, sala, chiesa).
+- Firma Developer ID e notarizzazione Apple pronte nella build (si attivano con i dati dell'account Apple).
 - Phrase Editor agganciato al play della DAW e trascinamento della frase nella DAW.
 - Vista spartito di lettura e opzione HOST BPM.
 - MIDI LEARN per assegnare CC a vibrato, fiato ed espressione, salvato per progetto.
@@ -287,11 +289,11 @@ PRESENTE:
 NON ANCORA IMPLEMENTATO:
 - Legato campionato con vere transizioni fra note.
 - Assegnazione visuale dei controller MIDI ai pistoni e alle chiavi dello strumento a video.
-- Fiato dal microfono, modalita' sezione (piu' strumenti insieme) e riverbero a convoluzione.
+- Risposte all'impulso registrate in sale reali (oggi sono generate) e doppiatura "unisono" di piu' esecutori sulla stessa nota.
 - MPE avanzato per ogni singola nota.
 - Spartito completo modificabile ed esportazione MusicXML.
 - Velocity separata per ogni nota dell'accordo dalle corsie grafiche.
-- Firma/notarizzazione universale dei pacchetti e collaudo completo in tutte le DAW.
+- Collaudo completo in tutte le DAW.
 
 Questa guida descrive i comandi realmente presenti nel programma. I miglioramenti futuri vengono aggiunti solo dopo lo sviluppo e la verifica.)";
 
@@ -349,7 +351,15 @@ MIDI LEARN UNIVERSALE:
 - Clic destro (oppure ctrl+clic) su qualsiasi manopola, nella finestra principale o in questo pannello, poi "Impara" e muovi un controllo MIDI: la manopola lo seguira'.
 - Sotto la manopola compare il CC assegnato, per esempio [CC21]. Dallo stesso menu puoi rimuoverlo; RIMUOVI TUTTI I CC li cancella tutti.
 - Le assegnazioni sono salvate nel progetto. Il pedale (CC64) e i messaggi di banco non sono assegnabili.
-- Il MIDI LEARN dei tre controlli espressivi (vibrato, fiato, volume) resta nel pannello MIDI LEARN.)";
+- Il MIDI LEARN dei tre controlli espressivi (vibrato, fiato, volume) resta nel pannello MIDI LEARN.
+
+SEZIONE, SALA E FIATO DAL MICROFONO (fascia 04):
+- MODALITA' SEZIONE: ogni nota la suona lo strumento della sezione che ha quel registro, in una sua posizione sul palco. SEZIONE SAX: baritono, tenore, contralto, soprano dal grave all'acuto. SEZIONE OTTONI: trombone, corno, tromba. LEGNI: clarinetto e flauto. BIG BAND: baritono e trombone sotto, sax al centro, tromba in alto. Suona accordi (MODALITA' LEGATO: MAI LEGATO consigliata) e ogni nota avra' il suo strumento. SPENTA = lo strumento scelto in INSTRUMENT.
+- SALA DEL RIVERBERO: ALGORITMICO e' il riverbero di sempre; STUDIO, CLUB JAZZ, SALA DA CONCERTO e CHIESA sono riverberi a convoluzione con risposte all'impulso generate da WindLab (non registrate in sale reali). REVERB regola la quantita', REVERB SIZE allunga la sala, DAMPING la rende piu' scura.
+- FIATO DAL MICROFONO: in SOFFIO DA (finestra principale) o nello STRUMENTO A VIDEO scegli MICROFONO e soffia verso il microfono del computer: piu' soffi, piu' suona forte; se smetti la nota si spegne. SENSIBILITA' MICROFONO regola quanto deve essere forte il soffio; la barra SOFFIO MIC mostra cosa arriva.
+- Standalone: al primo uso macOS chiede il permesso del microfono. Se la barra resta ferma apri Options > Audio/MIDI Settings, scegli l'ingresso e togli 'Mute audio input'.
+- Nella DAW: WindLab ha un ingresso audio (Breath Mic). Collega li' il microfono, per esempio come side-chain dello strumento in Logic o con l'ingresso audio della traccia in Studio One, Ableton o Reaper.
+- Il microfono serve solo a misurare il soffio: l'audio non viene registrato ne' inviato.)";
     }
     return {};
 }

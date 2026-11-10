@@ -1,4 +1,5 @@
 #include "WindLabExpressionPanel.h"
+#include <cmath>
 #include <utility>
 
 namespace
@@ -52,7 +53,17 @@ WindLabExpressionPanel::WindLabExpressionPanel(WindLabAudioProcessor& p, std::fu
     jazzBox.addItem("FALL (caduta finale)", 3);
     jazzBox.addItem("DOIT (salita finale)", 4);
     jazzBox.addItem("SHAKE (trillo di labbro)", 5);
-    for (auto* box : {&legatoModeBox, &jazzBox, &presetBox})
+    sectionBox.addItem("SPENTA (strumento scelto)", 1);
+    sectionBox.addItem("SEZIONE SAX (bar, ten, alto, sop)", 2);
+    sectionBox.addItem("SEZIONE OTTONI (trb, corno, tromba)", 3);
+    sectionBox.addItem("LEGNI (clarinetto, flauto)", 4);
+    sectionBox.addItem("BIG BAND (ottoni + sax)", 5);
+    roomBox.addItem("ALGORITMICO (classico)", 1);
+    roomBox.addItem("STUDIO", 2);
+    roomBox.addItem("CLUB JAZZ", 3);
+    roomBox.addItem("SALA DA CONCERTO", 4);
+    roomBox.addItem("CHIESA", 5);
+    for (auto* box : {&legatoModeBox, &jazzBox, &presetBox, &sectionBox, &roomBox})
     {
         box->setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff182831));
         box->setColour(juce::ComboBox::textColourId, juce::Colours::white);
@@ -64,8 +75,22 @@ WindLabExpressionPanel::WindLabExpressionPanel(WindLabAudioProcessor& p, std::fu
     jazzAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         processor.parameters, "jazzEffect", jazzBox);
     learners.push_back(std::make_unique<windlabui::LearnOnRightClick>(processor, jazzBox, "jazzEffect"));
+    sectionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processor.parameters, "sectionMode", sectionBox);
+    roomAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processor.parameters, "reverbType", roomBox);
+    micSensitivity.setSliderStyle(juce::Slider::LinearHorizontal);
+    micSensitivity.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    micSensitivity.setColour(juce::Slider::thumbColourId, accent);
+    micSensitivity.setColour(juce::Slider::trackColourId, juce::Colour(0xff35515b));
+    addAndMakeVisible(micSensitivity);
+    micAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        processor.parameters, "micSensitivity", micSensitivity);
+    learners.push_back(std::make_unique<windlabui::LearnOnRightClick>(processor, sectionBox, "sectionMode"));
+    learners.push_back(std::make_unique<windlabui::LearnOnRightClick>(processor, roomBox, "reverbType"));
+    learners.push_back(std::make_unique<windlabui::LearnOnRightClick>(processor, micSensitivity, "micSensitivity"));
 
-    for (auto* label : {&legatoModeLabel, &jazzLabel, &presetLabel})
+    for (auto* label : {&legatoModeLabel, &jazzLabel, &presetLabel, &sectionLabel, &roomLabel, &micLabel})
     {
         label->setColour(juce::Label::textColourId, textMuted);
         label->setFont(juce::Font(12.0f, juce::Font::bold));
@@ -74,6 +99,9 @@ WindLabExpressionPanel::WindLabExpressionPanel(WindLabAudioProcessor& p, std::fu
     legatoModeLabel.setText("MODALITA' LEGATO", juce::dontSendNotification);
     jazzLabel.setText("EFFETTO JAZZ", juce::dontSendNotification);
     presetLabel.setText("PRESET (cambiano il suono, non i canali MIDI)", juce::dontSendNotification);
+    sectionLabel.setText("MODALITA' SEZIONE", juce::dontSendNotification);
+    roomLabel.setText("SALA DEL RIVERBERO", juce::dontSendNotification);
+    micLabel.setText("SENSIBILITA' MICROFONO", juce::dontSendNotification);
 
     presetBox.setTextWhenNothingSelected("Scegli un preset...");
     presetBox.onChange = [this]
@@ -158,7 +186,7 @@ void WindLabExpressionPanel::visibilityChanged()
     if (isVisible())
     {
         refreshPresetList();
-        startTimerHz(8);
+        startTimerHz(15);
     }
     else
         stopTimer();
@@ -170,7 +198,7 @@ juce::String WindLabExpressionPanel::assignmentsText() const
     for (const auto& [cc, index] : processor.parameterCC.assignments())
     {
         const auto* parameter = processor.getParameters()[index];
-        text << "CC" << cc << "  ->  " << (parameter != nullptr ? parameter->getName(40) : juce::String("?")) << "\n";
+        text << "CC" << cc << " -> " << (parameter != nullptr ? parameter->getName(40) : juce::String("?")) << "     ";
     }
     const int armed = processor.parameterCC.armedParameter();
     if (armed >= 0)
@@ -188,6 +216,12 @@ void WindLabExpressionPanel::timerCallback()
     }
     const auto text = assignmentsText();
     if (assignments.getText() != text) assignments.setText(text, juce::dontSendNotification);
+    const float level = processor.micBreathLevel.load();
+    if (std::abs(level - shownMicLevel) > .01f)
+    {
+        shownMicLevel = level;
+        repaint(880, 830, 160, 30);
+    }
 }
 
 void WindLabExpressionPanel::resized()
@@ -214,8 +248,14 @@ void WindLabExpressionPanel::resized()
         knobLabels[static_cast<std::size_t>(i)].setBounds(columns[column] - 30, rowTop[row] + 8, 220, 20);
         knobs[static_cast<std::size_t>(i)].setBounds(columns[column] + 18, rowTop[row] + 32, 124, 120);
     }
-    assignments.setBounds(40, 690, 640, 200);
+    assignments.setBounds(40, 690, 660, 66);
     clearCCButton.setBounds(w - 260, 690, 220, 38);
+    sectionLabel.setBounds(40, 806, 300, 20);
+    sectionBox.setBounds(40, 830, 300, 32);
+    roomLabel.setBounds(360, 806, 240, 20);
+    roomBox.setBounds(360, 830, 240, 32);
+    micLabel.setBounds(620, 806, 250, 20);
+    micSensitivity.setBounds(616, 832, 250, 28);
 }
 
 void WindLabExpressionPanel::paint(juce::Graphics& g)
@@ -232,7 +272,7 @@ void WindLabExpressionPanel::paint(juce::Graphics& g)
         juce::Rectangle<float>(22.0f, 90.0f, w - 44.0f, 98.0f),
         juce::Rectangle<float>(22.0f, 204.0f, w - 44.0f, 196.0f),
         juce::Rectangle<float>(22.0f, 414.0f, w - 44.0f, 196.0f),
-        juce::Rectangle<float>(22.0f, 624.0f, w - 44.0f, 278.0f)};
+        juce::Rectangle<float>(22.0f, 624.0f, w - 44.0f, 142.0f)};
     for (const auto& c : cards)
     {
         g.setColour(card);
@@ -245,6 +285,25 @@ void WindLabExpressionPanel::paint(juce::Graphics& g)
     g.drawText("01   LEGATO E VIBRATO", 40, 210, 400, 20, juce::Justification::centredLeft);
     g.drawText("02   COLORI DEL SUONO, EFFETTI JAZZ E POSIZIONE", 40, 420, 500, 20, juce::Justification::centredLeft);
     g.drawText("03   MIDI LEARN UNIVERSALE", 40, 632, 400, 20, juce::Justification::centredLeft);
+    {
+        const auto band = juce::Rectangle<float>(22.0f, 778.0f, w - 44.0f, 124.0f);
+        g.setColour(card);
+        g.fillRoundedRectangle(band, 12.0f);
+        g.setColour(border);
+        g.drawRoundedRectangle(band, 12.0f, 1.0f);
+        g.setColour(juce::Colour(0xffe0b488));
+        g.setFont(juce::Font(12.0f, juce::Font::bold));
+        g.drawText("04   SEZIONE, SALA E FIATO DAL MICROFONO", 40, 782, 500, 20, juce::Justification::centredLeft);
+        // Live microphone breath meter.
+        const auto meter = juce::Rectangle<float>(882.0f, 834.0f, 150.0f, 22.0f);
+        g.setColour(juce::Colour(0xff0f1b22));
+        g.fillRoundedRectangle(meter, 6.0f);
+        g.setColour(accent);
+        g.fillRoundedRectangle(meter.withWidth(meter.getWidth() * juce::jlimit(0.0f, 1.0f, shownMicLevel)), 6.0f);
+        g.setColour(textMuted);
+        g.setFont(juce::Font(11.0f, juce::Font::bold));
+        g.drawText("SOFFIO MIC", 882, 862, 150, 16, juce::Justification::centred);
+    }
     g.setColour(textMain);
     g.setFont(juce::Font(13.0f));
     g.drawFittedText("Clic destro su QUALSIASI manopola di WindLab (anche nella finestra principale) e scegli "

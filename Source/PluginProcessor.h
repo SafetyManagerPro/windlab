@@ -8,6 +8,8 @@
 #include "Dsp/MidiLearnBindings.h"
 #include "Dsp/MidiInputMonitor.h"
 #include "Dsp/ParameterCCMap.h"
+#include "Dsp/MicBreath.h"
+#include <juce_dsp/juce_dsp.h>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <atomic>
 #include <memory>
@@ -49,6 +51,9 @@ public:
     // Notes, breath and bend from the on-screen instrument (UI thread -> audio thread).
     juce::MidiMessageCollector virtualInstrumentInput;
     std::atomic<bool> virtualInputReady {false};
+    // 0.9.8 microphone breath (0..1), for meters and the on-screen instrument.
+    std::atomic<float> micBreathLevel {0.0f};
+    static constexpr int breathFromMicrophone = 2; // value of the "breathSource" choice
 
     // 0.9.7 universal MIDI Learn: any parameter (by index in getParameters()) follows a CC.
     windlab::ParameterCCMap parameterCC;
@@ -68,6 +73,16 @@ private:
     void setParameterPlain(const juce::String& id, float plainValue);
     static bool presetSkips(const juce::String& id);
     std::unique_ptr<std::atomic<float>[]> pendingCCValues; // audio -> message thread
+    // 0.9.8 microphone breath and convolution rooms.
+    windlab::MicBreathFollower micFollower;
+    int lastMicBreathCC = -1;
+    juce::dsp::Convolution convolution;
+    juce::AudioBuffer<float> wetBuffer;
+    int maxBlockSize = 512;
+    std::atomic<double> preparedSampleRate {0.0};
+    std::atomic<int> roomLoadedKey {-1};
+    int roomPendingKey = -1, roomStableTicks = 0;
+    void updateRoomImpulse();
     int learnableCount = 0;
     windlab::RecordedWinds sampleBank;
     std::unique_ptr<juce::Synthesiser> synthesiser;

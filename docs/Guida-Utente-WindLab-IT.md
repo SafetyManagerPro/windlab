@@ -250,6 +250,14 @@ Il pulsante **ESPRESSIONE** apre i controlli dell'interpretazione:
 
 **MIDI Learn universale:** clic destro (o ctrl+clic) su qualsiasi manopola → **Impara** → muovi un controllo MIDI. Sotto la manopola compare il CC, per esempio `[CC21]`. Le assegnazioni restano nel progetto; il pedale CC64 non è assegnabile.
 
+**Sezione, sala e microfono** (fascia 04 del pannello ESPRESSIONE):
+
+- **MODALITÀ SEZIONE**: ogni nota la suona lo strumento della sezione che ha quel registro, in una sua posizione stereo. SEZIONE SAX (baritono, tenore, contralto, soprano), SEZIONE OTTONI (trombone, corno, tromba), LEGNI (clarinetto, flauto), BIG BAND. Con gli accordi conviene MODALITÀ LEGATO: MAI LEGATO.
+- **SALA DEL RIVERBERO**: ALGORITMICO (classico) oppure riverberi a convoluzione STUDIO, CLUB JAZZ, SALA DA CONCERTO, CHIESA. Le risposte all'impulso sono generate da WindLab, non registrate in sale reali. REVERB SIZE allunga la sala, DAMPING la scurisce.
+- **Fiato dal microfono**: in **SOFFIO DA** (o nello strumento a video) scegli **MICROFONO** e soffia verso il microfono; **SENSIBILITÀ MICROFONO** regola la risposta, la barra **SOFFIO MIC** mostra il segnale. In Standalone macOS chiede il permesso; se la barra resta ferma: Options → Audio/MIDI Settings → togli *Mute audio input*. Nella DAW collega il microfono all'ingresso **Breath Mic** di WindLab (side-chain in Logic, ingresso della traccia nelle altre DAW). L'audio serve solo a misurare il soffio: non viene registrato.
+
+**Firma Apple:** la build è pronta per la firma Developer ID e la notarizzazione; si attiva inserendo i dati dell'account Apple come descritto in [Firma-Apple-Notarizzazione.md](Firma-Apple-Notarizzazione.md).
+
 **Phrase Editor e DAW:** **SEGUI PLAY DAW** fa partire e fermare la frase con il play della DAW, agganciata alle sue battute. **TRASCINA IN DAW**: tieni premuto il pulsante e trascinalo su una traccia per inserire la frase come clip MIDI.
 
 ## 7. Risoluzione dei problemi

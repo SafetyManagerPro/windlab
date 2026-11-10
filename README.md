@@ -1,8 +1,13 @@
-# WindLab 0.9.7 — Strumento a video, espressione e MIDI Learn universale
+# WindLab 0.9.8 — Strumento a video, espressione, sezioni e fiato dal microfono
 
 Plugin AU / VST3 / Standalone di strumenti a fiato (9 strumenti, campioni reali + motore espressivo).
 
-## Novità 0.9.5 – 0.9.7
+## Novità 0.9.5 – 0.9.8
+
+- **Fiato dal microfono** (SOFFIO DA: MICROFONO), **modalità sezione** (sax, ottoni, legni, big band)
+  e **riverbero a convoluzione** (studio, club jazz, sala da concerto, chiesa).
+- **Firma Apple**: Developer ID e notarizzazione pronte nella build, si attivano con i secret
+  dell'account Apple — vedi [docs/Firma-Apple-Notarizzazione.md](docs/Firma-Apple-Notarizzazione.md).
 
 - **STRUMENTO A VIDEO**: sax soprano, contralto, tenore e baritono, clarinetto, flauto,
   tromba, corno e trombone disegnati e suonabili con mouse e tastiera del computer,

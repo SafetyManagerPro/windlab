@@ -67,7 +67,8 @@ private:
     juce::ComboBox instrumentBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> instrumentAttachment;
     juce::TextButton closeButton {"CHIUDI X"}, helpButton {"?"};
-    juce::TextButton spaceSourceButton {"SPAZIO"}, mouseSourceButton {"MOUSE"};
+    juce::TextButton spaceSourceButton {"SPAZIO"}, mouseSourceButton {"MOUSE"}, micSourceButton {"MICROFONO"};
+    void chooseBreathSource();
     juce::Slider spaceStrength;
     juce::Label spaceStrengthLabel;
     juce::TextButton sharpButton {"# +1 (H)"}, releaseButton {"RILASCIA CHIAVI"}, recordButton {"REC MIDI"};
@@ -81,7 +82,7 @@ private:
     std::uint32_t heldMask = 0, latchedMask = 0;
     int partial = 0;
     float slidePosition = 1.0f;
-    bool draggingSlide = false, mouseBreathActive = false, spaceDown = false, useMouseBreath = false;
+    bool draggingSlide = false, mouseBreathActive = false, spaceDown = false, useMouseBreath = false, useMicBreath = false;
     float mouseBreath = 0.0f, breath = 0.0f;
     int soundingNote = -1, lastBreathValue = -1, lastBend = 8192;
     windlab::VirtualNote shown;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WindLab VERSION 0.9.7 LANGUAGES C CXX)
+project(WindLab VERSION 0.9.8 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,6 +33,9 @@ juce_add_plugin(WindLab
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE
+    # 0.9.8 breath from the microphone: macOS asks the user once (Standalone).
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "WindLab usa il microfono solo per misurare il soffio quando SOFFIO DA e' impostato su MICROFONO. L'audio non viene registrato ne' inviato."
     FORMATS ${WINDLAB_FORMATS})
 
 target_sources(WindLab PRIVATE
@@ -53,6 +56,9 @@ target_sources(WindLab PRIVATE
     Source/WindLabExpressionPanel.h
     Source/WindLabParameterLearn.h
     Source/Dsp/ParameterCCMap.h
+    Source/Dsp/MicBreath.h
+    Source/Dsp/SectionMode.h
+    Source/Dsp/RoomImpulse.h
     Source/Dsp/WindEngine.h
     Source/Dsp/ToneEQ.h
     Source/Dsp/RecordedWinds.h
@@ -147,7 +153,7 @@ if (BUILD_TESTING)
     add_executable(windlab_virtual_fingering_smoke tests/virtual-fingering-smoke.cpp)
     target_include_directories(windlab_virtual_fingering_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
     add_test(NAME windlab_virtual_fingering_smoke COMMAND windlab_virtual_fingering_smoke)
-    foreach(test_name expression_097 phrase_sync parameter_cc_map)
+    foreach(test_name expression_097 phrase_sync parameter_cc_map rooms_section_mic)
         string(REPLACE "_" "-" test_file "${test_name}")
         add_executable(windlab_${test_name}_smoke tests/${test_file}-smoke.cpp)
         target_include_directories(windlab_${test_name}_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)

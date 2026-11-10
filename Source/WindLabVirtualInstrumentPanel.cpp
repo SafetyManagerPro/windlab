@@ -81,6 +81,7 @@ WindLabVirtualInstrumentPanel::WindLabVirtualInstrumentPanel(WindLabAudioProcess
     styleButton(helpButton, juce::Colour(0xff36525e));
     styleButton(spaceSourceButton, juce::Colour(0xff294c59));
     styleButton(mouseSourceButton, juce::Colour(0xff294c59));
+    styleButton(micSourceButton, juce::Colour(0xff294c59));
     styleButton(sharpButton, juce::Colour(0xff294c59));
     styleButton(releaseButton, juce::Colour(0xff294c59));
     styleButton(recordButton, juce::Colour(0xffb0413e));
@@ -91,11 +92,14 @@ WindLabVirtualInstrumentPanel::WindLabVirtualInstrumentPanel(WindLabAudioProcess
     helpButton.onClick = [this] { if (onHelp) onHelp(); };
     spaceSourceButton.setClickingTogglesState(true);
     mouseSourceButton.setClickingTogglesState(true);
+    micSourceButton.setClickingTogglesState(true);
     spaceSourceButton.setRadioGroupId(4101);
     mouseSourceButton.setRadioGroupId(4101);
+    micSourceButton.setRadioGroupId(4101);
     spaceSourceButton.setToggleState(true, juce::dontSendNotification);
-    spaceSourceButton.onClick = [this] { useMouseBreath = mouseSourceButton.getToggleState(); grabKeyboardFocus(); };
-    mouseSourceButton.onClick = [this] { useMouseBreath = mouseSourceButton.getToggleState(); grabKeyboardFocus(); };
+    spaceSourceButton.onClick = [this] { chooseBreathSource(); };
+    mouseSourceButton.onClick = [this] { chooseBreathSource(); };
+    micSourceButton.onClick = [this] { chooseBreathSource(); };
     sharpButton.setClickingTogglesState(true);
     sharpButton.onClick = [this]
     {
@@ -293,12 +297,30 @@ void WindLabVirtualInstrumentPanel::send(const juce::MidiMessage& message)
     processor.virtualInstrumentInput.addMessageToQueue(m);
 }
 
+void WindLabVirtualInstrumentPanel::chooseBreathSource()
+{
+    useMouseBreath = mouseSourceButton.getToggleState();
+    useMicBreath = micSourceButton.getToggleState();
+    // The microphone breath is produced by the audio engine (SOFFIO DA = MICROFONO);
+    // space bar and mouse send their own breath, so the engine must not add the mic's.
+    if (auto* source = processor.parameters.getParameter("breathSource"))
+    {
+        const int current = static_cast<int>(processor.parameters.getRawParameterValue("breathSource")->load());
+        if (useMicBreath && current != WindLabAudioProcessor::breathFromMicrophone)
+            source->setValueNotifyingHost(source->convertTo0to1(static_cast<float>(WindLabAudioProcessor::breathFromMicrophone)));
+        else if (!useMicBreath && current == WindLabAudioProcessor::breathFromMicrophone)
+            source->setValueNotifyingHost(source->convertTo0to1(0.0f));
+    }
+    releaseAll();
+    grabKeyboardFocus();
+}
+
 void WindLabVirtualInstrumentPanel::releaseAll()
 {
     const int ch = midiChannel();
     if (soundingNote >= 0)
         send(juce::MidiMessage::noteOff(ch, soundingNote));
-    if (lastBreathValue > 0)
+    if (lastBreathValue > 0 && !useMicBreath)
         send(juce::MidiMessage::controllerEvent(ch, processor.midiLearn.binding(MidiLearnBindings::Breath), 0));
     if (lastBend != 8192)
         send(juce::MidiMessage::pitchWheel(ch, 8192));
@@ -407,8 +429,8 @@ void WindLabVirtualInstrumentPanel::mouseDown(const juce::MouseEvent& e)
     {
         if (!useMouseBreath)
         {
-            useMouseBreath = true;
             mouseSourceButton.setToggleState(true, juce::dontSendNotification);
+            chooseBreathSource();
         }
         mouseBreathActive = true;
         mouseDrag(e);
@@ -473,9 +495,10 @@ void WindLabVirtualInstrumentPanel::timerCallback()
     if (hasKeyboardFocus(true))
         keyStateChanged(false); // keeps held keys right even after a focus change
 
-    const float target = useMouseBreath ? (mouseBreathActive ? mouseBreath : 0.0f)
+    const float target = useMicBreath ? processor.micBreathLevel.load()
+                       : useMouseBreath ? (mouseBreathActive ? mouseBreath : 0.0f)
                                         : (spaceDown ? static_cast<float>(spaceStrength.getValue()) : 0.0f);
-    breath += (target - breath) * (target > breath ? 0.35f : 0.28f);
+    breath = useMicBreath ? target : breath + (target - breath) * (target > breath ? 0.35f : 0.28f);
     if (breath < 0.004f) breath = 0.0f;
 
     const auto note = computeVirtualNote(profile, currentMask(), partial, slidePosition);
@@ -489,7 +512,8 @@ void WindLabVirtualInstrumentPanel::timerCallback()
     {
         if (breathValue != lastBreathValue)
         {
-            send(juce::MidiMessage::controllerEvent(ch, breathCC, breathValue));
+            if (!useMicBreath) // with the mic the engine already sends the breath CC
+                send(juce::MidiMessage::controllerEvent(ch, breathCC, breathValue));
             lastBreathValue = breathValue;
         }
         const int bend = juce::jlimit(0, 16383, 8192 + static_cast<int>(std::lround(note.bendSemitones / 2.0f * 8192.0f)));
@@ -530,8 +554,9 @@ void WindLabVirtualInstrumentPanel::resized()
     closeButton.setBounds(w - 155, 20, 127, 36);
 
     const int x = w - 328;
-    spaceSourceButton.setBounds(x + 84, 330, 96, 30);
-    mouseSourceButton.setBounds(x + 186, 330, 96, 30);
+    spaceSourceButton.setBounds(x + 80, 330, 64, 30);
+    mouseSourceButton.setBounds(x + 147, 330, 60, 30);
+    micSourceButton.setBounds(x + 210, 330, 84, 30);
     spaceStrengthLabel.setBounds(x + 80, 384, 210, 20);
     spaceStrength.setBounds(x + 80, 406, 205, 26);
     help.setBounds(x + 16, 528, 284, 170);
@@ -623,8 +648,10 @@ void WindLabVirtualInstrumentPanel::paint(juce::Graphics& g)
     g.fillRoundedRectangle(meter.withTrimmedTop(meter.getHeight() * (1.0f - breath)), 12.0f);
     g.setColour(textMain);
     g.setFont(juce::Font(12.0f));
-    g.drawFittedText(useMouseBreath ? "Tieni premuto il mouse sulla barra: piu' in alto = piu' forte."
-                                    : "Tieni premuta la barra spaziatrice per soffiare.",
+    g.drawFittedText(useMicBreath ? "Soffia nel microfono. Nessun segnale? Standalone: Options > Audio/MIDI "
+                                    "Settings, togli 'Mute audio input'. DAW: collega un ingresso."
+                     : useMouseBreath ? "Tieni premuto il mouse sulla barra: piu' in alto = piu' forte."
+                                      : "Tieni premuta la barra spaziatrice per soffiare.",
                      juce::Rectangle<float>(x + 80.0f, 440.0f, 210.0f, 54.0f).toNearestInt(),
                      juce::Justification::topLeft, 3);
 

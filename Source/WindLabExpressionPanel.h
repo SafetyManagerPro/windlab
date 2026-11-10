@@ -31,9 +31,13 @@ private:
     std::array<juce::String, knobCount> knobNames;
     std::array<juce::String, knobCount> knobIDs;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, knobCount> attachments;
-    juce::ComboBox legatoModeBox, jazzBox, presetBox;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> legatoModeAttachment, jazzAttachment;
-    juce::Label legatoModeLabel, jazzLabel, presetLabel, assignments;
+    juce::ComboBox legatoModeBox, jazzBox, presetBox, sectionBox, roomBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> legatoModeAttachment, jazzAttachment,
+                                                                            sectionAttachment, roomAttachment;
+    juce::Label legatoModeLabel, jazzLabel, presetLabel, assignments, sectionLabel, roomLabel, micLabel;
+    juce::Slider micSensitivity;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> micAttachment;
+    float shownMicLevel = 0.0f;
     juce::TextButton savePresetButton {"SALVA PRESET..."}, openPresetButton {"APRI PRESET..."},
                      clearCCButton {"RIMUOVI TUTTI I CC"}, closeButton {"CHIUDI X"}, helpButton {"?"};
     std::unique_ptr<juce::FileChooser> chooser;
