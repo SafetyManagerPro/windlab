@@ -96,6 +96,7 @@ inline int saxWritten(std::uint32_t m) noexcept
     int note = notes[static_cast<std::size_t>(n)];
     if (n == 0 && down(m, VkL2) && !down(m, VkL3)) note = 72;            // C5: middle finger only
     if (n == 1 && down(m, VkSideBb)) note = 70;                           // Bb4 side key
+    if (n == 1 && down(m, VkR1)) note = 70;                               // Bb4 "1+1" alternate
     if (n == 1 && down(m, VkSideC)) note = 72;                            // C5 side key
     if (n == 3 && down(m, VkLPinky)) note = 68;                           // G#4
     if (n == 3 && !down(m, VkR1) && down(m, VkR2)) note = 66;             // F#4 fork
@@ -122,6 +123,7 @@ inline int fluteWritten(std::uint32_t m, int octaveOffset) noexcept
     const int n = closedStack(m, order);
     int note = notes[static_cast<std::size_t>(n)];
     if (n == 0 && down(m, VkL1)) note = 72;                               // C5: index only
+    if (n == 2 && down(m, VkR1) && !down(m, VkL2)) note = 70;             // Bb4 "1+1" alternate
     if (n == 4 && down(m, VkLPinky)) note = 68;                           // G#4
     if (n == 4 && !down(m, VkR1) && down(m, VkR3)) note = 66;             // F#4 fork
     note += octaveOffset;
@@ -168,6 +170,84 @@ inline VirtualNote computeVirtualNote(const VirtualProfile& p, std::uint32_t mas
     out.valid = out.concert >= 21 && out.concert <= 108;
     if (!out.valid) out.bendSemitones = 0.0f;
     return out;
+}
+
+// Reverse lookup for "MOSTRA DITEGGIATURA": the simplest fingering that sounds
+// `concertNote` on this instrument. Woodwinds search every combination of the keys
+// the instrument has (2^15 at most, only when the note changes) and prefer fewer
+// keys, no helper # key and no side/palm keys when a plain fingering exists.
+struct VirtualFingering
+{
+    bool valid = false;
+    std::uint32_t mask = 0;
+    int partial = 0;
+    float slidePosition = 1.0f;
+};
+
+inline VirtualFingering fingeringFor(const VirtualProfile& p, int concertNote) noexcept
+{
+    VirtualFingering best;
+    const int written = concertNote - p.transpose;
+    if (p.family == VirtualFamily::Valves || p.family == VirtualFamily::Slide)
+    {
+        // Lowest lowering first = standard fingering / closest slide position.
+        static constexpr std::array<std::uint32_t, 7> valves {
+            0u, 1u << VkValve2, 1u << VkValve1, (1u << VkValve1) | (1u << VkValve2),
+            (1u << VkValve2) | (1u << VkValve3), (1u << VkValve1) | (1u << VkValve3),
+            (1u << VkValve1) | (1u << VkValve2) | (1u << VkValve3)};
+        int bestLowering = 99;
+        for (int i = 0; i < p.partialCount; ++i)
+        {
+            const int lowering = p.partials[static_cast<std::size_t>(i)] - written;
+            if (lowering < 0 || lowering > 6 || lowering >= bestLowering) continue;
+            bestLowering = lowering;
+            best.valid = true;
+            best.partial = i;
+            best.mask = p.family == VirtualFamily::Valves ? valves[static_cast<std::size_t>(lowering)] : 0u;
+            best.slidePosition = static_cast<float>(lowering + 1);
+        }
+        return best;
+    }
+    std::array<int, 16> keys {};
+    int count = 0;
+    auto add = [&](int k) { keys[static_cast<std::size_t>(count++)] = k; };
+    switch (p.family)
+    {
+        case VirtualFamily::Sax:
+            for (int k : {VkOctave, VkL1, VkL2, VkL3, VkLPinky, VkR1, VkR2, VkR3, VkLow1, VkLow2,
+                          VkPalm1, VkPalm2, VkPalm3, VkSideBb, VkSharp}) add(k);
+            break;
+        case VirtualFamily::Clarinet:
+            for (int k : {VkOctave, VkThumb, VkL1, VkL2, VkL3, VkR1, VkR2, VkR3, VkLow1, VkLow2, VkThroatA, VkSharp}) add(k);
+            break;
+        default:
+            for (int k : {VkOctave, VkThumb, VkL1, VkL2, VkL3, VkLPinky, VkR1, VkR2, VkR3, VkLow1, VkSharp}) add(k);
+            break;
+    }
+    int bestScore = 1 << 30;
+    const int partials = p.family == VirtualFamily::Flute ? p.partialCount : 1;
+    for (int part = 0; part < partials; ++part)
+        for (std::uint32_t combo = 0; combo < (1u << count); ++combo)
+        {
+            std::uint32_t mask = 0;
+            int score = part * 3;
+            for (int b = 0; b < count; ++b)
+                if (combo & (1u << b))
+                {
+                    const int k = keys[static_cast<std::size_t>(b)];
+                    mask |= vkBit(k);
+                    score += (k == VkSharp) ? 12 : (k == VkSideBb || k == VkLPinky || k == VkThroatA) ? 3
+                           : (k >= VkPalm1 && k <= VkPalm3) ? 2 : 1;
+                }
+            if (score >= bestScore) continue;
+            const auto n = computeVirtualNote(p, mask, part);
+            if (n.valid && n.concert == concertNote)
+            {
+                bestScore = score;
+                best = {true, mask, part, 1.0f};
+            }
+        }
+    return best;
 }
 
 // Italian note name, MIDI 60 = "DO 4".

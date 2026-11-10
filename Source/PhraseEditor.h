@@ -18,6 +18,8 @@ public:
     void mouseDown(const juce::MouseEvent&) override;
     void mouseDrag(const juce::MouseEvent&) override;
     void mouseUp(const juce::MouseEvent&) override;
+    // 0.9.9: mouse wheel over a note = that note's velocity (also inside a chord).
+    void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
 
 private:
     windlab::PhraseEngine& phrase;

@@ -324,9 +324,18 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
         const float y = r.getY() + (84 - juce::jlimit(48, 84, n.pitch)) * pitchHeight + .7f;
         const float width = std::min(static_cast<float>(n.gate) * stepWidth - 4.0f,
                                     r.getRight() - x - 1.0f);
-        g.setColour(step == selectedStep ? juce::Colour(0xffffcb83)
-                                         : juce::Colour(0xffed9f6c));
+        // Softer notes are drawn darker, so chord balance is visible at a glance.
+        const float strength = .45f + .55f * static_cast<float>(n.velocity) / 127.0f;
+        g.setColour((step == selectedStep ? juce::Colour(0xffffcb83) : juce::Colour(0xffed9f6c))
+                        .withMultipliedBrightness(strength));
         g.fillRoundedRectangle(x, y, std::max(7.0f, width), pitchHeight - 1.8f, 3.0f);
+        if (width >= 24.0f && pitchHeight >= 8.0f)
+        {
+            g.setColour(juce::Colour(0xff2a1a0c));
+            g.setFont(juce::Font(std::min(10.0f, pitchHeight - 1.0f), juce::Font::bold));
+            g.drawText(juce::String(n.velocity), juce::Rectangle<float>(x + 3.0f, y, width - 4.0f, pitchHeight - 1.8f).toNearestInt(),
+                       juce::Justification::centredLeft, false);
+        }
         if (n.legato)
         {
             g.setColour(juce::Colour(0xffb0eff1));
@@ -475,6 +484,27 @@ void WindLabPhraseEditor::paint(juce::Graphics& g)
                  ? "Tempo follows DAW BPM; Play remains manual and does not follow host transport position."
                  : "Click empty row = add note (max 4 per step). Click note = remove, drag = pitch/length. Right-click = delete."),
                75, 806, getWidth() - 115, 27, juce::Justification::centredLeft);
+}
+
+void WindLabPhraseEditor::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
+{
+    const auto r = rollBounds();
+    if (scoreView || !r.contains(e.position) || std::abs(wheel.deltaY) < 1.0e-4f) return;
+    const int pitch = pitchAt(e.position.y);
+    // The note under the mouse may have started on an earlier step (long notes).
+    const int hovered = stepAt(e.position.x);
+    for (int step = hovered; step >= 0 && hovered - step <= 8; --step)
+    {
+        const int slot = slotAtPitch(step, pitch);
+        if (slot < 0) continue;
+        auto n = phrase.chordNote(step, slot);
+        if (step + n.gate <= hovered) break;
+        n.velocity = juce::jlimit(1, 127, n.velocity + (wheel.deltaY > 0 ? 4 : -4));
+        phrase.setChordNote(step, slot, n);
+        selectedStep = step;
+        repaint();
+        return;
+    }
 }
 
 int WindLabPhraseEditor::slotAtPitch(int step, int pitch) const

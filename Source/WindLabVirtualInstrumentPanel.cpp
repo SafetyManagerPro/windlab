@@ -82,6 +82,11 @@ WindLabVirtualInstrumentPanel::WindLabVirtualInstrumentPanel(WindLabAudioProcess
     styleButton(spaceSourceButton, juce::Colour(0xff294c59));
     styleButton(mouseSourceButton, juce::Colour(0xff294c59));
     styleButton(micSourceButton, juce::Colour(0xff294c59));
+    styleButton(showFingeringButton, juce::Colour(0xff294c59));
+    showFingeringButton.setClickingTogglesState(true);
+    showFingeringButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff6fd3a8));
+    showFingeringButton.setTooltip("Mostra sullo strumento la diteggiatura delle note suonate da tastiera, MIDI o Phrase Editor");
+    showFingeringButton.onClick = [this] { guideNote = -2; grabKeyboardFocus(); };
     styleButton(sharpButton, juce::Colour(0xff294c59));
     styleButton(releaseButton, juce::Colour(0xff294c59));
     styleButton(recordButton, juce::Colour(0xffb0413e));
@@ -170,6 +175,7 @@ void WindLabVirtualInstrumentPanel::refreshProfile()
     instrumentIndex = index;
     profile = virtualProfileFor(index);
     partial = profile.defaultPartial;
+    guideNote = -2; // recompute the didactic fingering for the new instrument
     latchedMask = 0;
     slidePosition = 1.0f;
     sharpButton.setToggleState(false, juce::dontSendNotification);
@@ -503,6 +509,32 @@ void WindLabVirtualInstrumentPanel::timerCallback()
 
     const auto note = computeVirtualNote(profile, currentMask(), partial, slidePosition);
     shown = note;
+    // Didactic view: only while the player is not using the on-screen instrument.
+    guiding = showFingeringButton.getToggleState() && currentMask() == 0u && breath <= 0.0f
+              && soundingNote < 0 && !draggingSlide;
+    drawMask = currentMask();
+    drawPartial = partial;
+    drawSlide = slidePosition;
+    if (guiding)
+    {
+        const int playing = processor.displayNote.load();
+        if (playing != guideNote)
+        {
+            guideNote = playing;
+            guide = playing >= 0 ? fingeringFor(profile, playing) : VirtualFingering {};
+        }
+        if (guide.valid)
+        {
+            drawMask = guide.mask;
+            drawPartial = guide.partial;
+            drawSlide = guide.slidePosition;
+            shown = computeVirtualNote(profile, guide.mask, guide.partial, guide.slidePosition);
+        }
+        else if (playing >= 0)
+        {
+            shown = {}; // a note this instrument cannot play
+        }
+    }
     const int ch = midiChannel();
     const int breathCC = processor.midiLearn.binding(MidiLearnBindings::Breath);
     const int breathValue = juce::jlimit(0, 127, static_cast<int>(std::lround(breath * 127.0f)));
@@ -550,6 +582,7 @@ void WindLabVirtualInstrumentPanel::resized()
     title.setBounds(28, 18, 300, 36);
     instrumentLabel.setBounds(330, 20, 110, 36);
     instrumentBox.setBounds(450, 20, 230, 36);
+    showFingeringButton.setBounds(690, 20, 170, 36);
     helpButton.setBounds(w - 210, 20, 45, 36);
     closeButton.setBounds(w - 155, 20, 127, 36);
 
@@ -619,13 +652,13 @@ void WindLabVirtualInstrumentPanel::paint(juce::Graphics& g)
     g.setColour(green);
     juce::String detail;
     if (profile.family == VirtualFamily::Slide)
-        detail = "posizione " + juce::String(slidePosition, 1);
+        detail = "posizione " + juce::String(drawSlide, 1);
     else
     {
         for (const auto& s : shapes)
-            if ((currentMask() & vkBit(s.key)) != 0u)
+            if ((drawMask & vkBit(s.key)) != 0u)
                 detail << (s.pc == shiftKey ? juce::String("SHIFT") : juce::String::charToString(static_cast<juce::juce_wchar>(s.pc)).toUpperCase()) << " ";
-        if ((currentMask() & vkBit(VkSharp)) != 0u) detail << "# ";
+        if ((drawMask & vkBit(VkSharp)) != 0u) detail << "# ";
         detail = detail.isEmpty() ? juce::String("nessuna chiave premuta") : "chiavi: " + detail.trim();
     }
     g.drawText(detail, juce::Rectangle<float>(x + 20.0f, 200.0f, 275.0f, 20.0f).toNearestInt(), juce::Justification::left);
@@ -854,7 +887,7 @@ void WindLabVirtualInstrumentPanel::drawInstrument(juce::Graphics& g) const
             brassFill(g, 250.0f, 300.0f);
             g.fillRect(150.0f, 252.0f, 150.0f, 11.0f);
             g.fillRect(150.0f, 290.0f, 150.0f, 11.0f);
-            const float crook = slideCrookX(slidePosition);
+            const float crook = slideCrookX(drawSlide);
             g.setColour(juce::Colour(0xffe8cf92));
             g.fillRect(300.0f, 254.5f, crook - 300.0f, 7.0f);
             g.fillRect(300.0f, 292.5f, crook - 300.0f, 7.0f);
@@ -869,7 +902,7 @@ void WindLabVirtualInstrumentPanel::drawInstrument(juce::Graphics& g) const
             g.drawRoundedRectangle(crook - 66.0f, 248.0f, 16.0f, 60.0f, 5.0f, 3.0f);
             g.setColour(juce::Colour(0xff35515b));
             g.drawLine(300.0f, 360.0f, 600.0f, 360.0f, 2.0f);
-            const int nearest = static_cast<int>(std::lround(slidePosition));
+            const int nearest = static_cast<int>(std::lround(drawSlide));
             for (int i = 1; i <= 7; ++i)
             {
                 const float cx = 310.0f + 47.0f * static_cast<float>(i - 1);
@@ -893,7 +926,8 @@ void WindLabVirtualInstrumentPanel::drawInstrument(juce::Graphics& g) const
 
 void WindLabVirtualInstrumentPanel::drawKeys(juce::Graphics& g) const
 {
-    const auto mask = currentMask();
+    const auto mask = drawMask;
+    const auto pressedColour = guiding ? juce::Colour(0xff6fd3a8) : accent;
     for (const auto& s : shapes)
     {
         const bool pressed = (mask & vkBit(s.key)) != 0u;
@@ -908,7 +942,7 @@ void WindLabVirtualInstrumentPanel::drawKeys(juce::Graphics& g) const
                        juce::jmax(4.0f, (instrumentIndex == 5 ? 196.0f : 150.0f) - box.getBottom() + 4.0f));
         }
         const bool hole = profile.family == VirtualFamily::Clarinet && s.round && s.key != VkOctave;
-        juce::Colour fill = pressed ? accent
+        juce::Colour fill = pressed ? pressedColour
                           : hole ? juce::Colour(0xff050505)
                           : profile.family == VirtualFamily::Flute ? juce::Colour(0xffdfe6e9) : pearl;
         g.setColour(fill);
@@ -955,8 +989,8 @@ void WindLabVirtualInstrumentPanel::drawLadder(juce::Graphics& g) const
         const int index = profile.partialCount - 1 - i;
         const auto row = juce::Rectangle<float>(ladder.getX(), ladder.getY() + rowH * static_cast<float>(i),
                                                 ladder.getWidth(), rowH).reduced(0.0f, 3.0f);
-        const bool on = index == partial;
-        g.setColour(on ? accent : header);
+        const bool on = index == drawPartial;
+        g.setColour(on ? (guiding ? juce::Colour(0xff6fd3a8) : accent) : header);
         g.fillRoundedRectangle(row, 6.0f);
         juce::String text;
         if (profile.family == VirtualFamily::Flute)

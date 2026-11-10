@@ -73,6 +73,14 @@ private:
     juce::Label spaceStrengthLabel;
     juce::TextButton sharpButton {"# +1 (H)"}, releaseButton {"RILASCIA CHIAVI"}, recordButton {"REC MIDI"};
     juce::TextButton partialUp {"ARMONICO +"}, partialDown {"ARMONICO -"};
+    // "MOSTRA DITEGGIATURA": when idle, show how to finger the note WindLab is playing.
+    juce::TextButton showFingeringButton {"MOSTRA DITEGGIATURA"};
+    bool guiding = false;
+    int guideNote = -1;
+    windlab::VirtualFingering guide;
+    std::uint32_t drawMask = 0;
+    int drawPartial = 0;
+    float drawSlide = 1.0f;
     juce::Label help;
 
     int instrumentIndex = -1;

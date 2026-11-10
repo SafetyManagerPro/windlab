@@ -77,6 +77,32 @@ int main()
     assert(n.concert == 54 && std::fabs(n.bendSemitones - 0.3f) < 1e-4f);
     assert(computeVirtualNote(tbn, 0, 0, 9.0f).concert == 40);                              // clamped to 7th
 
+    // --- Alternate Bb "1+1" on sax and flute.
+    assert(computeVirtualNote(alto, keys({VkL1, VkR1}), 0).written == 70);
+    assert(computeVirtualNote(flute, keys({VkThumb, VkL1, VkR1}), 0).concert == 70);
+
+    // --- MOSTRA DITEGGIATURA: reverse lookup gives back a fingering for every playable note.
+    for (int index = 0; index < 9; ++index)
+    {
+        const auto profile = virtualProfileFor(index);
+        int found = 0;
+        for (int concert = 30; concert <= 100; ++concert)
+        {
+            const auto f = fingeringFor(profile, concert);
+            if (!f.valid) continue;
+            ++found;
+            const auto back = computeVirtualNote(profile, f.mask, f.partial, f.slidePosition);
+            assert(back.valid && back.concert == concert);
+        }
+        assert(found >= 20);
+    }
+    // Plain fingerings win: alto G4 = B A G only; trumpet written E4 = valves 1+2; trombone G3 = 4th position.
+    assert(fingeringFor(alto, 58).mask == keys({VkL1, VkL2, VkL3}));
+    const auto e4 = fingeringFor(tpt, 62);
+    assert(e4.mask == keys({VkValve1, VkValve2}) && e4.partial == 1);
+    assert(fingeringFor(tbn, 55).slidePosition == 4.0f);
+    assert(!fingeringFor(alto, 20).valid);
+
     // --- Names.
     assert(italianNoteName(60) == "DO 4" && italianNoteName(58) == "SIb 3" && italianNoteName(55) == "SOL 3");
 

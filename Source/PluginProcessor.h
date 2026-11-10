@@ -53,6 +53,9 @@ public:
     std::atomic<bool> virtualInputReady {false};
     // 0.9.8 microphone breath (0..1), for meters and the on-screen instrument.
     std::atomic<float> micBreathLevel {0.0f};
+    // Last note started by any source (keyboard, MIDI, Phrase Editor), -1 when released:
+    // drives "MOSTRA DITEGGIATURA" in the on-screen instrument.
+    std::atomic<int> displayNote {-1};
     static constexpr int breathFromMicrophone = 2; // value of the "breathSource" choice
 
     // 0.9.7 universal MIDI Learn: any parameter (by index in getParameters()) follows a CC.

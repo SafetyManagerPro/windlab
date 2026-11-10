@@ -95,5 +95,10 @@ for token in ("MICROFONO", "SEZIONE SAX", "BIG BAND", "CLUB JAZZ", "CHIESA", "Mu
     assert token in panel, f"In-app guide misses {token}"
     assert token in manual, f"User manual misses {token}"
 assert (root / "docs/Firma-Apple-Notarizzazione.md").exists()
+# 0.9.9 didactic fingering, unison, chord velocity.
+assert "rotella" in panel.lower() and "rotella" in manual.lower()
+for token in ("MOSTRA DITEGGIATURA", "IN UNISONO", "1+1"):
+    assert token in panel, f"In-app guide misses {token}"
+    assert token in manual, f"User manual misses {token}"
 
 print("PASS: 14 offline manual topics, main/phrase context buttons, scroll and full Italian user guide")

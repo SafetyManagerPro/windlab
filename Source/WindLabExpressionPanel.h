@@ -31,10 +31,10 @@ private:
     std::array<juce::String, knobCount> knobNames;
     std::array<juce::String, knobCount> knobIDs;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, knobCount> attachments;
-    juce::ComboBox legatoModeBox, jazzBox, presetBox, sectionBox, roomBox;
+    juce::ComboBox legatoModeBox, jazzBox, presetBox, sectionBox, roomBox, unisonBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> legatoModeAttachment, jazzAttachment,
-                                                                            sectionAttachment, roomAttachment;
-    juce::Label legatoModeLabel, jazzLabel, presetLabel, assignments, sectionLabel, roomLabel, micLabel;
+                                                                            sectionAttachment, roomAttachment, unisonAttachment;
+    juce::Label legatoModeLabel, jazzLabel, presetLabel, assignments, sectionLabel, roomLabel, micLabel, unisonLabel;
     juce::Slider micSensitivity;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> micAttachment;
     float shownMicLevel = 0.0f;

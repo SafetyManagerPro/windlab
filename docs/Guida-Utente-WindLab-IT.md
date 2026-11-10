@@ -227,6 +227,8 @@ Il pulsante **STRUMENTO A VIDEO** in alto apre il disegno dello strumento scelto
 | Tromba e corno | J K L = pistoni/cilindri 1 2 3, FRECCE SU/GIÙ o colonna **ARMONICO** = armonico (labbra) |
 | Trombone | coulisse trascinata con il mouse (glissando) o tasti 1–7, FRECCE SU/GIÙ = armonico |
 
+**MOSTRA DITEGGIATURA**: suonando da tastiera, MIDI o Phrase Editor, lo strumento a video mostra in verde le chiavi, i pistoni, la posizione della coulisse e l'armonico di ogni nota — utile per imparare. Diteggiatura alternativa **Sib "1+1"** su sax (F + J) e flauto (V + F + J).
+
 Per i legni **H** (o il pulsante **# +1**) alza la nota di un semitono. Il riquadro **NOTA** mostra la nota scritta e quella reale per gli strumenti traspositori. **REC MIDI** registra nel Phrase Editor quello che suoni; in modalità **IBRIDO** le note escono sul canale NOTE CH.
 
 **Limiti:** solo le diteggiature principali (alternative e sovracuti in seguito); il mouse preme una chiave alla volta; il microfono come sorgente del fiato non è ancora disponibile.
@@ -249,6 +251,10 @@ Il pulsante **ESPRESSIONE** apre i controlli dell'interpretazione:
 **Preset:** suoni pronti per ogni strumento, più i tuoi (**SALVA PRESET**, **APRI PRESET**, file `.windlabpreset`). I preset cambiano solo il suono, non canali MIDI né calibrazione del fiato.
 
 **MIDI Learn universale:** clic destro (o ctrl+clic) su qualsiasi manopola → **Impara** → muovi un controllo MIDI. Sotto la manopola compare il CC, per esempio `[CC21]`. Le assegnazioni restano nel progetto; il pedale CC64 non è assegnabile.
+
+**Unisono** (fascia 04): **2 IN UNISONO** o **3 IN UNISONO** fanno suonare ogni nota da più musicisti, leggermente scordati, un poco in ritardo e affiancati, come una fila di fiati; si combina con la modalità sezione.
+
+**Velocity di ogni nota dell'accordo** (Phrase Editor): la **rotella del mouse** sopra una nota ne cambia la velocity; il valore è scritto sulla nota e le note più deboli sono più scure.
 
 **Sezione, sala e microfono** (fascia 04 del pannello ESPRESSIONE):
 

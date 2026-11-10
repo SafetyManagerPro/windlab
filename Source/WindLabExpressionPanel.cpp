@@ -58,12 +58,15 @@ WindLabExpressionPanel::WindLabExpressionPanel(WindLabAudioProcessor& p, std::fu
     sectionBox.addItem("SEZIONE OTTONI (trb, corno, tromba)", 3);
     sectionBox.addItem("LEGNI (clarinetto, flauto)", 4);
     sectionBox.addItem("BIG BAND (ottoni + sax)", 5);
+    unisonBox.addItem("1 ESECUTORE", 1);
+    unisonBox.addItem("2 IN UNISONO", 2);
+    unisonBox.addItem("3 IN UNISONO", 3);
     roomBox.addItem("ALGORITMICO (classico)", 1);
     roomBox.addItem("STUDIO", 2);
     roomBox.addItem("CLUB JAZZ", 3);
     roomBox.addItem("SALA DA CONCERTO", 4);
     roomBox.addItem("CHIESA", 5);
-    for (auto* box : {&legatoModeBox, &jazzBox, &presetBox, &sectionBox, &roomBox})
+    for (auto* box : {&legatoModeBox, &jazzBox, &presetBox, &sectionBox, &roomBox, &unisonBox})
     {
         box->setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff182831));
         box->setColour(juce::ComboBox::textColourId, juce::Colours::white);
@@ -79,6 +82,9 @@ WindLabExpressionPanel::WindLabExpressionPanel(WindLabAudioProcessor& p, std::fu
         processor.parameters, "sectionMode", sectionBox);
     roomAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         processor.parameters, "reverbType", roomBox);
+    unisonAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processor.parameters, "unison", unisonBox);
+    learners.push_back(std::make_unique<windlabui::LearnOnRightClick>(processor, unisonBox, "unison"));
     micSensitivity.setSliderStyle(juce::Slider::LinearHorizontal);
     micSensitivity.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     micSensitivity.setColour(juce::Slider::thumbColourId, accent);
@@ -90,7 +96,7 @@ WindLabExpressionPanel::WindLabExpressionPanel(WindLabAudioProcessor& p, std::fu
     learners.push_back(std::make_unique<windlabui::LearnOnRightClick>(processor, roomBox, "reverbType"));
     learners.push_back(std::make_unique<windlabui::LearnOnRightClick>(processor, micSensitivity, "micSensitivity"));
 
-    for (auto* label : {&legatoModeLabel, &jazzLabel, &presetLabel, &sectionLabel, &roomLabel, &micLabel})
+    for (auto* label : {&legatoModeLabel, &jazzLabel, &presetLabel, &sectionLabel, &roomLabel, &micLabel, &unisonLabel})
     {
         label->setColour(juce::Label::textColourId, textMuted);
         label->setFont(juce::Font(12.0f, juce::Font::bold));
@@ -102,6 +108,7 @@ WindLabExpressionPanel::WindLabExpressionPanel(WindLabAudioProcessor& p, std::fu
     sectionLabel.setText("MODALITA' SEZIONE", juce::dontSendNotification);
     roomLabel.setText("SALA DEL RIVERBERO", juce::dontSendNotification);
     micLabel.setText("SENSIBILITA' MICROFONO", juce::dontSendNotification);
+    unisonLabel.setText("UNISONO", juce::dontSendNotification);
 
     presetBox.setTextWhenNothingSelected("Scegli un preset...");
     presetBox.onChange = [this]
@@ -250,12 +257,14 @@ void WindLabExpressionPanel::resized()
     }
     assignments.setBounds(40, 690, 660, 66);
     clearCCButton.setBounds(w - 260, 690, 220, 38);
-    sectionLabel.setBounds(40, 806, 300, 20);
-    sectionBox.setBounds(40, 830, 300, 32);
-    roomLabel.setBounds(360, 806, 240, 20);
-    roomBox.setBounds(360, 830, 240, 32);
-    micLabel.setBounds(620, 806, 250, 20);
-    micSensitivity.setBounds(616, 832, 250, 28);
+    sectionLabel.setBounds(40, 806, 245, 20);
+    sectionBox.setBounds(40, 830, 245, 32);
+    unisonLabel.setBounds(298, 806, 150, 20);
+    unisonBox.setBounds(298, 830, 150, 32);
+    roomLabel.setBounds(461, 806, 200, 20);
+    roomBox.setBounds(461, 830, 200, 32);
+    micLabel.setBounds(676, 806, 200, 20);
+    micSensitivity.setBounds(672, 832, 200, 28);
 }
 
 void WindLabExpressionPanel::paint(juce::Graphics& g)
@@ -293,7 +302,7 @@ void WindLabExpressionPanel::paint(juce::Graphics& g)
         g.drawRoundedRectangle(band, 12.0f, 1.0f);
         g.setColour(juce::Colour(0xffe0b488));
         g.setFont(juce::Font(12.0f, juce::Font::bold));
-        g.drawText("04   SEZIONE, SALA E FIATO DAL MICROFONO", 40, 782, 500, 20, juce::Justification::centredLeft);
+        g.drawText("04   SEZIONE, UNISONO, SALA E FIATO DAL MICROFONO", 40, 782, 600, 20, juce::Justification::centredLeft);
         // Live microphone breath meter.
         const auto meter = juce::Rectangle<float>(882.0f, 834.0f, 150.0f, 22.0f);
         g.setColour(juce::Colour(0xff0f1b22));

@@ -39,7 +39,13 @@ namespace
               breathThreshold(params.getRawParameterValue("breathThreshold")),
               breathCurve(params.getRawParameterValue("breathCurve")),
               breathSource(params.getRawParameterValue("breathSource")),
-              legatoMode(params.getRawParameterValue("legatoMode")) {}
+              legatoMode(params.getRawParameterValue("legatoMode")),
+              unison(params.getRawParameterValue("unison")) {}
+        int currentlyStartingDoubler() const noexcept { return startingDoubler; }
+        int currentUnison() const noexcept
+        {
+            return unison != nullptr ? juce::jlimit(1, 3, 1 + static_cast<int>(unison->load())) : 1;
+        }
         // Frequency of the note being slurred from, or 0 when the new note starts fresh.
         double currentlyStartingLegatoFrom() const noexcept { return legatoFrom; }
         ChannelControls currentlyStartingControls() const noexcept
@@ -79,7 +85,20 @@ namespace
             lastNote[channelIndex] = midiNoteNumber;
             lastNoteOnSample[channelIndex] = renderedSamples;
             heldKeys[channelIndex] = juce::jmin(16, heldKeys[channelIndex] + 1);
+            startingDoubler = 0;
             juce::Synthesiser::noteOn(midiChannel, midiNoteNumber, velocity);
+            // 0.9.9 unison: extra players on the same note. Synthesiser::noteOn would stop
+            // a voice already playing this note, so the doublers are started directly;
+            // noteOff still releases all of them together.
+            const int players = currentUnison();
+            if (players > 1 && sounds.size() > 0)
+                for (int k = 1; k < players; ++k)
+                {
+                    startingDoubler = k;
+                    if (auto* voice = findFreeVoice(sounds.getFirst().get(), midiChannel, midiNoteNumber, isNoteStealingEnabled()))
+                        startVoice(voice, sounds.getFirst().get(), midiChannel, midiNoteNumber, velocity);
+                }
+            startingDoubler = 0;
             legatoFrom = 0.0;
         }
         void noteOff(int midiChannel, int midiNoteNumber, float velocity, bool allowTailOff) override
@@ -156,6 +175,8 @@ namespace
         std::atomic<float>* breathCurve;
         std::atomic<float>* breathSource;
         std::atomic<float>* legatoMode;
+        std::atomic<float>* unison;
+        int startingDoubler = 0;
         std::array<ChannelControls, 16> channels{};
         std::array<int, 16> heldKeys{};
         std::array<int, 16> lastNote{};
@@ -225,7 +246,19 @@ namespace
             const auto section = static_cast<windlab::SectionMode>(juce::jlimit(0, 4, static_cast<int>(sectionMode->load())));
             const auto instrumentIndex = windlab::sectionInstrumentFor(
                 section, midiNoteNumber, juce::jlimit(0, 8, static_cast<int>(instrument->load())));
-            const float seat = windlab::sectionPanFor(section, instrumentIndex);
+            // 0.9.9 unison: each extra player is a few cents off, a little late and
+            // placed beside the first one; together they keep the same loudness.
+            const int doubler = controllerSource.currentlyStartingDoubler();
+            const int players = controllerSource.currentUnison();
+            static constexpr float detuneCents[3] {0.0f, 9.0f, -11.0f};
+            static constexpr float spread[3] {0.0f, -.30f, .30f};
+            entryRandom = entryRandom * 1664525u + 1013904223u;
+            const float jitter = static_cast<float>((entryRandom >> 8) & 0xffffffu) / 16777216.0f;
+            engine.setDetune(detuneCents[juce::jlimit(0, 2, doubler)] / 100.0);
+            startDelay = doubler == 0 ? 0 : juce::roundToInt(getSampleRate() * (.010 * doubler + .006 * jitter));
+            unisonGain = 1.0f / std::sqrt(static_cast<float>(players));
+            const float seat = juce::jlimit(-1.0f, 1.0f, windlab::sectionPanFor(section, instrumentIndex)
+                                                         + (players > 1 ? spread[juce::jlimit(0, 2, doubler)] : 0.0f));
             seatGainL = juce::jmin(1.0f, 1.0f - seat);
             seatGainR = juce::jmin(1.0f, 1.0f + seat);
             const auto articulationIndex = juce::jlimit(0, 2, static_cast<int>(articulation->load()));
@@ -294,6 +327,7 @@ namespace
             applyExpression();
             for (int i = 0; i < numSamples; ++i)
             {
+                if (startDelay > 0) { --startDelay; continue; } // late unison player
                 if (!engine.active()) { clearCurrentNote(); break; }
                 const float model = engine.render();
                 float result = model;
@@ -305,7 +339,7 @@ namespace
                                                : (recorded + .055f * model);
                 }
                 result += engine.currentClick();
-                const auto sample = static_cast<Sample>(result);
+                const auto sample = static_cast<Sample>(result * unisonGain);
                 for (int channel = 0; channel < output.getNumChannels(); ++channel)
                     output.addSample(channel, startSample + i,
                                      sample * static_cast<Sample>(channel == 0 ? seatGainL : seatGainR));
@@ -343,7 +377,8 @@ namespace
         std::atomic<float>* flutter;
         std::atomic<float>* jazzEffect;
         std::atomic<float>* sectionMode;
-        float seatGainL = 1.0f, seatGainR = 1.0f;
+        float seatGainL = 1.0f, seatGainR = 1.0f, unisonGain = 1.0f;
+        int startDelay = 0;
     };
 }
 
@@ -446,6 +481,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout WindLabAudioProcessor::creat
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID {"reverbType", 1}, "Reverb Type",
         juce::StringArray {"Algorithmic", "Studio", "Jazz club", "Concert hall", "Church"}, 0));
+    // 0.9.9: unison players on every note.
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID {"unison", 1}, "Unison Players",
+        juce::StringArray {"1 player", "2 players", "3 players"}, 0));
     return layout;
 }
 
@@ -458,7 +497,7 @@ WindLabAudioProcessor::WindLabAudioProcessor()
           midiLearn, parameters.getRawParameterValue("articulation"), parameters))
 {
     auto& synth = *static_cast<PerformanceSynthesiser*>(synthesiser.get());
-    for (int i = 0; i < 12; ++i)
+    for (int i = 0; i < 16; ++i) // 4-note chords x up to 3 unison players, plus tails
         synthesiser->addVoice(new WindVoice(parameters, synth, sampleBank));
     synthesiser->addSound(new WindSound());
     synthesiser->setMinimumRenderingSubdivisionSize(1, false);
@@ -569,7 +608,9 @@ namespace
             {"Sezione ottoni - fanfara", {{"instrument", 0}, {"sectionMode", 2}, {"reverbType", 3}, {"reverb", .30f},
                                           {"tone", .70f}, {"legatoMode", 2}}},
             {"Big band - sala", {{"instrument", 0}, {"sectionMode", 4}, {"reverbType", 3}, {"reverb", .26f},
-                                 {"tone", .66f}, {"legatoMode", 2}, {"humanize", .5f}}},
+                                 {"tone", .66f}, {"legatoMode", 2}, {"humanize", .5f}, {"unison", 1}}},
+            {"Flauti - unisono a tre", {{"instrument", 3}, {"unison", 2}, {"reverbType", 3}, {"reverb", .34f},
+                                            {"vibrato", .35f}, {"air", .4f}}},
             {"Legni - cameristico", {{"instrument", 3}, {"sectionMode", 3}, {"reverbType", 1}, {"reverb", .30f},
                                      {"vibrato", .3f}, {"legatoMode", 2}}},
             {"Flauto in chiesa", {{"instrument", 3}, {"reverbType", 4}, {"reverb", .42f}, {"air", .45f}, {"vibrato", .45f}}},
@@ -859,6 +900,14 @@ void WindLabAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                     break;
             }
         }, hostQuarterNotes);
+    for (const auto event : midiMessages)
+    {
+        const auto message = event.getMessage();
+        if (message.isNoteOn())
+            displayNote.store(message.getNoteNumber(), std::memory_order_relaxed);
+        else if (message.isNoteOff() && message.getNoteNumber() == displayNote.load(std::memory_order_relaxed))
+            displayNote.store(-1, std::memory_order_relaxed);
+    }
     synthesiser->renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
     outputGain.setTargetValue(parameters.getRawParameterValue("gain")->load());
     roomAmount.setTargetValue(parameters.getRawParameterValue("space")->load());

@@ -204,6 +204,7 @@ PIANO ROLL CON IL MOUSE:
 - Clic su una nota esistente senza trascinare: la toglie. Clic e trascinamento sulla nota: la sposta o la allunga.
 - Clic destro su una nota: la cancella.
 - Due note dello stesso step non possono avere la stessa altezza: se trascini sopra un'altra nota dell'accordo, l'altezza resta quella precedente.
+- ROTELLA DEL MOUSE sopra una nota: cambia la velocity di quella sola nota, anche dentro un accordo. Il numero e' scritto sulla nota e le note piu' deboli sono disegnate piu' scure.
 
 ALTRI COMANDI:
 - PLAY / STOP: avvia o interrompe il loop interno.
@@ -289,10 +290,10 @@ PRESENTE:
 NON ANCORA IMPLEMENTATO:
 - Legato campionato con vere transizioni fra note.
 - Assegnazione visuale dei controller MIDI ai pistoni e alle chiavi dello strumento a video.
-- Risposte all'impulso registrate in sale reali (oggi sono generate) e doppiatura "unisono" di piu' esecutori sulla stessa nota.
+- Risposte all'impulso registrate in sale reali (oggi sono generate).
+- Registro sovracuto del sax e diteggiature alternative oltre a Sib "1+1".
 - MPE avanzato per ogni singola nota.
 - Spartito completo modificabile ed esportazione MusicXML.
-- Velocity separata per ogni nota dell'accordo dalle corsie grafiche.
 - Collaudo completo in tutte le DAW.
 
 Questa guida descrive i comandi realmente presenti nel programma. I miglioramenti futuri vengono aggiunti solo dopo lo sviluppo e la verifica.)";
@@ -318,6 +319,10 @@ DITEGGIATURE:
 
 NOTA SCRITTA E NOTA REALE:
 Il riquadro NOTA mostra la nota scritta per lo strumento (sax e clarinetto e tromba sono traspositori) e la nota che suona davvero. Flauto e trombone suonano come scritto.
+
+MOSTRA DITEGGIATURA:
+Attiva MOSTRA DITEGGIATURA (in alto) e suona dalla tastiera, da un dispositivo MIDI o con il PLAY del Phrase Editor: lo strumento a video mostra in verde le chiavi (o i pistoni, la posizione della coulisse e l'armonico) per suonare quella nota. Utile per imparare le diteggiature. Appena usi tu lo strumento a video, torna a mostrare le tue chiavi.
+Diteggiature alternative: SIB "1+1" sul sax (F + J) e sul flauto (V + F + J).
 
 REGISTRARE:
 REC MIDI registra quello che suoni nel Phrase Editor, come con una tastiera MIDI; poi puoi esportarlo con EXPORT MIDI. In modalita' IBRIDO le note escono sul canale NOTE CH.
@@ -352,6 +357,9 @@ MIDI LEARN UNIVERSALE:
 - Sotto la manopola compare il CC assegnato, per esempio [CC21]. Dallo stesso menu puoi rimuoverlo; RIMUOVI TUTTI I CC li cancella tutti.
 - Le assegnazioni sono salvate nel progetto. Il pedale (CC64) e i messaggi di banco non sono assegnabili.
 - Il MIDI LEARN dei tre controlli espressivi (vibrato, fiato, volume) resta nel pannello MIDI LEARN.
+
+UNISONO:
+- 1 ESECUTORE, 2 IN UNISONO, 3 IN UNISONO: ogni nota e' suonata da piu' musicisti, leggermente scordati fra loro, un poco in ritardo e affiancati sul palco, come una fila di fiati. Il volume complessivo resta simile. Si combina con la MODALITA' SEZIONE.
 
 SEZIONE, SALA E FIATO DAL MICROFONO (fascia 04):
 - MODALITA' SEZIONE: ogni nota la suona lo strumento della sezione che ha quel registro, in una sua posizione sul palco. SEZIONE SAX: baritono, tenore, contralto, soprano dal grave all'acuto. SEZIONE OTTONI: trombone, corno, tromba. LEGNI: clarinetto e flauto. BIG BAND: baritono e trombone sotto, sax al centro, tromba in alto. Suona accordi (MODALITA' LEGATO: MAI LEGATO consigliata) e ogni nota avra' il suo strumento. SPENTA = lo strumento scelto in INSTRUMENT.

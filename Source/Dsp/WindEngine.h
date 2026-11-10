@@ -163,6 +163,8 @@ namespace windlab
         void setGrowl(float amount) { growl = std::clamp(amount, 0.0f, 1.0f); }
         void setFlutter(float amount) { flutter = std::clamp(amount, 0.0f, 1.0f); }
         void setJazzEffect(JazzEffect effect) { jazzEffect = effect; }
+        // 0.9.9 unison players: a fixed tuning offset in semitones (a few cents).
+        void setDetune(double semitones) { detuneSemis = std::clamp(semitones, -1.0, 1.0); }
         void setModWheel(float value) { targetMod = std::clamp(value, 0.0f, 1.0f); }
         void setExpression(float value) { targetExpression = std::clamp(value, 0.0f, 1.0f); }
         void setPressure(float value) { pressure = std::clamp(value, 0.0f, 1.0f); }
@@ -251,7 +253,7 @@ namespace windlab
                 }
                 case JazzEffect::None: break;
             }
-            const double f = frequency * std::exp2((2.0 * currentPitch + vibratoSemis + drift + glideSemis + effectOffset) / 12.0);
+            const double f = frequency * std::exp2((2.0 * currentPitch + vibratoSemis + drift + glideSemis + effectOffset + detuneSemis) / 12.0);
             latestFrequency = f;
             phase += f * invSampleRate;
             phase -= std::floor(phase);
@@ -399,7 +401,7 @@ namespace windlab
         float slurDip = 0.0f;
         JazzEffect jazzEffect { JazzEffect::None };
         double effectSemis = 0.0, effectClock = 0.0, releaseClock = 0.0, scoopDecay = .999;
-        double colourPhase = 0.0, flutterPhase = 0.0;
+        double colourPhase = 0.0, flutterPhase = 0.0, detuneSemis = 0.0;
         std::array<float, 12> spectralWeights{};
         float spectralNormalizer = 1.0f;
         double latestFrequency = 440.0;

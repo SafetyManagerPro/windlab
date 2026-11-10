@@ -152,6 +152,16 @@ int main()
     };
     assert(vibratoWidth(1.0f) > vibratoWidth(.2f) * 2.0);
 
+    // --- 0.9.9 unison detune: a doubler plays a few cents off.
+    {
+        auto e = fresh();
+        e.setDetune(.09);
+        e.start(69, .8f, Instrument::Flute, .01f, .3f);
+        renderFor(e, .2);
+        const double cents = 100.0 * semis(e.currentFrequency(), 440.0);
+        assert(cents > 8.0 && cents < 10.0);
+    }
+
     std::cout << "WindLab 0.9.7 expression smoke test: PASS\n";
     return 0;
 }
